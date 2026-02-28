@@ -202,7 +202,7 @@ export default function SignupPage() {
                         flex items-center justify-center">
           🎉
         </div>
-        <h1 className="font-serif text-4xl md:text-5xl text-stone-900 tracking-tight mb-3">
+        <h1 className=" text-4xl md:text-5xl text-stone-900 tracking-tight mb-3">
           You're on the list!
         </h1>
         <p className="text-stone-400 mb-2">
@@ -237,8 +237,10 @@ export default function SignupPage() {
 
       {/* Nav */}
       <nav className="fixed top-[3px] left-0 right-0 z-40 flex items-center justify-between px-8 py-4">
-        <Link href="/" className="font-serif text-xl text-orange-500 tracking-tight">
-          mentoreo
+        <Link href="/" className="font-bold text-orange-500 text-3xl ">
+          <span style={{ fontFamily: 'Fredoka, sans-serif' }} className="text-[#FF7A1F]">
+              Mentoreo
+            </span>
         </Link>
         <span className="text-sm text-stone-400 font-medium">
           {currentStep + 1} / {STEPS.length}
@@ -263,7 +265,7 @@ export default function SignupPage() {
           </div>
 
           {/* Question */}
-          <h2 className="font-serif text-4xl md:text-5xl text-stone-900 tracking-tight
+          <h2 className=" text-4xl md:text-5xl text-stone-900 tracking-tight
                          leading-[1.1] mb-2 max-w-lg">
             {step.question}
           </h2>
