@@ -56,7 +56,7 @@ export default function ChoiceLanding() {
       >
         <Link href={"/"}>
           <h1 className="text-3xl sm:text-4xl font-bold">
-            <span style={{ fontFamily: 'Fredoka, sans-serif' }} className="text-[#FF7A1F]">
+            <span style={{ fontFamily: 'Fredoka, sans-serif' }} className="text-[#FF7A1F] hidden md:block ">
               Mentoreo
             </span>
           </h1>
@@ -66,7 +66,7 @@ export default function ChoiceLanding() {
       <div className="max-w-6xl mx-auto px-6 sm:px-8 lg:px-12 py-8 relative z-10 w-full flex flex-col justify-center min-h-screen">
         {/* Main Heading */}
         <div
-          className="text-xl text-gray-600 text-center mb-16 font-medium"
+          className="text-xl text-gray-600 text-center mb-8 font-medium"
         >
           Choose your path
         </div>

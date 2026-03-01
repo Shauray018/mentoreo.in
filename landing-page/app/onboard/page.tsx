@@ -211,7 +211,7 @@ export default function SignupPage() {
         </p>
         <p className="text-stone-400 text-sm mb-10">Welcome to Mentoreo, {formData.name.split(' ')[0]}.</p>
         <Link
-          href="/"
+          href="/mentor"
           className="bg-orange-500 hover:bg-orange-700 text-white font-semibold
                      px-7 py-3 rounded-full transition-all duration-200 hover:scale-105"
         >
@@ -225,7 +225,7 @@ export default function SignupPage() {
   // FORM
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-cream flex flex-1 flex-col  w-full overflow-hidden">
+    <div className="min-h-screen bg-[#F5F1EB] flex flex-1 flex-col  w-full overflow-hidden">
 
       {/* Progress bar */}
       <div className="fixed top-0 left-0 right-0 h-[3px] bg-orange-100 z-50">
@@ -237,7 +237,7 @@ export default function SignupPage() {
 
       {/* Nav */}
       <nav className="fixed top-[3px] left-0 right-0 z-40 flex items-center justify-between px-8 py-4">
-        <Link href="/" className="font-bold text-orange-500 text-3xl ">
+        <Link href="/mentor" className="font-bold text-orange-500 text-3xl ">
           <span style={{ fontFamily: 'Fredoka, sans-serif' }} className="text-[#FF7A1F]">
               Mentoreo
             </span>
@@ -286,7 +286,7 @@ export default function SignupPage() {
               }}
               className={clsx(
                 'w-full bg-transparent border-b-2 text-2xl font-light text-stone-900',
-                'py-3 outline-none transition-colors duration-200 placeholder:text-orange-200',
+                'py-3 outline-none transition-colors duration-200 placeholder:text-orange-300',
                 'autofill:bg-transparent',
                 status === 'error' ? 'border-red-400' :
                 status === 'success' ? 'border-green-500' :
