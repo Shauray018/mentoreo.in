@@ -6,7 +6,7 @@ import { Menu, X, ArrowLeft } from "lucide-react";
 import { useState } from "react";
 import { Button } from "./ui/button";
 import Image from "next/image";
-import logo from "@/public/logo.png"; // move your image to /public
+import logo from "@/public/icon.jpg"; // move your image to /public
 
 export function Navigation() {
   const pathname = usePathname();
@@ -66,7 +66,7 @@ export function Navigation() {
             </a>
 
             <Link href="/onboard">
-              <Button className="bg-[#FF7A1F] hover:bg-[#FF6A0F] text-white rounded-full px-8 py-5 font-semibold">
+              <Button className="bg-[#FF7A1F] cursor-pointer hover:bg-[#FF6A0F] text-white rounded-full px-8 py-5 font-semibold">
                 Apply as Mentor
               </Button>
             </Link>

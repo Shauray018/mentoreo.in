@@ -324,9 +324,9 @@ export default function SignupPage() {
                 <span>Working…</span>
               </>
             ) : isLastStep ? (
-              <>Submit <span className="opacity-70">✓</span></>
+              <div className='cursor-pointer'>Submit <span className="opacity-70">✓</span></div>
             ) : (
-              <>OK <span className="opacity-70">✓</span></>
+              <div className='cursor-pointer'>OK <span className="opacity-70">✓</span></div>
             )}
           </button>
 

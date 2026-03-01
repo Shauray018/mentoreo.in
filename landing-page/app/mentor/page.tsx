@@ -91,13 +91,13 @@ export default function MentorLanding() {
               className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16"
             >
               <Link href="/onboard">
-                <Button className="bg-gradient-to-r from-[#FF7A1F] to-[#FF5A00] hover:from-[#FF6A0F] hover:to-[#FF4A00] text-white rounded-full px-10 py-7 text-lg font-semibold shadow-lg hover:shadow-xl transition-all hover:scale-105">
+                <Button className="bg-gradient-to-r cursor-pointer from-[#FF7A1F] to-[#FF5A00] hover:from-[#FF6A0F] hover:to-[#FF4A00] text-white rounded-full px-10 py-7 text-lg font-semibold shadow-lg hover:shadow-xl transition-all hover:scale-105">
                   Apply as a Mentor
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               </Link>
               <a href="#how-it-works">
-                <Button variant="outline" className="border-2 border-[#FF7A1F] text-[#FF7A1F] hover:bg-gradient-to-r hover:from-[#FF7A1F] hover:to-[#FF5A00] hover:text-white hover:border-transparent rounded-full px-10 py-7 text-lg font-semibold transition-all">
+                <Button variant="outline" className="border-2 cursor-pointer border-[#FF7A1F] text-[#FF7A1F] hover:bg-gradient-to-r hover:from-[#FF7A1F] hover:to-[#FF5A00] hover:text-white hover:border-transparent rounded-full px-10 py-7 text-lg font-semibold transition-all">
                   How It Works
                 </Button>
               </a>
