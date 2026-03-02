@@ -1,9 +1,12 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import clsx from 'clsx'
+import institutions from '@/data/institutions.json'
+import courses from '@/data/courses.json'
+import branches from '@/data/branches.json'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type FormData = {
@@ -12,6 +15,7 @@ type FormData = {
   email: string
   college: string
   branch: string
+  course: string
 }
 
 type SlideStatus = 'idle' | 'error' | 'loading' | 'success'
@@ -24,6 +28,19 @@ type Step = {
   placeholder: string
   validate: (v: string) => string | null
 }
+
+type Institution = {
+  aishe_code: string
+  name: string
+  state: string
+  district: string
+}
+
+const COLLEGE_OPTIONS = Array.from(
+  new Set((institutions as Institution[]).map((i) => i.name.trim()).filter(Boolean))
+).sort((a, b) => a.localeCompare(b))
+const COURSE_OPTIONS = (courses as string[]).map((c) => c.trim()).filter(Boolean)
+const BRANCH_OPTIONS = (branches as string[]).map((b) => b.trim()).filter(Boolean)
 
 // ─── Steps config ────────────────────────────────────────────────────────────
 const STEPS: Step[] = [
@@ -63,12 +80,23 @@ const STEPS: Step[] = [
     validate: (v) => v.trim().length < 3 ? 'Please enter your college name.' : null,
   },
   {
+    id: 'course',
+    question: "What's your course ?",
+    hint: 'Btech, MBBS, Barch...',
+    type: 'text',
+    placeholder: 'Bachelors in Technology',
+    validate: (v) => v.trim().length < 2 ? 'Please enter your branch.' : null,
+  },
+  {
     id: 'branch',
     question: "What's your branch or major?",
-    hint: 'e.g. Computer Science, Mechanical Engineering, ECE…',
+    hint: 'Optional — e.g. Computer Science, Mechanical Engineering, ECE…',
     type: 'text',
     placeholder: 'Computer Science & Engineering',
-    validate: (v) => v.trim().length < 2 ? 'Please enter your branch.' : null,
+    validate: (v) => {
+      const t = v.trim()
+      return t.length === 0 ? null : (t.length < 2 ? 'Please enter your branch.' : null)
+    },
   },
 ]
 
@@ -79,15 +107,28 @@ export default function SignupPage() {
   const [currentStep, setCurrentStep] = useState(0)
   const [direction, setDirection] = useState<'up' | 'down'>('up')
   const [animKey, setAnimKey] = useState(0)
-  const [formData, setFormData] = useState<FormData>({ name: '', phone: '', email: '', college: '', branch: '' })
+  const [formData, setFormData] = useState<FormData>({ name: '', phone: '', email: '', college: '', course: '', branch: '' })
   const [status, setStatus] = useState<SlideStatus>('idle')
   const [errorMsg, setErrorMsg] = useState('')
   const [submitted, setSubmitted] = useState(false)
+  const [showSuggestionsFor, setShowSuggestionsFor] = useState<keyof FormData | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const step = STEPS[currentStep]
   const progress = (currentStep / STEPS.length) * 100
   const isLastStep = currentStep === STEPS.length - 1
+  const suggestionState = useMemo(() => {
+    if (currentStep >= STEPS.length) return { id: null, list: [] as string[] }
+    const id = STEPS[currentStep].id
+    const value = formData[id].trim()
+    if (value.length < 1) return { id, list: [] as string[] }
+    const q = value.toLowerCase()
+    let source: string[] = []
+    if (id === 'college') source = COLLEGE_OPTIONS
+    if (id === 'course') source = COURSE_OPTIONS
+    if (id === 'branch') source = BRANCH_OPTIONS
+    return { id, list: source.filter((name) => name.toLowerCase().includes(q)).slice(0, 4) }
+  }, [currentStep, formData])
 
   // Auto-focus input on step change
   useEffect(() => {
@@ -165,6 +206,7 @@ export default function SignupPage() {
       phone: formData.phone,
       email: formData.email,
       college: formData.college,
+      course: formData.course,
       branch: formData.branch,
     }])
 
@@ -284,6 +326,16 @@ export default function SignupPage() {
                 setFormData(prev => ({ ...prev, [step.id]: e.target.value }))
                 if (status === 'error') { setStatus('idle'); setErrorMsg('') }
               }}
+              onFocus={() => {
+                if (step.id === 'college' || step.id === 'course' || step.id === 'branch') {
+                  setShowSuggestionsFor(step.id)
+                }
+              }}
+              onBlur={() => {
+                if (step.id === 'college' || step.id === 'course' || step.id === 'branch') {
+                  setTimeout(() => setShowSuggestionsFor(null), 120)
+                }
+              }}
               className={clsx(
                 'w-full bg-transparent border-b-2 text-2xl font-light text-stone-900',
                 'py-3 outline-none transition-colors duration-200 placeholder:text-orange-300',
@@ -293,6 +345,31 @@ export default function SignupPage() {
                 'border-stone-200 focus:border-orange-500'
               )}
             />
+            {(step.id === 'college' || step.id === 'course' || step.id === 'branch') &&
+              showSuggestionsFor === step.id &&
+              suggestionState.id === step.id &&
+              suggestionState.list.length > 0 && (
+              <div
+                className="absolute left-0 right-0 top-full mt-2 rounded-xl border border-stone-200
+                           bg-white shadow-lg shadow-orange-100/60 overflow-hidden z-20"
+              >
+                {suggestionState.list.map((name) => (
+                  <button
+                    key={name}
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      setFormData(prev => ({ ...prev, [step.id]: name }))
+                      setShowSuggestionsFor(null)
+                    }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-stone-700
+                               hover:bg-orange-50 hover:text-stone-900 transition-colors"
+                  >
+                    {name}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Status message */}

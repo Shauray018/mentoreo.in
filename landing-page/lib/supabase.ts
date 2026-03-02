@@ -11,6 +11,7 @@ export type Signup = {
   phone: string
   email: string
   college: string
-  branch: string
+  course:string
+  branch?: string
   created_at?: string
 }
