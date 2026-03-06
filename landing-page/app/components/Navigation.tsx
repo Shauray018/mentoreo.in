@@ -1,12 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Menu, X, ArrowLeft } from "lucide-react";
 import { useState } from "react";
 import { Button } from "./ui/button";
 import Image from "next/image";
 import logo from "@/public/icon.jpg"; // move your image to /public
+import Link from "next/link";
 
 export function Navigation() {
   const pathname = usePathname();
@@ -51,12 +51,12 @@ export function Navigation() {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-8">
-            <a
-              href="#how-it-works"
+            <Link
+              href="/mentor/login"
               className="text-gray-700 hover:text-[#FF7A1F] transition-colors"
             >
-              How It Works
-            </a>
+              Login for mentor
+            </Link>
 
             <a
               href="#why-mentor"
