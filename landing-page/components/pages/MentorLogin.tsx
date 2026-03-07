@@ -7,6 +7,16 @@ import { signIn, signOut, useSession } from "next-auth/react";
 import { motion } from "motion/react";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
+import { Button } from "@/app/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/app/components/ui/dialog";
+import { toast } from "sonner";
 import { Eye, EyeOff, ArrowRight, AlertCircle, Sparkles } from "lucide-react";
 
 export default function MentorLogin() {
@@ -18,6 +28,13 @@ export default function MentorLogin() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetCode, setResetCode] = useState("");
+  const [resetPassword, setResetPassword] = useState("");
+  const [resetConfirm, setResetConfirm] = useState("");
+  const [resetSending, setResetSending] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -55,9 +72,77 @@ export default function MentorLogin() {
     setLoading(false);
 
     if (result?.ok) {
+      toast.success("Signed in");
       router.push(result.url ?? "/mentor/dashboard");
     } else {
       setError("Invalid email or password. Try a demo account below.");
+      toast.error("Invalid email or password.");
+    }
+  };
+
+  const handleSendResetCode = async () => {
+    if (!resetEmail.trim()) {
+      toast.error("Enter your email first.");
+      return;
+    }
+    setResetSending(true);
+    try {
+      const res = await fetch("/api/otp/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: resetEmail, purpose: "reset" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data?.error || "Failed to send code.");
+        return;
+      }
+      toast.success("Reset code sent.");
+    } catch (err) {
+      toast.error("Failed to send code.");
+    } finally {
+      setResetSending(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetEmail.trim() || !resetCode.trim()) {
+      toast.error("Email and code are required.");
+      return;
+    }
+    if (resetPassword.length < 8) {
+      toast.error("Password must be at least 8 characters.");
+      return;
+    }
+    if (resetPassword !== resetConfirm) {
+      toast.error("Passwords do not match.");
+      return;
+    }
+    setResetLoading(true);
+    try {
+      const res = await fetch("/api/password/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: resetEmail,
+          code: resetCode,
+          newPassword: resetPassword,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data?.error || "Failed to reset password.");
+        return;
+      }
+      toast.success("Password reset. You can sign in now.");
+      setForgotOpen(false);
+      setResetCode("");
+      setResetPassword("");
+      setResetConfirm("");
+    } catch (err) {
+      toast.error("Failed to reset password.");
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -139,6 +224,7 @@ export default function MentorLogin() {
                   <button
                     type="button"
                     className="text-xs text-[#FF7A1F] hover:underline"
+                    onClick={() => setForgotOpen(true)}
                   >
                     Forgot password?
                   </button>
@@ -222,6 +308,83 @@ export default function MentorLogin() {
 
         </motion.div>
       </div>
+
+      <Dialog open={forgotOpen} onOpenChange={setForgotOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reset password</DialogTitle>
+            <DialogDescription>
+              Enter your email to receive a 6-digit reset code.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4">
+            <div>
+              <Label htmlFor="reset-email">Email</Label>
+              <Input
+                id="reset-email"
+                type="email"
+                placeholder="you@college.edu.in"
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
+                className="mt-1.5 rounded-xl h-11"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Input
+                id="reset-code"
+                type="text"
+                placeholder="6-digit code"
+                value={resetCode}
+                onChange={(e) => setResetCode(e.target.value)}
+                className="rounded-xl h-11"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11"
+                onClick={handleSendResetCode}
+                disabled={resetSending}
+              >
+                {resetSending ? "Sending…" : "Send code"}
+              </Button>
+            </div>
+            <div>
+              <Label htmlFor="reset-password">New password</Label>
+              <Input
+                id="reset-password"
+                type="password"
+                placeholder="••••••••"
+                value={resetPassword}
+                onChange={(e) => setResetPassword(e.target.value)}
+                className="mt-1.5 rounded-xl h-11"
+              />
+            </div>
+            <div>
+              <Label htmlFor="reset-confirm">Confirm password</Label>
+              <Input
+                id="reset-confirm"
+                type="password"
+                placeholder="••••••••"
+                value={resetConfirm}
+                onChange={(e) => setResetConfirm(e.target.value)}
+                className="mt-1.5 rounded-xl h-11"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              className="bg-[#FF7A1F] hover:bg-[#FF6A0F] text-white"
+              onClick={handleResetPassword}
+              disabled={resetLoading}
+            >
+              {resetLoading ? "Updating…" : "Reset password"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -124,3 +124,20 @@
     @apply bg-background text-foreground;
   }
 }
+@keyframes marquee-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee-left {
+  animation: marquee-scroll 28s linear infinite;
+}
+
+.animate-marquee-right {
+  animation: marquee-scroll 28s linear infinite reverse;
+}
+
+.marquee-row-1,
+.marquee-row-2 {
+  width: 200%;
+}

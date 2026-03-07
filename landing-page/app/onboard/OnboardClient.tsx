@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { signIn } from 'next-auth/react'
 import { supabase } from '@/lib/supabase'
-import { createClient } from '@supabase/supabase-js'
 import clsx from 'clsx'
 import institutions from '@/data/institutions.json'
 import courses from '@/data/courses.json'
@@ -20,6 +19,7 @@ type FormData = {
   name: string
   phone: string
   email: string
+  emailOtp: string
   college: string
   course: string
   branch: string
@@ -81,6 +81,14 @@ const STEPS: Step[] = [
     validate: (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? null : 'Please enter a valid email address.',
   },
   {
+    id: 'emailOtp',
+    question: 'Verify your email',
+    hint: 'Enter the 6-digit code we just sent.',
+    type: 'text',
+    placeholder: '000000',
+    validate: (v) => /^[0-9]{6}$/.test(v) ? null : 'Please enter the 6-digit code.',
+  },
+  {
     id: 'college',
     question: 'Which college do you attend?',
     hint: 'Full name of your institution.',
@@ -140,6 +148,7 @@ export default function SignupPage() {
     name: '',
     phone: '',
     email: '',
+    emailOtp: '',
     college: '',
     course: '',
     branch: '',
@@ -151,12 +160,18 @@ export default function SignupPage() {
   const [submitted, setSubmitted] = useState(false)
   const [showSuggestionsFor, setShowSuggestionsFor] = useState<keyof FormData | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const [emailOtpSentFor, setEmailOtpSentFor] = useState<string | null>(null)
+  const [emailOtpVerified, setEmailOtpVerified] = useState(false)
+  const [otpStatus, setOtpStatus] = useState<SlideStatus>('idle')
+  const [otpMsg, setOtpMsg] = useState('')
 
   // ── Pre-fill email from Google OAuth redirect, start from step 0 ──
   useEffect(() => {
     const prefillEmail = searchParams.get('email')
     if (prefillEmail) {
-      setFormData(prev => ({ ...prev, email: decodeURIComponent(prefillEmail) }))
+      setFormData(prev => ({ ...prev, email: decodeURIComponent(prefillEmail), emailOtp: '' }))
+      setEmailOtpVerified(false)
+      setEmailOtpSentFor(null)
       setCurrentStep(0)
       setAnimKey(k => k + 1)
     }
@@ -188,6 +203,14 @@ export default function SignupPage() {
     return () => clearTimeout(timer)
   }, [currentStep, animKey])
 
+  useEffect(() => {
+    if (step.id !== 'emailOtp') return
+    if (emailOtpVerified) return
+    if (!formData.email) return
+    if (emailOtpSentFor === formData.email) return
+    void sendEmailOtp()
+  }, [step.id, formData.email, emailOtpVerified, emailOtpSentFor])
+
   const goToStep = useCallback((next: number, dir: 'up' | 'down') => {
     setDirection(dir)
     setAnimKey(k => k + 1)
@@ -208,6 +231,12 @@ export default function SignupPage() {
 
     if (isLastStep) {
       await handleSubmit()
+      return
+    }
+
+    if (step.id === 'emailOtp') {
+      const verified = await verifyEmailOtp()
+      if (!verified) return
     } else {
       goToStep(currentStep + 1, 'up')
     }
@@ -215,6 +244,11 @@ export default function SignupPage() {
 
   // ── Submit to Supabase — hash password via RPC ──
   async function handleSubmit() {
+    if (!emailOtpVerified) {
+      setStatus('error')
+      setErrorMsg('Please verify your email before submitting.')
+      return
+    }
     setStatus('loading')
     setErrorMsg('Saving your details…')
 
@@ -266,6 +300,57 @@ export default function SignupPage() {
   // ── Google prefill ──
   function handleGooglePrefill() {
     signIn('google', { callbackUrl: '/onboard' })
+  }
+
+  async function sendEmailOtp() {
+    setOtpStatus('loading')
+    setOtpMsg('Sending code…')
+    try {
+      const res = await fetch('/api/otp/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email, purpose: 'signup' }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setOtpStatus('error')
+        setOtpMsg(data?.error || 'Failed to send code.')
+        return
+      }
+      setEmailOtpSentFor(formData.email)
+      setOtpStatus('success')
+      setOtpMsg('Code sent. Check your inbox.')
+    } catch (err) {
+      setOtpStatus('error')
+      setOtpMsg('Failed to send code.')
+    }
+  }
+
+  async function verifyEmailOtp() {
+    setOtpStatus('loading')
+    setOtpMsg('Verifying code…')
+    try {
+      const res = await fetch('/api/otp/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email, code: formData.emailOtp, purpose: 'signup' }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setOtpStatus('error')
+        setOtpMsg(data?.error || 'Invalid code.')
+        return false
+      }
+      setEmailOtpVerified(true)
+      setOtpStatus('success')
+      setOtpMsg('Email verified.')
+      goToStep(currentStep + 1, 'up')
+      return true
+    } catch (err) {
+      setOtpStatus('error')
+      setOtpMsg('Verification failed.')
+      return false
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -356,7 +441,18 @@ export default function SignupPage() {
               autoComplete="off"
               onKeyDown={handleKeyDown}
               onChange={(e) => {
-                setFormData(prev => ({ ...prev, [step.id]: e.target.value }))
+                const nextValue = e.target.value
+                setFormData(prev => ({
+                  ...prev,
+                  [step.id]: nextValue,
+                  ...(step.id === 'email' ? { emailOtp: '' } : null),
+                }))
+                if (step.id === 'email') {
+                  setEmailOtpVerified(false)
+                  setEmailOtpSentFor(null)
+                  setOtpStatus('idle')
+                  setOtpMsg('')
+                }
                 if (status === 'error') { setStatus('idle'); setErrorMsg('') }
               }}
               onFocus={() => {
@@ -408,19 +504,19 @@ export default function SignupPage() {
           {/* Status message */}
           <p className={clsx(
             'text-sm h-5 mb-6 transition-colors',
-            status === 'error' ? 'text-red-500' :
-            status === 'success' ? 'text-green-600' :
-            status === 'loading' ? 'text-stone-400' :
+            (step.id === 'emailOtp' ? otpStatus : status) === 'error' ? 'text-red-500' :
+            (step.id === 'emailOtp' ? otpStatus : status) === 'success' ? 'text-green-600' :
+            (step.id === 'emailOtp' ? otpStatus : status) === 'loading' ? 'text-stone-400' :
             'text-transparent'
           )}>
-            {errorMsg || 'placeholder'}
+            {(step.id === 'emailOtp' ? otpMsg : errorMsg) || 'placeholder'}
           </p>
 
           {/* Buttons row */}
           <div className="flex items-center gap-3 flex-wrap">
             <button
               onClick={handleNext}
-              disabled={status === 'loading'}
+              disabled={status === 'loading' || otpStatus === 'loading'}
               className={clsx(
                 'inline-flex items-center gap-2 bg-orange-500 hover:bg-orange-700',
                 'text-white font-semibold text-sm px-6 py-2.5 rounded-lg',
@@ -428,7 +524,7 @@ export default function SignupPage() {
                 'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0'
               )}
             >
-              {status === 'loading' ? (
+              {(status === 'loading' || otpStatus === 'loading') ? (
                 <>
                   <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin inline-block" />
                   <span>Working…</span>
@@ -441,7 +537,7 @@ export default function SignupPage() {
             </button>
 
             {/* Google prefill — only on email step */}
-            {currentStep === 2 && (
+            {step.id === 'email' && (
               <button
                 type="button"
                 onClick={handleGooglePrefill}
@@ -456,6 +552,19 @@ export default function SignupPage() {
                   <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                 </svg>
                 Use Google
+              </button>
+            )}
+
+            {/* OTP actions — only on email OTP step */}
+            {step.id === 'emailOtp' && (
+              <button
+                type="button"
+                onClick={sendEmailOtp}
+                className="inline-flex items-center gap-2 border border-stone-200 bg-white
+                           text-stone-600 text-sm px-4 py-2.5 rounded-lg
+                           hover:border-orange-400 hover:text-orange-500 transition-all duration-150"
+              >
+                Resend code
               </button>
             )}
           </div>

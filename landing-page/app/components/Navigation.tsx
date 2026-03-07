@@ -1,7 +1,6 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
-import { Menu, X, ArrowLeft } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "./ui/button";
 import Image from "next/image";
@@ -9,12 +8,7 @@ import logo from "@/public/icon.jpg"; // move your image to /public
 import Link from "next/link";
 
 export function Navigation() {
-  const pathname = usePathname();
-  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  const isActive = (path: string) => pathname === path;
-  const showBackButton = pathname !== "/";
 
   return (
     <nav className="bg-[#F5F1EB] border-b border-gray-200">
@@ -52,22 +46,22 @@ export function Navigation() {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-8">
             <Link
+              href="/student"
+              className="text-gray-700 hover:text-[#FF7A1F] transition-colors"
+            >
+              Find Mentor
+            </Link>
+
+            <Link
               href="/mentor/login"
               className="text-gray-700 hover:text-[#FF7A1F] transition-colors"
             >
-              Login for mentor
+              Mentor Login
             </Link>
-
-            <a
-              href="#why-mentor"
-              className="text-gray-700 hover:text-[#FF7A1F] transition-colors"
-            >
-              Why Mentor?
-            </a>
 
             <Link href="/onboard">
               <Button className="bg-[#FF7A1F] cursor-pointer hover:bg-[#FF6A0F] text-white rounded-full px-8 py-5 font-semibold">
-                Apply as Mentor
+                Become a Mentor
               </Button>
             </Link>
           </div>
@@ -88,28 +82,28 @@ export function Navigation() {
         {/* Mobile Navigation */}
         {mobileMenuOpen && (
           <div className="md:hidden py-4 space-y-4 border-t border-gray-200">
-            <a
-              href="#how-it-works"
+            <Link
+              href="/student"
               className="block text-gray-700 hover:text-[#FF7A1F]"
               onClick={() => setMobileMenuOpen(false)}
             >
-              How It Works
-            </a>
+              Find Mentor
+            </Link>
 
-            <a
-              href="#why-mentor"
+            <Link
+              href="/mentor/login"
               className="block text-gray-700 hover:text-[#FF7A1F]"
               onClick={() => setMobileMenuOpen(false)}
             >
-              Why Mentor?
-            </a>
+              Mentor Login
+            </Link>
 
             <Link
               href="/onboard"
               onClick={() => setMobileMenuOpen(false)}
             >
               <Button className="w-full bg-[#FF7A1F] hover:bg-[#FF6A0F] text-white rounded-full">
-                Apply as Mentor
+                Become a Mentor
               </Button>
             </Link>
           </div>
