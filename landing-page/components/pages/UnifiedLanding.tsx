@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Button } from '@/app/components/ui/button';
 import { Navigation } from '@/app/components/Navigation';
 import { CollegeMarquee } from '@/components/CollegeMarquee';
+import ClickSpark from '../ClickSpark';
+import GlareHover from '../GlareHover';
 import {
   ArrowRight,
   MessageCircle,
@@ -135,6 +137,7 @@ const MENTORS = [
     college: 'IIT Delhi',
     img: 'https://images.unsplash.com/photo-1648577739099-f1e18f8563f0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=600',
   },
+  
 ];
 
 // ── Floating orbs (bg decoration) ────────────────────────────────────────────
@@ -159,7 +162,15 @@ function Orbs() {
 export default function UnifiedLanding() {
   return (
     <div className="min-h-screen bg-[#FFF9F5] overflow-x-hidden font-sans text-[#1F2937]">
+
       <Navigation />
+      <ClickSpark
+        sparkColor='#FF8000'
+        sparkSize={10}
+        sparkRadius={15}
+        sparkCount={8}
+        duration={400}
+        >
 
       {/* ── HERO ────────────────────────────────────────────────────────── */}
       <section className="relative pt-12 pb-12 sm:pt-16 sm:pb-20 lg:pt-24 lg:pb-32 px-4 sm:px-6 lg:px-8 overflow-hidden">
@@ -325,32 +336,45 @@ export default function UnifiedLanding() {
           >
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 lg:gap-10">
               {MENTORS.map((mentor) => (
-                <div
-                  key={mentor.id}
-                  className="bg-white border border-[#FF8000]/10 rounded-[32px] p-4 sm:p-5 shadow-[0_8px_30px_rgba(31,41,55,0.06)] hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 group relative text-left flex flex-col"
-                >
-                  <div className="w-full aspect-[4/3] rounded-[24px] overflow-hidden mb-5 group-hover:scale-[1.02] transition-transform duration-300">
-                    <img src={mentor.img} alt={mentor.name} className="w-full h-full object-cover" />
-                  </div>
-
-                  <div className="px-2 pb-2">
-                    <h3 className="text-[22px] text-[#1F2937] mb-0.5" style={{ fontWeight: 800 }}>
-                      {mentor.name}
-                    </h3>
-                    
-                    <div className="flex flex-col gap-1 mt-1">
-                      <span className="text-[#1F2937] font-bold text-base">
-                        {mentor.title}
-                      </span>
-                      <span className="text-sm text-[#1F2937]/70 font-medium">
-                        {mentor.college}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
+           <GlareHover
+            key={mentor.id}
+            width="100%"
+            height="auto"
+            background="white"
+            borderRadius="32px"
+            borderColor="rgba(255,128,0,0.1)"
+            glareColor="#fff"
+            glareOpacity={0.12}
+            glareAngle={-30}
+            glareSize={300}
+            transitionDuration={800}
+            playOnce={false}
+            style={{
+                display: 'flex',          // ← override the default `display: grid`
+                flexDirection: 'column',  // ← stack image + text vertically
+                alignItems: 'stretch',    // ← override `place-items: center`
+                padding: '16px',          // ← replaces your p-4/p-5
+                boxShadow: '0 8px 30px rgba(31,41,55,0.06)',
+            }}
+            className="group hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
+            >
+            <div className="w-full aspect-[4/3] rounded-[24px] overflow-hidden mb-5 group-hover:scale-[1.02] transition-transform duration-300">
+                <img src={mentor.img} alt={mentor.name} className="w-full h-full object-cover" />
             </div>
-          </motion.div>
+
+            <div className="px-2 pb-2">
+                <h3 className="text-[22px] text-[#1F2937] mb-0.5" style={{ fontWeight: 800 }}>
+                {mentor.name}
+                </h3>
+                <div className="flex flex-col gap-1 mt-1">
+                <span className="text-[#1F2937] font-bold text-base">{mentor.title}</span>
+                <span className="text-sm text-[#1F2937]/70 font-medium">{mentor.college}</span>
+                </div>
+            </div>
+            </GlareHover>
+            ))}
+            </div>
+        </motion.div>
         </div>
       </section>
 
@@ -422,6 +446,7 @@ export default function UnifiedLanding() {
           </div>
         </div>
       </footer>
+      </ClickSpark>
     </div>
   );
 }
