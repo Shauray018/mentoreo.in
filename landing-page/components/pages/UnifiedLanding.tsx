@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { motion, AnimatePresence } from 'motion/react';
+import Image from 'next/image';
+import { AnimatePresence, MotionConfig, motion, useReducedMotion } from 'motion/react';
 import { Button } from '@/app/components/ui/button';
 import { Navigation } from '@/app/components/Navigation';
 import { CollegeMarquee } from '@/components/CollegeMarquee';
@@ -40,7 +41,7 @@ const FloatingQuestions = () => {
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentCycle((prev) => (prev + 1) % 3);
-    }, 3500); // Change cycle every 3.5 seconds
+    }, 3500);
     return () => clearInterval(interval);
   }, []);
 
@@ -59,11 +60,10 @@ const FloatingQuestions = () => {
     { top: '68%', right: '-2%', rotate: -5 },
   ];
 
-  // Distribute questions to balance the layout per cycle
   const cycles = [
-    [0, 5, 8, 11], // cycle 0
-    [1, 3, 6, 10], // cycle 1
-    [2, 4, 7, 9],  // cycle 2
+    [0, 5, 8, 11],
+    [1, 3, 6, 10],
+    [2, 4, 7, 9],
   ];
 
   const activeIndices = cycles[currentCycle];
@@ -74,7 +74,6 @@ const FloatingQuestions = () => {
         {activeIndices.map((qIdx, index) => {
           const pos = positions[qIdx];
           const question = HERO_QUESTIONS[qIdx];
-          // For the thought bubble trail direction
           const isLeft = (pos.left ? parseFloat(pos.left) < 30 : false) || !!pos.right;
           
           return (
@@ -100,7 +99,6 @@ const FloatingQuestions = () => {
                 ...(pos.right ? { right: pos.right } : {}) 
               }}
             >
-              {/* Thought bubble trail to give it the "thinking" look */}
               <div className={`absolute -bottom-2 ${isLeft ? 'right-4' : 'left-4'} w-2 h-2 bg-[#FFF9F5]/95 border border-[#FF8000]/30 rounded-full shadow-sm`}></div>
               <div className={`absolute -bottom-4 ${isLeft ? 'right-2' : 'left-2'} w-1 h-1 bg-[#FFF9F5]/95 border border-[#FF8000]/30 rounded-full shadow-sm`}></div>
               
@@ -160,21 +158,30 @@ function Orbs() {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function UnifiedLanding() {
-  return (
-    <div className="min-h-screen bg-[#FFF9F5] overflow-x-hidden font-sans text-[#1F2937]">
+  const prefersReducedMotion = useReducedMotion();
+  const [isMobile, setIsMobile] = useState(false);
 
-      <Navigation />
-      <ClickSpark
-        sparkColor='#FF8000'
-        sparkSize={10}
-        sparkRadius={15}
-        sparkCount={8}
-        duration={400}
-        >
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 1023px)');
+    const update = () => setIsMobile(media.matches);
+    update();
+    if (media.addEventListener) {
+      media.addEventListener('change', update);
+      return () => media.removeEventListener('change', update);
+    }
+    media.addListener(update);
+    return () => media.removeListener(update);
+  }, []);
 
+  const shouldReduceMotion = prefersReducedMotion || isMobile;
+
+  const content = (
+    <MotionConfig reducedMotion={shouldReduceMotion ? "always" : "never"}>
       {/* ── HERO ────────────────────────────────────────────────────────── */}
       <section className="relative pt-12 pb-12 sm:pt-16 sm:pb-20 lg:pt-24 lg:pb-32 px-4 sm:px-6 lg:px-8 overflow-hidden">
-        <Orbs />
+        <div className="hidden lg:block">
+          <Orbs />
+        </div>
         <div className="relative z-10 max-w-7xl mx-auto w-full mb-16">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-8 items-center">
             {/* Left Content */}
@@ -249,13 +256,16 @@ export default function UnifiedLanding() {
               initial={{ opacity: 0, scale: 0.9, rotate: 2 }}
               animate={{ opacity: 1, scale: 1, rotate: 0 }}
               transition={{ duration: 0.8, delay: 0.3, ease: 'easeOut' }}
-              className="relative mx-auto w-full max-w-lg lg:max-w-none lg:pl-10 mt-12 lg:mt-0"
+              className="relative mx-auto w-full max-w-lg lg:max-w-none lg:pl-10 mt-12 lg:mt-0 hidden lg:block"
             >
               <div className="relative rounded-[24px] sm:rounded-[32px] overflow-hidden shadow-2xl border-4 sm:border-[8px] border-white/50 bg-[#1F2937]/5 backdrop-blur-sm transform hover:scale-[1.02] transition-transform duration-500 aspect-[4/3] sm:aspect-auto sm:h-[450px] lg:h-[550px]">
-                <img 
-                  src={heroImage} 
-                  alt="Student stressed about college decisions" 
-                  className="w-full h-full object-cover block shadow-inner"
+                <Image
+                  src={heroImage}
+                  alt="Student stressed about college decisions"
+                  fill
+                  priority={false}
+                  sizes="(max-width: 1023px) 0px, (max-width: 1280px) 40vw, 520px"
+                  className="object-cover"
                 />
               </div>
               <FloatingQuestions />
@@ -446,7 +456,25 @@ export default function UnifiedLanding() {
           </div>
         </div>
       </footer>
-      </ClickSpark>
+    </MotionConfig>
+  );
+
+  return (
+    <div className="min-h-screen bg-[#FFF9F5] overflow-x-hidden font-sans text-[#1F2937]">
+      <Navigation />
+      {isMobile ? (
+        content
+      ) : (
+        <ClickSpark
+          sparkColor='#FF8000'
+          sparkSize={10}
+          sparkRadius={15}
+          sparkCount={8}
+          duration={400}
+        >
+          {content}
+        </ClickSpark>
+      )}
     </div>
   );
 }
