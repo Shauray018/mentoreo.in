@@ -3,21 +3,20 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { signOut, useSession } from "next-auth/react";
+import { usePathname, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { AnimatePresence, motion } from "motion/react";
-import { Briefcase, GraduationCap, LogOut, Menu, X } from "lucide-react";
+import { Briefcase, GraduationCap, Menu, X } from "lucide-react";
 
 import { Button } from "./ui/button";
 import logo from "@/public/icon.jpg";
 
 export function Navigation() {
   const pathname = usePathname();
-  const { data: session, status } = useSession();
+  const router = useRouter();
+  const { status } = useSession();
 
   const isLoggedIn = status === "authenticated";
-  const mentorName = session?.user?.name ?? "Mentor";
-  const mentorAvatar = (session?.user as { image?: string } | null)?.image ?? null;
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -45,8 +44,12 @@ export function Navigation() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const handleLogout = () => {
-    signOut({ callbackUrl: "/mentor/login" });
+  const handleLoginClick = () => {
+    if (isLoggedIn) {
+      router.push("/mentor/dashboard");
+      return;
+    }
+    setAuthModal("login");
   };
 
   return (
@@ -79,70 +82,36 @@ export function Navigation() {
             </div>
 
             <div className="hidden lg:flex items-center gap-8">
-              {!isLoggedIn &&
-                navLinks.map((link) => (
-                  <Link
-                    key={link.name}
-                    href={link.path.startsWith("#") ? `/${link.path}` : link.path}
-                    className={`text-base font-semibold transition-colors ${
-                      isActive(link.path)
-                        ? "text-[#FF8000]"
-                        : "text-[#1F2937]/80 hover:text-[#FF8000]"
-                    }`}
-                  >
-                    {link.name}
-                  </Link>
-                ))}
+              {navLinks.map((link) => (
+                <Link
+                  key={link.name}
+                  href={link.path.startsWith("#") ? `/${link.path}` : link.path}
+                  className={`text-base font-semibold transition-colors ${
+                    isActive(link.path)
+                      ? "text-[#FF8000]"
+                      : "text-[#1F2937]/80 hover:text-[#FF8000]"
+                  }`}
+                >
+                  {link.name}
+                </Link>
+              ))}
             </div>
 
             <div className="hidden lg:flex items-center gap-4">
-              {isLoggedIn ? (
-                <>
-                  <Link
-                    href="/mentor/dashboard"
-                    className="flex items-center gap-3 text-[#1F2937] hover:text-[#FF8000] transition-colors px-4 py-2 rounded-full hover:bg-white/50"
-                  >
-                    <span className="w-9 h-9 rounded-full bg-[#FF8000]/10 border border-[#FF8000]/20 flex items-center justify-center text-sm shadow-sm">
-                      {mentorAvatar ? (
-                        <Image
-                          src={mentorAvatar}
-                          alt={mentorName}
-                          width={36}
-                          height={36}
-                          className="h-9 w-9 rounded-full object-cover"
-                        />
-                      ) : (
-                        "👤"
-                      )}
-                    </span>
-                    <span className="font-bold">{mentorName.split(" ")[0]}</span>
-                  </Link>
-                  <button
-                    onClick={handleLogout}
-                    className="p-2.5 rounded-full text-[#1F2937]/50 hover:text-red-500 hover:bg-red-50 transition-colors"
-                    title="Logout"
-                  >
-                    <LogOut className="h-5 w-5" />
-                  </button>
-                </>
-              ) : (
-                <>
-                  <Button
-                    onClick={() => setAuthModal("login")}
-                    variant="outline"
-                    className="border-2 border-[#1F2937]/10 text-[#1F2937] hover:border-[#FF8000] hover:text-[#FF8000] hover:bg-[#FF8000]/5 rounded-[16px] px-8 py-5 font-bold transition-all shadow-sm"
-                  >
-                    Log In
-                  </Button>
+              <Button
+                onClick={handleLoginClick}
+                variant="outline"
+                className="border-2 border-[#1F2937]/10 text-[#1F2937] hover:border-[#FF8000] hover:text-[#FF8000] hover:bg-[#FF8000]/5 rounded-[16px] px-8 py-5 font-bold transition-all shadow-sm"
+              >
+                Log In
+              </Button>
 
-                  <Button
-                    onClick={() => setAuthModal("signup")}
-                    className="bg-[#FF8000] hover:bg-[#FF6A0F] text-white border-2 border-[#FF8000] hover:border-[#FF6A0F] rounded-[16px] px-8 py-5 font-bold shadow-md hover:shadow-[0_8px_20px_rgba(255,128,0,0.25)] hover:-translate-y-0.5 transition-all"
-                  >
-                    Sign Up
-                  </Button>
-                </>
-              )}
+              <Button
+                onClick={() => setAuthModal("signup")}
+                className="bg-[#FF8000] hover:bg-[#FF6A0F] text-white border-2 border-[#FF8000] hover:border-[#FF6A0F] rounded-[16px] px-8 py-5 font-bold shadow-md hover:shadow-[0_8px_20px_rgba(255,128,0,0.25)] hover:-translate-y-0.5 transition-all"
+              >
+                Sign Up
+              </Button>
             </div>
 
             <button
@@ -166,89 +135,44 @@ export function Navigation() {
           }`}
         >
           <div className="px-6 py-6 flex flex-col gap-5 pb-12">
-            {isLoggedIn ? (
-              <>
-                <Link
-                  href="/mentor/dashboard"
-                  className="text-lg font-bold text-[#1F2937] hover:text-[#FF8000] flex items-center gap-3"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <span className="w-8 h-8 rounded-full bg-[#FF8000]/10 flex items-center justify-center text-sm">
-                    {mentorAvatar ? (
-                      <Image
-                        src={mentorAvatar}
-                        alt={mentorName}
-                        width={32}
-                        height={32}
-                        className="h-8 w-8 rounded-full object-cover"
-                      />
-                    ) : (
-                      "👤"
-                    )}
-                  </span>
-                  Dashboard
-                </Link>
+            <>
+              <div className="flex flex-col gap-4">
                 {navLinks.map((link) => (
                   <Link
                     key={link.name}
                     href={link.path.startsWith("#") ? `/${link.path}` : link.path}
-                    className="text-lg font-bold text-[#1F2937]/80 hover:text-[#FF8000]"
+                    className="text-[17px] font-bold text-[#1F2937]/80 hover:text-[#FF8000] py-1"
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     {link.name}
                   </Link>
                 ))}
-                <button
+              </div>
+
+              <div className="h-px w-full bg-[#1F2937]/10 my-2" />
+
+              <div className="flex flex-col gap-4 pb-2">
+                <Button
                   onClick={() => {
-                    handleLogout();
+                    handleLoginClick();
                     setMobileMenuOpen(false);
                   }}
-                  className="text-lg font-bold text-red-500 hover:text-red-600 flex items-center gap-2 mt-2 pt-4 border-t border-[#1F2937]/5 w-fit"
+                  variant="outline"
+                  className="w-full border-[#1F2937]/20 text-[#1F2937] hover:border-[#FF8000] hover:text-[#FF8000] rounded-[16px] py-6 font-bold"
                 >
-                  <LogOut className="h-5 w-5" />
-                  Logout
-                </button>
-              </>
-            ) : (
-              <>
-                <div className="flex flex-col gap-4">
-                  {navLinks.map((link) => (
-                    <Link
-                      key={link.name}
-                      href={link.path.startsWith("#") ? `/${link.path}` : link.path}
-                      className="text-[17px] font-bold text-[#1F2937]/80 hover:text-[#FF8000] py-1"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      {link.name}
-                    </Link>
-                  ))}
-                </div>
-
-                <div className="h-px w-full bg-[#1F2937]/10 my-2" />
-
-                <div className="flex flex-col gap-4 pb-2">
-                  <Button
-                    onClick={() => {
-                      setAuthModal("login");
-                      setMobileMenuOpen(false);
-                    }}
-                    variant="outline"
-                    className="w-full border-[#1F2937]/20 text-[#1F2937] hover:border-[#FF8000] hover:text-[#FF8000] rounded-[16px] py-6 font-bold"
-                  >
-                    Log In
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      setAuthModal("signup");
-                      setMobileMenuOpen(false);
-                    }}
-                    className="w-full bg-[#FF8000] hover:bg-[#FF6A0F] text-white rounded-[16px] py-6 font-bold shadow-md"
-                  >
-                    Sign Up
-                  </Button>
-                </div>
-              </>
-            )}
+                  Log In
+                </Button>
+                <Button
+                  onClick={() => {
+                    setAuthModal("signup");
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full bg-[#FF8000] hover:bg-[#FF6A0F] text-white rounded-[16px] py-6 font-bold shadow-md"
+                >
+                  Sign Up
+                </Button>
+              </div>
+            </>
           </div>
         </div>
       </nav>
