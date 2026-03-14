@@ -8,7 +8,10 @@ import { Button } from '@/app/components/ui/button';
 import { Navigation } from '@/app/components/Navigation';
 import { CollegeMarquee } from '@/components/CollegeMarquee';
 import ClickSpark from '../ClickSpark';
+import { ChatBubbles } from '../wht';
 import GlareHover from '../GlareHover';
+import { MentorSection } from '../MentorCarousel';
+import Threads from '../Threads';
 import {
   ArrowRight,
   MessageCircle,
@@ -17,126 +20,12 @@ import {
   Search,
   CheckCircle2,
   Star,
+  UserRound,
+  CalendarCheck,
+  CreditCard,
+  PhoneCall,
 } from 'lucide-react';
 
-const heroImage = "/someGuy.png";
-const HERO_QUESTIONS = [
-  "Is it worth the money?",
-  "Wrong Decision?",
-  "Parents' Expectations vs Reality",
-  "What about placement?",
-  "Tier 1 dream crushed",
-  "Confused",
-  "No clear path",
-  "Will this ruin my career?",
-  "Is Best always Best?",
-  "Feeling Lost",
-  "What to prioritize?",
-  "Too many opinions"
-];
-
-const FloatingQuestions = () => {
-  const [currentCycle, setCurrentCycle] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentCycle((prev) => (prev + 1) % 3);
-    }, 3500);
-    return () => clearInterval(interval);
-  }, []);
-
-  const positions = [
-    { top: '6%', left: '-5%', rotate: -4 },
-    { top: '3%', left: '35%', rotate: 2 },
-    { top: '10%', right: '-8%', rotate: -2 },
-    { top: '22%', left: '-10%', rotate: -6 },
-    { top: '24%', left: '26%', rotate: 3 },
-    { top: '32%', right: '-5%', rotate: 5 },
-    { top: '46%', right: '-12%', rotate: -4 },
-    { top: '44%', left: '-4%', rotate: 2 },
-    { top: '55%', left: '-6%', rotate: -3 },
-    { top: '48%', right: '10%', rotate: 4 },
-    { top: '65%', left: '12%', rotate: 2 },
-    { top: '68%', right: '-2%', rotate: -5 },
-  ];
-
-  const cycles = [
-    [0, 5, 8, 11],
-    [1, 3, 6, 10],
-    [2, 4, 7, 9],
-  ];
-
-  const activeIndices = cycles[currentCycle];
-
-  return (
-    <div className="absolute inset-0 z-20 pointer-events-none">
-      <AnimatePresence>
-        {activeIndices.map((qIdx, index) => {
-          const pos = positions[qIdx];
-          const question = HERO_QUESTIONS[qIdx];
-          const isLeft = (pos.left ? parseFloat(pos.left) < 30 : false) || !!pos.right;
-          
-          return (
-            <motion.div
-              key={qIdx}
-              initial={{ opacity: 0, scale: 0.8, rotate: pos.rotate, y: 10 }}
-              animate={{ 
-                opacity: 1, 
-                scale: 1, 
-                rotate: pos.rotate,
-                y: [0, -8, 0] 
-              }}
-              exit={{ opacity: 0, scale: 0.8, y: -10 }}
-              transition={{ 
-                opacity: { duration: 0.5 },
-                scale: { duration: 0.5 },
-                y: { duration: 3.5 + (index % 2), repeat: Infinity, ease: "easeInOut" }
-              }}
-              className="absolute bg-[#FFF9F5]/95 backdrop-blur-md px-3 py-1.5 sm:px-4 sm:py-2.5 rounded-[24px] shadow-[0_8px_20px_rgba(255,128,0,0.12)] border border-[#FF8000]/30 z-30"
-              style={{ 
-                top: pos.top, 
-                ...(pos.left ? { left: pos.left } : {}), 
-                ...(pos.right ? { right: pos.right } : {}) 
-              }}
-            >
-              <div className={`absolute -bottom-2 ${isLeft ? 'right-4' : 'left-4'} w-2 h-2 bg-[#FFF9F5]/95 border border-[#FF8000]/30 rounded-full shadow-sm`}></div>
-              <div className={`absolute -bottom-4 ${isLeft ? 'right-2' : 'left-2'} w-1 h-1 bg-[#FFF9F5]/95 border border-[#FF8000]/30 rounded-full shadow-sm`}></div>
-              
-              <p className="text-[#1F2937] font-bold text-[10px] sm:text-xs lg:text-sm font-['Nunito',sans-serif] whitespace-nowrap">
-                {question}
-              </p>
-            </motion.div>
-          );
-        })}
-      </AnimatePresence>
-    </div>
-  );
-};
-
-const MENTORS = [
-  {
-    id: 1,
-    name: 'Divig Bansal',
-    title: 'JEE Topper (247 AIR)',
-    college: 'IIT Bombay',
-    img: '/divig3.png',
-  },
-  {
-    id: 2,
-    name: 'Aditya Sharma',
-    title: 'JEE Topper',
-    college: 'PEC Chandigarh',
-    img: '/aadi.png',
-  },
-  {
-    id: 3,
-    name: 'Cihir Reddy',
-    title: 'JEE Topper',
-    college: 'IIT Delhi',
-    img: 'https://images.unsplash.com/photo-1648577739099-f1e18f8563f0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=600',
-  },
-  
-];
 
 // ── Floating orbs (bg decoration) ────────────────────────────────────────────
 function Orbs() {
@@ -179,6 +68,14 @@ export default function UnifiedLanding() {
     <MotionConfig reducedMotion={shouldReduceMotion ? "always" : "never"}>
       {/* ── HERO ────────────────────────────────────────────────────────── */}
       <section className="relative pt-12 pb-12 sm:pt-16 sm:pb-20 lg:pt-24 lg:pb-32 px-4 sm:px-6 lg:px-8 overflow-hidden">
+        {/* <div className="absolute inset-0 z-0 pointer-events-none">
+          {!isMobile && (
+            <Threads
+              amplitude={0.55}
+              distance={0.15}
+            />
+          )}
+        </div> */}
         <div className="hidden lg:block">
           <Orbs />
         </div>
@@ -258,17 +155,7 @@ export default function UnifiedLanding() {
               transition={{ duration: 0.8, delay: 0.3, ease: 'easeOut' }}
               className="relative mx-auto w-full max-w-lg lg:max-w-none lg:pl-10 mt-12 lg:mt-0 hidden lg:block"
             >
-              <div className="relative rounded-[24px] sm:rounded-[32px] overflow-hidden shadow-2xl border-4 sm:border-[8px] border-white/50 bg-[#1F2937]/5 backdrop-blur-sm transform hover:scale-[1.02] transition-transform duration-500 aspect-[4/3] sm:aspect-auto sm:h-[450px] lg:h-[550px]">
-                <Image
-                  src={heroImage}
-                  alt="Student stressed about college decisions"
-                  fill
-                  priority={false}
-                  sizes="(max-width: 1023px) 0px, (max-width: 1280px) 40vw, 520px"
-                  className="object-cover"
-                />
-              </div>
-              <FloatingQuestions />
+              <ChatBubbles />
             </motion.div>
           </div>
         </div>
@@ -310,7 +197,7 @@ export default function UnifiedLanding() {
             ))}
           </motion.div>
         </div>
-      </section>
+      </section>  
 
       {/* ── COLLEGE MARQUEE ─────────────────────────────────────────────── */}
       <section className="py-12 sm:py-16 relative z-10 w-full overflow-hidden bg-white/40 border-y border-[#FF8000]/5 backdrop-blur-md">
@@ -336,57 +223,75 @@ export default function UnifiedLanding() {
             </p>
           </motion.div>
 
-          {/* Mentor Profiles Grid */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="w-full mb-12 sm:mb-16"
-          >
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 lg:gap-10">
-              {MENTORS.map((mentor) => (
-           <GlareHover
-            key={mentor.id}
-            width="100%"
-            height="auto"
-            background="white"
-            borderRadius="32px"
-            borderColor="rgba(255,128,0,0.1)"
-            glareColor="#fff"
-            glareOpacity={0.12}
-            glareAngle={-30}
-            glareSize={300}
-            transitionDuration={800}
-            playOnce={false}
-            style={{
-                display: 'flex',          // ← override the default `display: grid`
-                flexDirection: 'column',  // ← stack image + text vertically
-                alignItems: 'stretch',    // ← override `place-items: center`
-                padding: '16px',          // ← replaces your p-4/p-5
-                boxShadow: '0 8px 30px rgba(31,41,55,0.06)',
-            }}
-            className="group hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
-            >
-            <div className="w-full aspect-[4/3] rounded-[24px] overflow-hidden mb-5 group-hover:scale-[1.02] transition-transform duration-300">
-                <img src={mentor.img} alt={mentor.name} className="w-full h-full object-cover" />
-            </div>
-
-            <div className="px-2 pb-2">
-                <h3 className="text-[22px] text-[#1F2937] mb-0.5" style={{ fontWeight: 800 }}>
-                {mentor.name}
-                </h3>
-                <div className="flex flex-col gap-1 mt-1">
-                <span className="text-[#1F2937] font-bold text-base">{mentor.title}</span>
-                <span className="text-sm text-[#1F2937]/70 font-medium">{mentor.college}</span>
-                </div>
-            </div>
-            </GlareHover>
-            ))}
-            </div>
-        </motion.div>
+          {/* Mentor Profiles Carousel */}
+          <MentorSection />
         </div>
       </section>
+{/* ── HOW IT WORKS ─────────────────────────────────────────────── */}
+<section className="py-20 sm:py-28 relative z-10">
+  <div className="max-w-6xl mx-auto px-6 sm:px-8 lg:px-12">
+    <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 items-center">
+      {/* Left copy */}
+      <div className="text-center lg:text-left w-full lg:w-[300px] lg:shrink-0">
+        <h2 className="text-4xl sm:text-5xl text-[#1F2937] mb-4" style={{ fontWeight: 800 }}>
+          How to get started?
+        </h2>
+        <p className="text-[#1F2937]/70 text-lg sm:text-xl max-w-xl mx-auto lg:mx-0 leading-relaxed font-semibold">
+          In just 4 simple steps you can book a verified senior and get the
+          truth behind your dream college.
+        </p>
+        <div className="mt-6 sm:mt-8 flex justify-center lg:justify-start">
+          <Link href="/student">
+            <Button className="bg-[#FF8000] hover:bg-[#E67300] text-white rounded-full px-10 py-6 text-lg shadow-xl hover:shadow-2xl hover:-translate-y-0.5 transition-all h-auto" style={{ fontWeight: 700 }}>
+              Take a Trial Session
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* Steps grid */}
+      <div className="grid grid-cols-2 gap-5 w-full lg:flex-1 min-w-0">
+        {[
+          {
+            icon: UserRound,
+            title: '1. Register/Login',
+            desc: 'Create your profile and pick a mentor that fits your goals.',
+          },
+          {
+            icon: CalendarCheck,
+            title: '2. Schedule a call',
+            desc: 'Choose a time slot that works and confirm the session.',
+          },
+          {
+            icon: CreditCard,
+            title: '3. Make a payment',
+            desc: 'Pay securely with UPI or cards in a single tap.',
+          },
+          {
+            icon: PhoneCall,
+            title: '4. Connect to your mentor',
+            desc: 'Hop on a quick call and get the real, unfiltered advice.',
+          },
+        ].map((step, idx) => (
+          <div
+            key={idx}
+            className="bg-white/90 backdrop-blur-sm border border-[#FF8000]/10 rounded-[24px] p-6 sm:p-7 shadow-sm hover:shadow-lg transition-all duration-300"
+          >
+            <div className="w-12 h-12 rounded-full bg-[#FFF9F5] border border-[#FF8000]/20 flex items-center justify-center mb-4">
+              <step.icon className="w-6 h-6 text-[#FF8000]" strokeWidth={1.8} />
+            </div>
+            <h3 className="text-[#1F2937] text-lg sm:text-xl mb-2" style={{ fontWeight: 800 }}>
+              {step.title}
+            </h3>
+            <p className="text-[#1F2937]/60 text-sm sm:text-base leading-relaxed">
+              {step.desc}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+</section>
 
       {/* ── MENTOR CTA ────────────────────────────────────────────────── */}
       <section className="py-20 sm:py-32 relative z-10 px-4 sm:px-6">

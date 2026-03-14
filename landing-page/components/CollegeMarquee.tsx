@@ -60,10 +60,15 @@ export function CollegeMarquee() {
       </p>
 
       {/* Marquee Container */}
-      <div className="relative overflow-hidden">
-        {/* Fade edges */}
-        <div className="pointer-events-none absolute inset-y-0 left-0 w-24 sm:w-40 bg-gradient-to-r from-[#F5F1EB] to-transparent z-10" />
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-24 sm:w-40 bg-gradient-to-l from-[#F5F1EB] to-transparent z-10" />
+      <div
+        className="relative overflow-hidden"
+        style={{
+          maskImage:
+            'linear-gradient(to right, transparent, black 10%, black 90%, transparent)',
+          WebkitMaskImage:
+            'linear-gradient(to right, transparent, black 10%, black 90%, transparent)',
+        }}
+      >
 
         {/* Row 1 - scrolls left */}
         <div className="flex mb-4 marquee-row-1">
