@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { Button } from "@/app/components/ui/button";
+import { useStudentStore } from "@/store/studentStore";
 
 export default function StudentProfile() {
   const { data: session } = useSession();
@@ -16,7 +17,7 @@ export default function StudentProfile() {
     signOut({ callbackUrl: "/" });
   };
 
-  const [profile, setProfile] = useState<{ phone?: string; college?: string; class_level?: string } | null>(null);
+  const { profile, fetchProfile, saveProfile } = useStudentStore();
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formName, setFormName] = useState("");
@@ -27,18 +28,7 @@ export default function StudentProfile() {
   useEffect(() => {
     const email = session?.user?.email;
     if (!email) return;
-    fetch(`/api/student-profiles?email=${encodeURIComponent(email)}`)
-      .then((res) => res.ok ? res.json() : null)
-      .then((data) => {
-        if (data) {
-          setProfile({
-            phone: data.phone ?? "",
-            college: data.college ?? "",
-            class_level: data.class_level ?? "",
-          });
-        }
-      })
-      .catch(() => {});
+    fetchProfile(email);
   }, [session?.user?.email]);
 
   const name = session?.user?.name ?? "Student";
@@ -171,30 +161,7 @@ export default function StudentProfile() {
                       college: formCollege.trim(),
                       class_level: formClass.trim(),
                     };
-                    const res = await fetch(`/api/student-profiles?email=${encodeURIComponent(email)}`, {
-                      method: "PATCH",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify(payload),
-                    });
-                    if (!res.ok) {
-                      await fetch("/api/student-profiles", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(payload),
-                      }).catch(() => {});
-                    }
-
-                    await fetch(`/api/student-signups?email=${encodeURIComponent(email)}`, {
-                      method: "PATCH",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ name: payload.name, phone: payload.phone }),
-                    }).catch(() => {});
-
-                    setProfile({
-                      phone: payload.phone,
-                      college: payload.college,
-                      class_level: payload.class_level,
-                    });
+                    await saveProfile(email, payload);
                     setSaving(false);
                     setIsEditing(false);
                   }}

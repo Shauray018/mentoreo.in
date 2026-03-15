@@ -5,8 +5,19 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Phone, Video, MoreVertical, Send, Image as ImageIcon, Paperclip, IndianRupee, Clock, ShieldAlert, MessageSquare } from "lucide-react";
 import { motion } from "motion/react";
+import { useSession } from "next-auth/react";
+import { useStudentStore } from "@/store/studentStore";
 
-const CHAT_DATA = {
+const CHAT_DATA: Record<string, {
+  name: string;
+  role: string;
+  image: string;
+  isOnline: boolean;
+  chatRate: number;
+  callRate: number;
+  videoRate: number;
+  messages: { id: string; sender: string; text: string; time: string }[];
+}> = {
   "1": {
     name: "Aditi Rao",
     role: "JEE Mentor • IIT Bombay",
@@ -16,9 +27,9 @@ const CHAT_DATA = {
     callRate: 10,
     videoRate: 15,
     messages: [
-      { id: 1, sender: "them", text: "Hi! I saw you booked a session for tomorrow.", time: "10:00 AM" },
-      { id: 2, sender: "me", text: "Yes! Looking forward to it.", time: "10:15 AM" },
-      { id: 3, sender: "them", text: "Looking forward to our session tomorrow!", time: "10:30 AM" }
+      { id: "1", sender: "them", text: "Hi! I saw you booked a session for tomorrow.", time: "10:00 AM" },
+      { id: "2", sender: "me", text: "Yes! Looking forward to it.", time: "10:15 AM" },
+      { id: "3", sender: "them", text: "Looking forward to our session tomorrow!", time: "10:30 AM" }
     ]
   },
   "2": {
@@ -30,8 +41,8 @@ const CHAT_DATA = {
     callRate: 15,
     videoRate: 20,
     messages: [
-      { id: 1, sender: "me", text: "Hi Vikram, could you review my resume?", time: "Yesterday" },
-      { id: 2, sender: "them", text: "Yes, I can review your resume.", time: "Yesterday" }
+      { id: "1", sender: "me", text: "Hi Vikram, could you review my resume?", time: "Yesterday" },
+      { id: "2", sender: "them", text: "Yes, I can review your resume.", time: "Yesterday" }
     ]
   },
   "3": {
@@ -43,7 +54,7 @@ const CHAT_DATA = {
     callRate: 8,
     videoRate: 12,
     messages: [
-      { id: 1, sender: "them", text: "Here are the notes we discussed. Let me know if you need anything else.", time: "Monday" }
+      { id: "1", sender: "them", text: "Here are the notes we discussed. Let me know if you need anything else.", time: "Monday" }
     ]
   }
 };
@@ -51,17 +62,55 @@ const CHAT_DATA = {
 export default function StudentChatDetail() {
   const { id } = useParams();
   const router = useRouter();
-  const chat = CHAT_DATA[id as keyof typeof CHAT_DATA];
+  const chatId = String(id ?? "");
+  const { data: session } = useSession();
+  const { chats, messagesByChat, fetchMessages, fetchChats, wallet } = useStudentStore();
+  const storeChat = chats.find((c) => c.id === chatId);
+  const chat = storeChat
+    ? {
+        name: storeChat.mentor_name ?? "Mentor",
+        role: storeChat.mentor_email ?? "Mentor",
+        image: storeChat.mentor_avatar ?? "https://images.unsplash.com/photo-1604177091072-b7b677a077f6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+        isOnline: storeChat.is_online ?? false,
+        chatRate: storeChat.chat_rate ?? 0,
+        callRate: storeChat.call_rate ?? 0,
+        videoRate: storeChat.call_rate ?? 0,
+        messages: messagesByChat[chatId]?.map((m) => ({
+          id: m.id,
+          sender: m.sender === "student" ? "me" : "them",
+          text: m.body,
+          time: new Date(m.created_at).toLocaleTimeString(),
+        })) ?? [],
+      }
+    : CHAT_DATA[chatId as keyof typeof CHAT_DATA];
   
-  const [messages, setMessages] = useState(chat?.messages || []);
+  const [messages, setMessages] = useState<{ id: string; sender: string; text: string; time: string }[]>(
+    chat?.messages || []
+  );
   const [inputText, setInputText] = useState("");
   
   // Astrotalk-like billing state
   const [sessionType, setSessionType] = useState<'idle' | 'requesting' | 'chat' | 'call' | 'video' | 'ended'>('idle');
   const [requestedType, setRequestedType] = useState<'chat' | 'call' | 'video' | null>(null);
-  const [walletBalance, setWalletBalance] = useState(450); // ₹450 mocked balance
+  const [walletBalance, setWalletBalance] = useState((wallet?.balance_paise ?? 0) / 100);
   const [sessionSeconds, setSessionSeconds] = useState(0);
   const [activeRate, setActiveRate] = useState(0);
+
+  useEffect(() => {
+    const email = session?.user?.email;
+    if (email && chats.length === 0) fetchChats(email);
+    if (chatId) fetchMessages(chatId);
+  }, [session?.user?.email, chatId]);
+
+  useEffect(() => {
+    if (chat?.messages) setMessages(chat.messages);
+  }, [chatId, messagesByChat, chat?.messages]);
+
+  useEffect(() => {
+    if (wallet?.balance_paise != null) {
+      setWalletBalance(wallet.balance_paise / 100);
+    }
+  }, [wallet?.balance_paise]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -121,7 +170,7 @@ export default function StudentChatDetail() {
     if (!inputText.trim() || sessionType !== 'chat') return;
     setMessages([
       ...messages,
-      { id: Date.now(), sender: "me", text: inputText, time: "Just now" }
+      { id: String(Date.now()), sender: "me", text: inputText, time: "Just now" }
     ]);
     setInputText("");
   };

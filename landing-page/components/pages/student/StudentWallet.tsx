@@ -5,6 +5,7 @@ import { Button } from "@/app/components/ui/button";
 import { motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
+import { useStudentStore } from "@/store/studentStore";
 
 declare global {
   interface Window {
@@ -14,8 +15,7 @@ declare global {
 
 export default function StudentWallet() {
   const { data: session } = useSession();
-  const [balancePaise, setBalancePaise] = useState<number>(0);
-  const [txs, setTxs] = useState<any[]>([]);
+  const { wallet, walletTxs, fetchWallet, fetchWalletTxs, refreshWallet } = useStudentStore();
   const [selectedPack, setSelectedPack] = useState<number | null>(null);
   const [loadingPay, setLoadingPay] = useState(false);
   const [customAmount, setCustomAmount] = useState("");
@@ -23,35 +23,13 @@ export default function StudentWallet() {
   useEffect(() => {
     const email = session?.user?.email;
     if (!email) return;
-    fetch(`/api/student-wallet?email=${encodeURIComponent(email)}`)
-      .then(async (res) => {
-        if (res.ok) return res.json();
-        if (res.status === 404) {
-          const create = await fetch("/api/student-wallet", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email }),
-          });
-          if (create.ok) return create.json();
-        }
-        return null;
-      })
-      .then((data) => {
-        if (data?.balance_paise != null) setBalancePaise(Number(data.balance_paise));
-      })
-      .catch(() => {});
-
-    fetch(`/api/student-wallet/transactions?email=${encodeURIComponent(email)}`)
-      .then((res) => res.ok ? res.json() : [])
-      .then((data) => {
-        if (Array.isArray(data)) setTxs(data);
-      })
-      .catch(() => {});
+    fetchWallet(email);
+    fetchWalletTxs(email);
   }, [session?.user?.email]);
 
   const transactions = useMemo(() => {
-    if (txs.length === 0) return [];
-    return txs.map((tx) => {
+    if (walletTxs.length === 0) return [];
+    return walletTxs.map((tx) => {
       const isCredit = tx.type === "credit";
       return {
         id: tx.id,
@@ -63,7 +41,7 @@ export default function StudentWallet() {
         icon: isCredit ? Plus : (tx.source === "call" ? PhoneCall : MessageSquare),
       };
     });
-  }, [txs]);
+  }, [walletTxs]);
 
   const rechargePacks = [
     { amount: 100, extra: 0, popular: false },
@@ -103,7 +81,7 @@ export default function StudentWallet() {
               </p>
               <div className="flex items-baseline gap-1 mb-2">
                 <span className="text-5xl md:text-6xl font-black" style={{ fontFamily: 'Fredoka, sans-serif' }}>
-                  ₹{(balancePaise / 100).toFixed(0)}
+                  ₹{((wallet?.balance_paise ?? 0) / 100).toFixed(0)}
                 </span>
               </div>
               <p className="text-white/80 text-sm md:text-base font-medium mb-4 md:mb-0">Approx. 90 mins of chat available</p>
@@ -233,14 +211,7 @@ export default function StudentWallet() {
                   },
                   handler: () => {
                     setTimeout(async () => {
-                      const w = await fetch(`/api/student-wallet?email=${encodeURIComponent(email)}`);
-                      const wData = await w.json().catch(() => ({}));
-                      if (w.ok && wData?.balance_paise != null) {
-                        setBalancePaise(Number(wData.balance_paise));
-                      }
-                      const t = await fetch(`/api/student-wallet/transactions?email=${encodeURIComponent(email)}`);
-                      const tData = await t.json().catch(() => []);
-                      if (t.ok && Array.isArray(tData)) setTxs(tData);
+                      await refreshWallet(email);
                       setLoadingPay(false);
                     }, 1500);
                   },

@@ -24,10 +24,6 @@ export default function StudentAppLayout({ children }: { children: React.ReactNo
     { to: "/student/profile", icon: User, label: "Profile" },
   ];
 
-  if (isAuthPage) {
-    return <>{children}</>;
-  }
-
   useEffect(() => {
     if (status === "unauthenticated" && !isAuthPage) {
       router.replace("/student/login");
@@ -38,6 +34,7 @@ export default function StudentAppLayout({ children }: { children: React.ReactNo
     }
   }, [status, session, router, isAuthPage]);
 
+  if (isAuthPage) return <>{children}</>;
   if (status === "unauthenticated" && !isAuthPage) return null;
 
   return (

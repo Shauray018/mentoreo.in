@@ -4,12 +4,23 @@ import { useState } from "react";
 import Link from "next/link";
 import { MessageSquare, Search, Edit3, Circle, CheckCheck, IndianRupee, Clock } from "lucide-react";
 import { motion } from "motion/react";
+import { useSession } from "next-auth/react";
+import { useEffect } from "react";
+import { useStudentStore } from "@/store/studentStore";
 
 export default function StudentChats() {
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const { data: session } = useSession();
+  const { chats, fetchChats } = useStudentStore();
 
-  const chats = [
+  useEffect(() => {
+    const email = session?.user?.email;
+    if (!email) return;
+    fetchChats(email);
+  }, [session?.user?.email]);
+
+  const mockChats = [
     {
       id: 1,
       name: "Aditi Rao",
@@ -48,7 +59,22 @@ export default function StudentChats() {
     }
   ];
 
-  const filteredChats = chats.filter(chat => {
+  const derivedChats = chats.length > 0
+    ? chats.map((c) => ({
+        id: c.id,
+        name: c.mentor_name ?? "Mentor",
+        role: c.mentor_email ?? "Mentor",
+        lastMessage: c.last_message ?? "Start a conversation",
+        time: new Date(c.updated_at).toLocaleTimeString(),
+        unread: c.unread_count ?? 0,
+        isOnline: c.is_online ?? false,
+        chatRate: c.chat_rate ?? 0,
+        callRate: c.call_rate ?? 0,
+        image: c.mentor_avatar ?? "https://images.unsplash.com/photo-1604177091072-b7b677a077f6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+      }))
+    : mockChats;
+
+  const filteredChats = derivedChats.filter(chat => {
     const matchesSearch = chat.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           chat.lastMessage.toLowerCase().includes(searchQuery.toLowerCase());
     if (activeTab === "unread") return matchesSearch && chat.unread > 0;

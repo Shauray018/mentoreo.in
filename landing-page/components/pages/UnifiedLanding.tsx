@@ -135,11 +135,15 @@ export default function UnifiedLanding() {
                 transition={{ duration: 0.7, delay: 0.4 }}
                 className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 px-4 sm:px-0"
               >
-                <Link href="/student">
-                  <Button className="w-full sm:w-auto bg-[#FF8000] hover:bg-[#E67300] text-white rounded-full px-8 py-6 text-lg shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all h-auto inline-flex items-center justify-center gap-2" style={{ fontWeight: 700 }}>
+                <Button
+                  asChild
+                  className="w-full sm:w-auto bg-[#FF8000] hover:bg-[#E67300] text-white rounded-full px-8 py-6 text-lg shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all h-auto inline-flex items-center justify-center gap-2"
+                  style={{ fontWeight: 700 }}
+                >
+                  <Link href="/student">
                     Find your Mentor <Search className="w-5 h-5" />
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
                 <Link href="/onboard">
                   <Button variant="outline" className="w-full sm:w-auto bg-white/80 backdrop-blur-sm border-2 border-[#FF8000] text-[#FF8000] hover:bg-[#FFF9F5] rounded-full px-8 py-6 text-lg shadow-sm hover:shadow-md transition-all h-auto inline-flex items-center justify-center gap-2" style={{ fontWeight: 700 }}>
                     Join as Mentor ✨
