@@ -240,7 +240,7 @@ export function Navigation() {
                   className="group relative bg-[#FFF9F5] border-2 border-transparent hover:border-[#FF8000]/30 rounded-[20px] sm:rounded-[24px] p-4 sm:p-8 flex flex-row sm:flex-col items-center text-center transition-all duration-300 hover:-translate-y-1 hover:shadow-xl h-full gap-4 sm:gap-8"
                 >
                   <div className="w-16 h-16 sm:w-full sm:flex-1 flex items-center justify-center shrink-0">
-                    <div className="w-16 h-16 sm:w-32 sm:h-32 flex items-center justify-center rounded-full bg-orange-50 group-hover:bg-orange-100 transition-colors duration-300">
+                    <div className="w-16 h-16 sm:w-32 sm:h-32 flex items-center justify-center rounded-full bg-orange-100 ring-2 ring-[#FF8000]/15 group-hover:bg-orange-200 transition-colors duration-300">
                       <Briefcase
                         className="w-8 h-8 sm:w-14 sm:h-14 text-[#FF8000] group-hover:scale-110 transition-transform duration-300"
                         strokeWidth={1.5}
