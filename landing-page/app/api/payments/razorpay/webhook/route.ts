@@ -27,11 +27,41 @@ export async function POST(req: Request) {
   const order = payload?.payload?.order?.entity;
   const paymentId = payment?.id;
   const amount = Number(payment?.amount ?? 0);
-  const email = order?.notes?.student_email || payment?.notes?.student_email;
+  let email =
+    order?.notes?.student_email ||
+    payment?.notes?.student_email ||
+    payment?.email ||
+    null;
   const creditPaise = Number(order?.notes?.credit_paise ?? amount);
 
-  if (!paymentId || !email || !amount) {
+  if (!paymentId || !amount) {
     return NextResponse.json({ error: "Missing payment data" }, { status: 400 });
+  }
+
+  // If email missing, fetch payment/order details from Razorpay API
+  if (!email && process.env.RAZR_LIVEKEY && process.env.RAZR_LIVESECRET) {
+    const auth = Buffer.from(`${process.env.RAZR_LIVEKEY}:${process.env.RAZR_LIVESECRET}`).toString("base64");
+    const payRes = await fetch(`https://api.razorpay.com/v1/payments/${paymentId}`, {
+      headers: { Authorization: `Basic ${auth}` },
+    });
+    const payData = await payRes.json().catch(() => ({}));
+    const orderId = payData?.order_id;
+    email =
+      payData?.notes?.student_email ||
+      payData?.email ||
+      null;
+
+    if (!email && orderId) {
+      const orderRes = await fetch(`https://api.razorpay.com/v1/orders/${orderId}`, {
+        headers: { Authorization: `Basic ${auth}` },
+      });
+      const orderData = await orderRes.json().catch(() => ({}));
+      email = orderData?.notes?.student_email || email;
+    }
+  }
+
+  if (!email) {
+    return NextResponse.json({ error: "Missing student email" }, { status: 400 });
   }
 
   // Idempotency check
