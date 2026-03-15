@@ -43,7 +43,7 @@ export default function StudentAppLayout({ children }: { children: React.ReactNo
       <aside className="hidden md:flex flex-col w-64 bg-white border-r border-[#E1D4FF] fixed h-full z-40">
         <div className="p-6">
           <Link href="/student/dashboard" className="flex items-center gap-3">
-            <img src="/icon.jpg" alt="Mentoreo" className="w-10 h-10 rounded-xl" />
+            <img src="/student-logo.png" alt="Mentoreo" className="w-10 h-10 rounded-xl" />
           </Link>
         </div>
 

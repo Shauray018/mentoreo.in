@@ -1,13 +1,15 @@
 "use client";
 
-import { motion, type Variants } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import { Target, Trophy, Flame, Users, ArrowUpRight, CheckCircle2, TrendingUp, Zap, Crown, ChevronRight, ChevronDown, Banknote } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Navigation } from '../components/Navigation';
 import Link from 'next/link';
 
 export default function MentorPerks() {
-  const containerVariants: Variants = {
+  const reduceMotion = useReducedMotion();
+
+  const containerVariants = {
     hidden: { opacity: 0 },
     show: {
       opacity: 1,
@@ -17,7 +19,7 @@ export default function MentorPerks() {
     }
   };
 
-  const itemVariants: Variants = {
+  const itemVariants = {
     hidden: { opacity: 0, y: 20 },
     show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
   };
@@ -33,12 +35,12 @@ export default function MentorPerks() {
         
         {/* Header Section */}
         <motion.div 
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
+          initial={reduceMotion ? false : { opacity: 0, y: 30 }}
+          animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+          transition={reduceMotion ? undefined : { duration: 0.6, ease: "easeOut" }}
           className="text-center max-w-3xl mx-auto mb-12 md:mb-20"
         >
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/60 border border-[#FF8000]/20 text-[#FF8000] font-bold text-sm mb-6 backdrop-blur-md shadow-sm">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/80 border border-[#FF8000]/20 text-[#FF8000] font-bold text-sm mb-6 shadow-sm">
             <Zap className="w-4 h-4" /> Not just another gig
           </div>
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-[#1F2937] mb-6 leading-tight" style={{ fontFamily: 'Fredoka, sans-serif' }}>
@@ -51,14 +53,14 @@ export default function MentorPerks() {
 
         {/* Bento Grid: Standard Perks */}
         <motion.div 
-          variants={containerVariants}
-          initial="hidden"
-          whileInView="show"
-          viewport={{ once: true, margin: "-100px" }}
+          variants={reduceMotion ? undefined : (containerVariants as any)}
+          initial={reduceMotion ? false : "hidden"}
+          whileInView={reduceMotion ? undefined : "show"}
+          viewport={reduceMotion ? undefined : { once: true, margin: "-100px" }}
           className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-20 md:mb-32"
         >
           {/* Large Card */}
-          <motion.div variants={itemVariants} className="md:col-span-2 bg-white/70 backdrop-blur-xl border border-white rounded-[24px] sm:rounded-[32px] p-6 sm:p-8 md:p-12 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)] relative overflow-hidden group">
+          <motion.div variants={reduceMotion ? undefined : (itemVariants as any)} className="md:col-span-2 bg-white/80 border border-white rounded-[24px] sm:rounded-[32px] p-6 sm:p-8 md:p-12 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)] relative overflow-hidden group">
             <div className="absolute top-0 right-0 w-48 h-48 sm:w-64 sm:h-64 bg-gradient-to-bl from-[#FF8000]/20 to-transparent rounded-full blur-2xl sm:blur-3xl -mr-10 -mt-10 sm:-mr-20 sm:-mt-20 group-hover:scale-110 transition-transform duration-700" />
             <div className="relative z-10">
               <div className="w-12 h-12 sm:w-14 sm:h-14 bg-[#FF8000]/10 text-[#FF8000] rounded-xl sm:rounded-2xl flex items-center justify-center mb-6">
@@ -77,10 +79,10 @@ export default function MentorPerks() {
           </motion.div>
 
           {/* Tall Card */}
-          <motion.div variants={itemVariants} className="bg-gradient-to-b from-[#1F2937] to-gray-900 rounded-[24px] sm:rounded-[32px] p-6 sm:p-8 md:p-12 shadow-xl relative overflow-hidden group flex flex-col justify-between text-white min-h-[300px] sm:min-h-[auto]">
+          <motion.div variants={reduceMotion ? undefined : (itemVariants as any)} className="bg-gradient-to-b from-[#1F2937] to-gray-900 rounded-[24px] sm:rounded-[32px] p-6 sm:p-8 md:p-12 shadow-xl relative overflow-hidden group flex flex-col justify-between text-white min-h-[300px] sm:min-h-[auto]">
             <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10" />
             <div className="relative z-10">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-white/10 text-white rounded-xl sm:rounded-2xl flex items-center justify-center mb-6 backdrop-blur-md">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-white/10 text-white rounded-xl sm:rounded-2xl flex items-center justify-center mb-6">
                 <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8" />
               </div>
               <h3 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4" style={{ fontFamily: 'Fredoka, sans-serif' }}>Instant Resume Boost.</h3>
@@ -134,7 +136,7 @@ export default function MentorPerks() {
                <motion.div 
                  animate={{ y: [-6, 6, -6] }} 
                  transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }} 
-                 className="bg-white/80 backdrop-blur-md p-6 sm:p-8 rounded-[24px] sm:rounded-[32px] shadow-xl border border-white w-full lg:w-1/3 text-center relative z-10 flex flex-col h-full"
+                 className="bg-white/85 p-6 sm:p-8 rounded-[24px] sm:rounded-[32px] shadow-xl border border-white w-full lg:w-1/3 text-center relative z-10 flex flex-col h-full"
                >
                   <div className="w-14 h-14 sm:w-16 sm:h-16 bg-blue-50 rounded-2xl mx-auto flex items-center justify-center mb-5">
                      <Users className="w-7 h-7 sm:w-8 sm:h-8 text-blue-500" />
@@ -162,7 +164,7 @@ export default function MentorPerks() {
                <motion.div 
                  animate={{ y: [6, -6, 6] }} 
                  transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay: 0.5 }} 
-                 className="bg-white/80 backdrop-blur-md p-6 sm:p-8 rounded-[24px] sm:rounded-[32px] shadow-xl border border-white w-full lg:w-1/3 text-center relative z-10 flex flex-col h-full"
+                 className="bg-white/85 p-6 sm:p-8 rounded-[24px] sm:rounded-[32px] shadow-xl border border-white w-full lg:w-1/3 text-center relative z-10 flex flex-col h-full"
                >
                   <div className="w-14 h-14 sm:w-16 sm:h-16 bg-orange-50 rounded-2xl mx-auto flex items-center justify-center mb-5 relative">
                      <Target className="w-7 h-7 sm:w-8 sm:h-8 text-[#FF8000]" />
@@ -194,7 +196,7 @@ export default function MentorPerks() {
                  className="bg-gradient-to-br from-yellow-400 to-[#FF8000] p-6 sm:p-8 rounded-[24px] sm:rounded-[32px] shadow-[0_20px_40px_-15px_rgba(255,128,0,0.4)] border border-yellow-300 w-full lg:w-1/3 text-center relative z-10 transform hover:scale-[1.02] transition-transform flex flex-col h-full"
                >
                   <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 rounded-[24px] sm:rounded-[32px]" />
-                  <div className="w-14 h-14 sm:w-16 sm:h-16 bg-white/20 rounded-2xl mx-auto flex items-center justify-center mb-5 backdrop-blur-md relative z-10">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 bg-white/20 rounded-2xl mx-auto flex items-center justify-center mb-5 relative z-10">
                      <Crown className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
                   </div>
                   <h4 className="font-bold text-white text-lg sm:text-xl mb-3 relative z-10" style={{ fontFamily: 'Fredoka, sans-serif' }}>The Reward</h4>
@@ -330,7 +332,7 @@ export default function MentorPerks() {
             
             {/* Shifted Keep It Simple Text */}
             <div className="mt-8 sm:mt-10 text-center max-w-2xl mx-auto px-4 sm:px-0 relative z-10">
-               <p className="text-base sm:text-lg text-[#1F2937]/80 font-bold leading-relaxed bg-white/60 backdrop-blur-sm py-3 px-6 rounded-2xl border border-orange-100 shadow-sm inline-block">
+               <p className="text-base sm:text-lg text-[#1F2937]/80 font-bold leading-relaxed bg-white/70 py-3 px-6 rounded-2xl border border-orange-100 shadow-sm inline-block">
                   Let's keep it simple: Help us grow, and we'll boost your paycheck.<br className="hidden sm:block" /> Every single week. No t&c, just more earnings.
                </p>
             </div>

@@ -1,6 +1,6 @@
 "use client"
 
-import { motion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import { Button } from '../components/ui/button';
 import { 
   AlertTriangle, 
@@ -56,20 +56,30 @@ const truthWall = [
 ];
 
 export default function WhyMentoreo() {
+  const reduceMotion = useReducedMotion();
   return (
     <div className="min-h-screen bg-[#FFF9F5] font-sans text-[#1F2937] overflow-hidden">
       {/* Background Orbs */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-        <motion.div
-          animate={{ scale: [1, 1.1, 1], x: [0, 50, 0], y: [0, 30, 0] }}
-          transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
-          className="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] rounded-full bg-gradient-to-br from-[#FF8000]/10 to-transparent blur-[120px]"
-        />
-        <motion.div
-          animate={{ scale: [1, 1.2, 1], x: [0, -40, 0], y: [0, -40, 0] }}
-          transition={{ duration: 25, repeat: Infinity, ease: 'linear' }}
-          className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-gradient-to-tr from-rose-400/10 to-orange-300/10 blur-[100px]"
-        />
+        {reduceMotion ? (
+          <>
+            <div className="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] rounded-full bg-gradient-to-br from-[#FF8000]/10 to-transparent blur-[120px]" />
+            <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-gradient-to-tr from-rose-400/10 to-orange-300/10 blur-[100px]" />
+          </>
+        ) : (
+          <>
+            <motion.div
+              animate={{ scale: [1, 1.08, 1], x: [0, 40, 0], y: [0, 24, 0] }}
+              transition={{ duration: 24, repeat: Infinity, ease: 'linear' }}
+              className="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] rounded-full bg-gradient-to-br from-[#FF8000]/10 to-transparent blur-[120px]"
+            />
+            <motion.div
+              animate={{ scale: [1, 1.12, 1], x: [0, -32, 0], y: [0, -32, 0] }}
+              transition={{ duration: 28, repeat: Infinity, ease: 'linear' }}
+              className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-gradient-to-tr from-rose-400/10 to-orange-300/10 blur-[100px]"
+            />
+          </>
+        )}
       </div>
 
       <Navigation />
@@ -78,8 +88,8 @@ export default function WhyMentoreo() {
       <section className="relative pt-32 pb-20 px-6 sm:px-8 lg:px-12 max-w-7xl mx-auto z-10">
         <div className="text-center max-w-4xl mx-auto">
           <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={reduceMotion ? false : { opacity: 0, y: 20 }}
+            animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
             className="inline-flex items-center gap-2 bg-red-100 text-red-700 px-4 py-2 rounded-full font-bold text-sm mb-8"
           >
             <AlertTriangle className="w-4 h-4" />
@@ -87,9 +97,9 @@ export default function WhyMentoreo() {
           </motion.div>
           
           <motion.h1 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
+            initial={reduceMotion ? false : { opacity: 0, y: 20 }}
+            animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+            transition={reduceMotion ? undefined : { delay: 0.1 }}
             className="text-5xl sm:text-6xl lg:text-7xl font-extrabold text-[#1F2937] leading-[1.1] tracking-tight mb-8"
             style={{ fontFamily: 'Fredoka, sans-serif' }}
           >
@@ -98,9 +108,9 @@ export default function WhyMentoreo() {
           </motion.h1>
 
           <motion.p 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
+            initial={reduceMotion ? false : { opacity: 0, y: 20 }}
+            animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+            transition={reduceMotion ? undefined : { delay: 0.2 }}
             className="text-xl sm:text-2xl text-[#1F2937]/70 font-medium leading-relaxed max-w-3xl mx-auto"
           >
             Let’s be honest. You’re about to spend lakhs of rupees and 3-4 years of your life based on a glossy brochure and a virtual tour shot 8 years ago. We built this because we're tired of students getting tricked.
@@ -113,10 +123,10 @@ export default function WhyMentoreo() {
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
           {/* Card 1 */}
           <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="bg-white/60 backdrop-blur-md rounded-[32px] p-8 border border-[#1F2937]/5 shadow-[0_8px_30px_rgba(31,41,55,0.04)] hover:-translate-y-1 transition-transform"
+            initial={reduceMotion ? false : { opacity: 0, y: 20 }}
+            whileInView={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+            viewport={reduceMotion ? undefined : { once: true }}
+            className="bg-white/70 rounded-[32px] p-8 border border-[#1F2937]/5 shadow-[0_8px_30px_rgba(31,41,55,0.04)] hover:-translate-y-1 transition-transform"
           >
             <div className="w-14 h-14 bg-orange-100 text-[#FF8000] rounded-2xl flex items-center justify-center mb-6">
               <EyeOff className="w-7 h-7" />
@@ -133,7 +143,7 @@ export default function WhyMentoreo() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.1 }}
-            className="bg-white/60 backdrop-blur-md rounded-[32px] p-8 border border-[#1F2937]/5 shadow-[0_8px_30px_rgba(31,41,55,0.04)] hover:-translate-y-1 transition-transform"
+            className="bg-white/75 rounded-[32px] p-8 border border-[#1F2937]/5 shadow-[0_8px_30px_rgba(31,41,55,0.04)] hover:-translate-y-1 transition-transform"
           >
             <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mb-6">
               <Ghost className="w-7 h-7" />
@@ -150,7 +160,7 @@ export default function WhyMentoreo() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.2 }}
-            className="bg-white/60 backdrop-blur-md rounded-[32px] p-8 border border-[#1F2937]/5 shadow-[0_8px_30px_rgba(31,41,55,0.04)] hover:-translate-y-1 transition-transform"
+            className="bg-white/75 rounded-[32px] p-8 border border-[#1F2937]/5 shadow-[0_8px_30px_rgba(31,41,55,0.04)] hover:-translate-y-1 transition-transform"
           >
             <div className="w-14 h-14 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mb-6">
               <ShieldAlert className="w-7 h-7" />
@@ -197,7 +207,7 @@ export default function WhyMentoreo() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: index * 0.1 }}
-              className={`break-inside-avoid p-8 rounded-[32px] border ${item.color} backdrop-blur-sm relative group hover:scale-[1.02] transition-transform duration-300`}
+              className={`break-inside-avoid p-8 rounded-[32px] border ${item.color} relative group hover:scale-[1.02] transition-transform duration-300`}
             >
               <MessageCircle className="absolute top-6 right-6 w-8 h-8 text-[#1F2937]/10 group-hover:text-[#1F2937]/20 transition-colors" />
               <h4 className="text-xl font-bold text-[#1F2937] mb-4 pr-10 leading-snug">
