@@ -7,6 +7,7 @@ import { signIn, signOut, useSession } from "next-auth/react";
 import { motion } from "motion/react";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
+import { Button } from "@/app/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { AlertCircle, ArrowRight, Eye, EyeOff } from "lucide-react";
 
@@ -20,11 +21,15 @@ export default function StudentSignup() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
+  const [emailOtpVerified, setEmailOtpVerified] = useState(false);
   const [error, setError] = useState("");
   const [submitted, setSubmitted] = useState(false);
 
@@ -54,8 +59,65 @@ export default function StudentSignup() {
     const prefillEmail = searchParams.get("email");
     if (prefillEmail) {
       setEmail(decodeURIComponent(prefillEmail));
+      setEmailOtpVerified(false);
+      setOtp("");
     }
   }, [searchParams]);
+
+  const canSendOtp = EMAIL_RE.test(email.trim());
+
+  const handleSendOtp = async () => {
+    if (!canSendOtp) {
+      setError("Enter a valid email first.");
+      return;
+    }
+    setError("");
+    setOtpSending(true);
+    try {
+      const res = await fetch("/api/otp/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, purpose: "signup" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data?.error || "Failed to send code.");
+        return;
+      }
+      setError("Verification code sent. Check your inbox.");
+    } catch (err) {
+      setError("Failed to send code.");
+    } finally {
+      setOtpSending(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!otp.trim() || otp.trim().length !== 6) {
+      setError("Enter the 6-digit code.");
+      return;
+    }
+    setError("");
+    setOtpVerifying(true);
+    try {
+      const res = await fetch("/api/otp/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, code: otp, purpose: "signup" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data?.error || "Invalid code.");
+        return;
+      }
+      setEmailOtpVerified(true);
+      setError("Email verified.");
+    } catch (err) {
+      setError("Verification failed.");
+    } finally {
+      setOtpVerifying(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,6 +142,10 @@ export default function StudentSignup() {
     }
     if (password !== confirm) {
       setError("Passwords do not match.");
+      return;
+    }
+    if (!emailOtpVerified) {
+      setError("Please verify your email before signing up.");
       return;
     }
     setLoading(true);
@@ -249,11 +315,47 @@ export default function StudentSignup() {
                 id="email"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setEmailOtpVerified(false);
+                }}
                 className="appearance-none block w-full px-4 py-3 border-2 border-[#E1D4FF] rounded-[16px] placeholder-[#4B5563]/50 focus:outline-none focus:ring-0 focus:border-[#9758FF] sm:text-sm transition-colors bg-white/50 focus:bg-white"
                 placeholder="you@college.edu.in"
                 required
               />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="otp" className="block text-sm font-bold text-[#111827]">
+                Email verification code
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  id="otp"
+                  type="text"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                  className="appearance-none block w-full px-4 py-3 border-2 border-[#E1D4FF] rounded-[16px] placeholder-[#4B5563]/50 focus:outline-none focus:ring-0 focus:border-[#9758FF] sm:text-sm transition-colors bg-white/50 focus:bg-white"
+                  placeholder="6-digit code"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-12 rounded-[14px] border-2 border-[#E1D4FF]"
+                  onClick={handleSendOtp}
+                  disabled={otpSending || !canSendOtp}
+                >
+                  {otpSending ? "Sending…" : "Send code"}
+                </Button>
+              </div>
+              <Button
+                type="button"
+                className="bg-[#9758FF] hover:bg-[#8A4FFF] text-white rounded-[14px] h-11"
+                onClick={handleVerifyOtp}
+                disabled={otpVerifying || !otp.trim()}
+              >
+                {otpVerifying ? "Verifying…" : emailOtpVerified ? "Verified" : "Verify code"}
+              </Button>
             </div>
 
             <div>

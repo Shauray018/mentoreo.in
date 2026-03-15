@@ -10,6 +10,7 @@ export default function StudentAppLayout({ children }: { children: React.ReactNo
   const router = useRouter();
   const pathname = usePathname();
   const { status, data: session } = useSession();
+  const isAuthPage = pathname === "/student/login" || pathname === "/student/signup";
 
   const handleLogout = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -23,17 +24,21 @@ export default function StudentAppLayout({ children }: { children: React.ReactNo
     { to: "/student/profile", icon: User, label: "Profile" },
   ];
 
+  if (isAuthPage) {
+    return <>{children}</>;
+  }
+
   useEffect(() => {
-    if (status === "unauthenticated") {
+    if (status === "unauthenticated" && !isAuthPage) {
       router.replace("/student/login");
       return;
     }
     if (status === "authenticated" && (session?.user as any)?.role === "mentor") {
       router.replace("/mentor/dashboard");
     }
-  }, [status, session, router]);
+  }, [status, session, router, isAuthPage]);
 
-  if (status === "unauthenticated") return null;
+  if (status === "unauthenticated" && !isAuthPage) return null;
 
   return (
     <div className="min-h-screen bg-[#F8F5FF] md:bg-[#F3E8FF] pb-24 md:pb-0 font-nunito relative flex">
