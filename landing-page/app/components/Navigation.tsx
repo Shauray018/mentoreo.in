@@ -14,7 +14,7 @@ import logo from "@/public/icon.jpg";
 export function Navigation() {
   const pathname = usePathname();
   const router = useRouter();
-  const { status } = useSession();
+  const { status, data: session } = useSession();
 
   const isLoggedIn = status === "authenticated";
 
@@ -46,7 +46,8 @@ export function Navigation() {
 
   const handleLoginClick = () => {
     if (isLoggedIn) {
-      router.push("/mentor/dashboard");
+      const role = (session?.user as any)?.role;
+      router.push(role === "student" ? "/student/dashboard" : "/mentor/dashboard");
       return;
     }
     setAuthModal("login");

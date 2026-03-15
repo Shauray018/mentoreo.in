@@ -19,7 +19,7 @@ import {
 import { toast } from "sonner";
 import { Eye, EyeOff, ArrowRight, AlertCircle, Sparkles } from "lucide-react";
 
-export default function MentorLogin() {
+export default function StudentLogin() {
   const router = useRouter();
   const { data: session, status } = useSession();
 
@@ -40,22 +40,22 @@ export default function MentorLogin() {
     if (status === "authenticated") {
       const sess = session as any;
 
-      // Google authed but email not in signups table — sign out and send to onboard
+      // Google authed but email not in student_signups table — sign out and send to student signup
       if (sess?.unregistered) {
         const unregisteredEmail = sess.unregisteredEmail ?? "";
         signOut({ redirect: false }).then(() => {
-          router.replace(`/onboard?email=${encodeURIComponent(unregisteredEmail)}`);
+          router.replace(`/student/signup?email=${encodeURIComponent(unregisteredEmail)}`);
         });
         return;
       }
 
       const role = (session?.user as any)?.role;
-      if (role === "student") {
-        router.replace("/student/dashboard");
+      if (role === "mentor") {
+        router.replace("/mentor/dashboard");
         return;
       }
 
-      router.replace("/mentor/dashboard");
+      router.replace("/student/dashboard");
     }
   }, [status, session, router]);
 
@@ -72,17 +72,17 @@ export default function MentorLogin() {
     const result = await signIn("credentials", {
       email,
       password,
-      role: "mentor",
+      role: "student",
       redirect: false,
-      callbackUrl: "/mentor/dashboard",
+      callbackUrl: "/student/dashboard",
     });
     setLoading(false);
 
     if (result?.ok) {
       toast.success("Signed in");
-      router.push(result.url ?? "/mentor/dashboard");
+      router.push(result.url ?? "/student/dashboard");
     } else {
-      setError("Invalid email or password. Try a demo account below.");
+      setError("Invalid email or password.");
       toast.error("Invalid email or password.");
     }
   };
@@ -127,7 +127,7 @@ export default function MentorLogin() {
     }
     setResetLoading(true);
     try {
-      const res = await fetch("/api/password/reset", {
+      const res = await fetch("/api/student-password/reset", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -153,140 +153,152 @@ export default function MentorLogin() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-[#F5F1EB] flex flex-col">
-      {/* Header */}
-      <header className="px-6 sm:px-10 py-5">
-        <Link href="/" className="inline-flex items-end gap-0.5">
-          <img src="/icon.jpg" alt="Mentoreo Logo" className="h-10 w-10 rounded-lg" />
-          <span
-            className="text-3xl text-gray-900 leading-none"
-            style={{ fontFamily: "Fredoka, sans-serif", fontWeight: 700 }}
-          >
-            <span className="text-[#FF7A1F]">entoreo</span>
-          </span>
-        </Link>
-      </header>
 
-      {/* Main */}
-      <div className="flex-1 flex items-center justify-center px-6 pb-12">
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-[#F6F2FF] via-[#EFEAFF] to-[#E3DCFF] flex flex-col justify-center py-6 sm:py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+      {/* Decorative Elements */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+        <motion.div
+          animate={{ scale: [1, 1.05, 1], opacity: [0.3, 0.5, 0.3] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-white/40 blur-[100px]"
+        />
+        <motion.div
+          animate={{ scale: [1, 1.1, 1], opacity: [0.2, 0.4, 0.2] }}
+          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+          className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] rounded-full bg-[#CBB5FF]/40 blur-[120px]"
+        />
+      </div>
+
+      <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
+        <div className="flex justify-center mb-4 sm:mb-6">
+          <Link href="/" className="group">
+            <span
+              className="text-3xl sm:text-4xl font-bold text-[#9758FF] leading-none"
+              style={{ fontFamily: "Fredoka, sans-serif" }}
+            >
+              Mentoreo
+            </span>
+          </Link>
+        </div>
+        <h2
+          className="mt-2 text-center text-2xl sm:text-3xl font-extrabold text-[#111827]"
+          style={{ fontFamily: "Fredoka, sans-serif" }}
+        >
+          Welcome Back!
+        </h2>
+        <p
+          className="mt-2 text-center text-sm text-[#4B5563] font-medium"
+          style={{ fontFamily: "Nunito, sans-serif" }}
+        >
+          Ready to achieve your college dreams?
+        </p>
+      </div>
+
+      <div className="mt-6 sm:mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="w-full max-w-md"
+          className="bg-white/80 backdrop-blur-xl py-6 px-4 sm:py-8 shadow-[0_8px_30px_rgba(151,88,255,0.08)] sm:rounded-[32px] rounded-[24px] sm:px-10 border-2 border-[#E1D4FF]"
         >
-          {/* Card */}
-          <div className="bg-white rounded-3xl shadow-xl p-8 sm:p-10">
-            {/* Header */}
-            <div className="text-center mb-8">
-              <div className="w-14 h-14 bg-orange-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Sparkles className="h-7 w-7 text-[#FF7A1F]" />
-              </div>
-              <h1 className="text-3xl text-gray-900 mb-2" style={{ fontWeight: 700 }}>
-                Welcome back,{" "}
-                <span className="text-[#FF7A1F]" style={{ fontFamily: "Fredoka, sans-serif" }}>
-                  Mentor
-                </span>
-              </h1>
-              <p className="text-gray-500 text-sm">
-                Sign in to access your dashboard and sessions.
-              </p>
-            </div>
-
-            {/* Error */}
+          <form className="space-y-6" onSubmit={handleSubmit}>
             {error && (
-              <motion.div
-                initial={{ opacity: 0, y: -5 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl p-3 mb-6"
-              >
-                <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
-                <p className="text-sm text-red-700">{error}</p>
-              </motion.div>
+              <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-[16px] text-sm flex items-start gap-2">
+                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                <p>{error}</p>
+              </div>
             )}
 
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div>
-                <Label htmlFor="email" className="text-gray-700">
-                  Email address
-                </Label>
+            <div>
+              <Label htmlFor="email" className="block text-sm font-bold text-[#111827] mb-2">
+                Email address
+              </Label>
+              <div className="mt-1">
                 <Input
                   id="email"
+                  name="email"
                   type="email"
-                  placeholder="you@college.edu.in"
+                  autoComplete="email"
+                  required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="mt-1.5 rounded-xl h-12"
-                  autoFocus
+                  className="appearance-none block w-full px-4 py-3 border-2 border-[#E1D4FF] rounded-[16px] placeholder-[#4B5563]/50 focus:outline-none focus:ring-0 focus:border-[#9758FF] sm:text-sm transition-colors bg-white/50 focus:bg-white"
+                  placeholder="you@college.edu.in"
                 />
               </div>
+            </div>
 
-              <div>
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password" className="text-gray-700">
-                    Password
-                  </Label>
-                  <button
-                    type="button"
-                    className="text-xs text-[#FF7A1F] hover:underline"
-                    onClick={() => setForgotOpen(true)}
-                  >
-                    Forgot password?
-                  </button>
-                </div>
-                <div className="relative mt-1.5">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="rounded-xl h-12 pr-11"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                  </button>
-                </div>
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label htmlFor="password" className="block text-sm font-bold text-[#111827]">
+                  Password
+                </Label>
+                <button
+                  type="button"
+                  className="text-sm font-bold text-[#9758FF] hover:text-[#8A4FFF]"
+                  onClick={() => setForgotOpen(true)}
+                >
+                  Forgot password?
+                </button>
               </div>
+              <div className="mt-1 relative">
+                <Input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="appearance-none block w-full px-4 py-3 border-2 border-[#E1D4FF] rounded-[16px] placeholder-[#4B5563]/50 focus:outline-none focus:ring-0 focus:border-[#9758FF] sm:text-sm transition-colors bg-white/50 focus:bg-white pr-10"
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-[#4B5563] hover:text-[#9758FF] transition-colors"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5" aria-hidden="true" />
+                  ) : (
+                    <Eye className="h-5 w-5" aria-hidden="true" />
+                  )}
+                </button>
+              </div>
+            </div>
 
+            <div>
               <button
                 type="submit"
                 disabled={loading}
-                className={`w-full flex items-center justify-center gap-2 bg-[#FF7A1F] hover:bg-[#FF6A0F] text-white rounded-xl h-12 text-base transition-all ${
-                  loading ? "opacity-70 cursor-not-allowed" : "hover:shadow-lg hover:scale-[1.02]"
-                }`}
-                style={{ fontWeight: 600 }}
+                className="w-full flex justify-center py-3.5 px-4 border border-transparent rounded-[16px] shadow-md text-base font-bold text-white bg-[#9758FF] hover:bg-[#8A4FFF] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#9758FF] transition-all disabled:opacity-70 disabled:cursor-not-allowed group"
               >
-                {loading ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <>
-                    Sign In
-                    <ArrowRight className="h-4 w-4" />
-                  </>
+                {loading ? "Logging in..." : "Sign In"}
+                {!loading && (
+                  <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                 )}
               </button>
-            </form>
+            </div>
+          </form>
 
-            {/* Divider */}
-            <div className="flex items-center gap-3 my-6">
-              <div className="flex-1 h-px bg-gray-200" />
-              <span className="text-xs text-gray-400">OR</span>
-              <div className="flex-1 h-px bg-gray-200" />
+          <div className="mt-8">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-[#E1D4FF]" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-[#F8F5FF] rounded-full text-[#4B5563] font-medium border border-[#E1D4FF]">
+                  Or continue with
+                </span>
+              </div>
             </div>
 
-            {/* OAuth */}
-            <div className="grid gap-3">
+            <div className="mt-6 grid gap-3">
               <button
                 type="button"
-                onClick={() => signIn("google", { callbackUrl: "/mentor/login" })}
-                className="w-full flex items-center justify-center gap-2 rounded-xl h-12 border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-sm"
+                onClick={() => signIn("google-student", { callbackUrl: "/student/login" })}
+                className="w-full flex items-center justify-center gap-2 rounded-[16px] h-12 border-2 border-[#E1D4FF] hover:border-[#9758FF] hover:bg-[#F6F2FF] text-sm font-semibold"
               >
                 <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -297,22 +309,30 @@ export default function MentorLogin() {
                 Continue with Google
               </button>
             </div>
-
-            {/* Sign up link */}
-            <div className="text-center mt-6">
-              <p className="text-sm text-gray-500">
-                Not a mentor yet?{" "}
-                <Link
-                  href="/onboard"
-                  className="text-[#FF7A1F] hover:underline"
-                  style={{ fontWeight: 600 }}
-                >
-                  Apply here →
-                </Link>
-              </p>
-            </div>
           </div>
 
+          <div className="mt-8">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-[#E1D4FF]" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-[#F8F5FF] rounded-full text-[#4B5563] font-medium border border-[#E1D4FF]">
+                  Don't have an account?
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <Link
+                href="/student/signup"
+                className="w-full flex justify-center items-center py-3.5 px-4 border-2 border-[#E1D4FF] rounded-[16px] shadow-sm text-base font-bold text-[#9758FF] bg-white hover:bg-[#F6F2FF] hover:border-[#9758FF] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#9758FF] transition-all"
+              >
+                <Sparkles className="w-5 h-5 mr-2" />
+                Join as Student
+              </Link>
+            </div>
+          </div>
         </motion.div>
       </div>
 
@@ -383,7 +403,7 @@ export default function MentorLogin() {
           <DialogFooter>
             <Button
               type="button"
-              className="bg-[#FF7A1F] hover:bg-[#FF6A0F] text-white"
+              className="bg-[#9758FF] hover:bg-[#8A4FFF] text-white"
               onClick={handleResetPassword}
               disabled={resetLoading}
             >
@@ -392,6 +412,7 @@ export default function MentorLogin() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
     </div>
   );
 }

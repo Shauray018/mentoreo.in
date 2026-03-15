@@ -20,13 +20,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
+        role: { label: "Role", type: "text" },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
+        const role = (credentials.role as string | undefined) === "student" ? "student" : "mentor";
+        const table = role === "student" ? "student_signups" : "signups";
+
         // Fetch user with password hash from signups table
         const { data: signup, error } = await supabase
-          .from("signups")
+          .from(table)
           .select("*")
           .eq("email", credentials.email as string)
           .single();
@@ -49,6 +53,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: signup.email,
           name: signup.name,
           image: null,
+          role,
         };
       },
     }),
@@ -56,9 +61,62 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
+    Google({
+      id: "google-student",
+      name: "Google (Student)",
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    }),
   ],
   callbacks: {
     async jwt({ token, account, user, profile }) {
+      if (user && (user as any).role) {
+        token.role = (user as any).role;
+      }
+
+      if (account?.provider === "google-student") {
+        const email =
+          user?.email ??
+          (profile as any)?.email ??
+          token?.email ??
+          null;
+
+        const displayName =
+          user?.name ??
+          (profile as any)?.name ??
+          (email ? email.split("@")[0] : "Student");
+
+        if (!email) {
+          token.unregistered = true;
+          token.unregisteredEmail = "";
+          return token;
+        }
+
+        const { data: studentSignup } = await supabase
+          .from("student_signups")
+          .select("id, email, name")
+          .eq("email", email)
+          .maybeSingle();
+
+        if (!studentSignup) {
+          const { data: created, error: createError } = await supabase
+            .from("student_signups")
+            .insert([{ name: displayName, email, password: null }])
+            .select()
+            .single();
+
+          if (createError || !created) {
+            token.unregistered = true;
+            token.unregisteredEmail = email;
+            return token;
+          }
+        }
+
+        token.role = "student";
+        token.unregistered = false;
+        return token;
+      }
+
       if (account?.provider === "google") {
         const email =
           user?.email ??
@@ -72,17 +130,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return token;
         }
 
-        const { data: signup } = await supabase
+        const { data: mentorSignup } = await supabase
           .from("signups")
           .select("email")
           .eq("email", email)
           .single();
 
-        if (!signup) {
+        if (mentorSignup) {
+          token.role = "mentor";
+          token.unregistered = false;
+        } else {
           token.unregistered = true;
           token.unregisteredEmail = email;
-        } else {
-          token.unregistered = false;
         }
       }
 
@@ -91,6 +150,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token?.sub ?? "";
+        (session.user as any).role = token?.role ?? undefined;
       }
       if (token.unregistered) {
         (session as any).unregistered = true;

@@ -1,0 +1,51 @@
+import { NextRequest, NextResponse } from "next/server";
+import { supabaseServer } from "@/lib/supabase-server";
+
+// GET /api/student-profiles?email=x
+export async function GET(req: NextRequest) {
+  const email = req.nextUrl.searchParams.get("email");
+  if (!email) return NextResponse.json({ error: "email required" }, { status: 400 });
+
+  const { data, error } = await supabaseServer
+    .from("student_profiles")
+    .select("*")
+    .eq("email", email)
+    .single();
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 404 });
+  return NextResponse.json(data);
+}
+
+// POST /api/student-profiles — create profile
+export async function POST(req: NextRequest) {
+  const body = await req.json();
+  const { email, name, phone, college, class_level, avatar_url } = body;
+
+  if (!email) return NextResponse.json({ error: "email required" }, { status: 400 });
+
+  const { data, error } = await supabaseServer
+    .from("student_profiles")
+    .insert([{ email, name, phone, college, class_level, avatar_url }])
+    .select()
+    .single();
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json(data, { status: 201 });
+}
+
+// PATCH /api/student-profiles?email=x — update profile fields
+export async function PATCH(req: NextRequest) {
+  const email = req.nextUrl.searchParams.get("email");
+  if (!email) return NextResponse.json({ error: "email required" }, { status: 400 });
+
+  const body = await req.json();
+  const { data, error } = await supabaseServer
+    .from("student_profiles")
+    .update(body)
+    .eq("email", email)
+    .select()
+    .single();
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json(data);
+}

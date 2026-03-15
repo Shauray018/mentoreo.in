@@ -63,7 +63,7 @@ const STEPS: Step[] = [
   },
   {
     id: 'phone',
-    question: 'Your phone number?',
+    question: 'Your Whatsapp number?',
     hint: 'Include country code — e.g. +91 9876543210',
     type: 'tel',
     placeholder: '+91 9876543210',
@@ -74,7 +74,7 @@ const STEPS: Step[] = [
   },
   {
     id: 'email',
-    question: 'Your student email?',
+    question: 'Your college / personal email?',
     hint: 'Use your official college email — or click "Use Google" to fill it instantly.',
     type: 'email',
     placeholder: 'you@college.edu.in',

@@ -15,3 +15,11 @@ export type Signup = {
   branch?: string
   created_at?: string
 }
+
+export type StudentSignup = {
+  id?: string
+  name: string
+  email?: string | null
+  phone?: string
+  created_at?: string
+}
