@@ -43,8 +43,13 @@ export default function MentorLogin() {
       // Google authed but email not in signups table — sign out and send to onboard
       if (sess?.unregistered) {
         const unregisteredEmail = sess.unregisteredEmail ?? "";
+        const unregisteredName = sess.unregisteredName ?? "";
         signOut({ redirect: false }).then(() => {
-          router.replace(`/onboard?email=${encodeURIComponent(unregisteredEmail)}`);
+          const params = new URLSearchParams();
+          if (unregisteredEmail) params.set("email", unregisteredEmail);
+          if (unregisteredName) params.set("name", unregisteredName);
+          params.set("oauth", "google");
+          router.replace(`/onboard?${params.toString()}`);
         });
         return;
       }
@@ -66,6 +71,21 @@ export default function MentorLogin() {
     if (!email.trim() || !password.trim()) {
       setError("Please fill in both fields.");
       return;
+    }
+
+    // Block password login if the account was created via Google
+    try {
+      const res = await fetch(`/api/signups?email=${encodeURIComponent(email)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.password === null) {
+          toast.error("This account uses Google sign-in. Please continue with Google.");
+          setError("This account uses Google sign-in. Please continue with Google.");
+          return;
+        }
+      }
+    } catch {
+      // ignore lookup failures and proceed to normal auth
     }
 
     setLoading(true);
@@ -92,6 +112,18 @@ export default function MentorLogin() {
       toast.error("Enter your email first.");
       return;
     }
+    try {
+      const lookup = await fetch(`/api/signups?email=${encodeURIComponent(resetEmail)}`);
+      if (lookup.ok) {
+        const data = await lookup.json();
+        if (data?.password === null) {
+          toast.error("This account uses Google sign-in. Please continue with Google.");
+          return;
+        }
+      }
+    } catch {
+      // ignore lookup failures
+    }
     setResetSending(true);
     try {
       const res = await fetch("/api/otp/send", {
@@ -116,6 +148,18 @@ export default function MentorLogin() {
     if (!resetEmail.trim() || !resetCode.trim()) {
       toast.error("Email and code are required.");
       return;
+    }
+    try {
+      const lookup = await fetch(`/api/signups?email=${encodeURIComponent(resetEmail)}`);
+      if (lookup.ok) {
+        const data = await lookup.json();
+        if (data?.password === null) {
+          toast.error("This account uses Google sign-in. Please continue with Google.");
+          return;
+        }
+      }
+    } catch {
+      // ignore lookup failures
     }
     if (resetPassword.length < 8) {
       toast.error("Password must be at least 8 characters.");

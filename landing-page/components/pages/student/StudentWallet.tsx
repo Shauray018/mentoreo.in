@@ -84,7 +84,9 @@ export default function StudentWallet() {
                   ₹{((wallet?.balance_paise ?? 0) / 100).toFixed(0)}
                 </span>
               </div>
-              <p className="text-white/80 text-sm md:text-base font-medium mb-4 md:mb-0">Approx. 90 mins of chat available</p>
+              <p className="text-white/80 text-sm md:text-base font-medium mb-4 md:mb-0">
+                Approx. {Math.max(0, Math.floor(((wallet?.balance_paise ?? 0) / 100) / 5))} mins of chat available
+              </p>
             </div>
           </div>
 

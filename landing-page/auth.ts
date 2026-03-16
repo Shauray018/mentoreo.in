@@ -123,6 +123,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           (profile as any)?.email ??
           token?.email ??
           null;
+        const displayName =
+          user?.name ??
+          (profile as any)?.name ??
+          (email ? email.split("@")[0] : "Mentor");
 
         if (!email) {
           token.unregistered = true;
@@ -142,6 +146,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         } else {
           token.unregistered = true;
           token.unregisteredEmail = email;
+          token.unregisteredName = displayName;
         }
       }
 
@@ -155,6 +160,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (token.unregistered) {
         (session as any).unregistered = true;
         (session as any).unregisteredEmail = token.unregisteredEmail;
+        (session as any).unregisteredName = token.unregisteredName ?? "";
       }
       return session;
     },

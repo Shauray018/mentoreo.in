@@ -64,9 +64,9 @@ const STEPS: Step[] = [
   {
     id: 'phone',
     question: 'Your Whatsapp number?',
-    hint: 'Include country code — e.g. +91 9876543210',
+    hint: 'Enter your 10-digit WhatsApp number.',
     type: 'tel',
-    placeholder: '+91 9876543210',
+    placeholder: '9876543210',
     validate: (v) => {
       const digits = v.replace(/\D/g, '')
       return digits.length < 10 ? 'Please enter a valid phone number.' : null
@@ -165,28 +165,40 @@ export default function SignupPage() {
   const [otpStatus, setOtpStatus] = useState<SlideStatus>('idle')
   const [otpMsg, setOtpMsg] = useState('')
 
+  const oauth = searchParams.get('oauth')
+  const isGoogle = oauth === 'google'
+
+  const steps = useMemo(() => {
+    if (!isGoogle) return STEPS
+    return STEPS.filter((s) => !['emailOtp', 'password', 'confirmPassword'].includes(s.id))
+  }, [isGoogle])
+
   // ── Pre-fill email from Google OAuth redirect, start from step 0 ──
   useEffect(() => {
     const prefillEmail = searchParams.get('email')
+    const prefillName = searchParams.get('name')
     if (prefillEmail) {
       setFormData(prev => ({ ...prev, email: decodeURIComponent(prefillEmail), emailOtp: '' }))
-      setEmailOtpVerified(false)
+      setEmailOtpVerified(isGoogle)
       setEmailOtpSentFor(null)
+      if (prefillName) {
+        setFormData(prev => ({ ...prev, name: decodeURIComponent(prefillName) }))
+      }
       setCurrentStep(0)
       setAnimKey(k => k + 1)
     }
-  }, [searchParams])
+  }, [searchParams, isGoogle])
 
-  const step = STEPS[currentStep]
-  const progress = (currentStep / STEPS.length) * 100
-  const isLastStep = currentStep === STEPS.length - 1
+  const step = steps[currentStep]
+  const progress = (currentStep / steps.length) * 100
+  const isLastStep = currentStep === steps.length - 1
 
   // Password steps should always show as password input type
   const inputType = (step.id === 'password' || step.id === 'confirmPassword') ? 'password' : step.type
 
   const suggestionState = useMemo(() => {
-    if (currentStep >= STEPS.length) return { id: null, list: [] as string[] }
-    const id = STEPS[currentStep].id
+    if (currentStep >= steps.length) return { id: null, list: [] as string[] }
+    const id = steps[currentStep].id
     const value = formData[id].trim()
     if (value.length < 1) return { id, list: [] as string[] }
     const q = value.toLowerCase()
@@ -244,7 +256,7 @@ export default function SignupPage() {
 
   // ── Submit to Supabase — hash password via RPC ──
   async function handleSubmit() {
-    if (!emailOtpVerified) {
+    if (!emailOtpVerified && !isGoogle) {
       setStatus('error')
       setErrorMsg('Please verify your email before submitting.')
       return
@@ -252,16 +264,20 @@ export default function SignupPage() {
     setStatus('loading')
     setErrorMsg('Saving your details…')
 
-    // Hash the password using pgcrypto via RPC
-    const { data: hashedPassword, error: hashError } = await supabase.rpc('hash_password', {
-      password: formData.password,
-    })
+    let hashedPassword: string | null = null
+    if (!isGoogle) {
+      // Hash the password using pgcrypto via RPC
+      const { data, error: hashError } = await supabase.rpc('hash_password', {
+        password: formData.password,
+      })
 
-    if (hashError || !hashedPassword) {
-      setStatus('error')
-      setErrorMsg('Something went wrong. Please try again.')
-      console.error(hashError)
-      return
+      if (hashError || !data) {
+        setStatus('error')
+        setErrorMsg('Something went wrong. Please try again.')
+        console.error(hashError)
+        return
+      }
+      hashedPassword = data
     }
 
     const { error } = await supabase.from('signups').insert([{
@@ -299,7 +315,7 @@ export default function SignupPage() {
 
   // ── Google prefill ──
   function handleGooglePrefill() {
-    signIn('google', { callbackUrl: '/onboard' })
+    signIn('google', { callbackUrl: '/mentor/login?from=onboard' })
   }
 
   async function sendEmailOtp() {
@@ -399,13 +415,13 @@ export default function SignupPage() {
 
       {/* Nav */}
       <nav className="fixed top-[3px] left-0 right-0 z-40 flex items-center justify-between px-8 py-4">
-        <Link href="/mentor" className="font-bold text-orange-500 text-3xl">
+        <Link href="/" className="font-bold text-orange-500 text-3xl">
           <span style={{ fontFamily: 'Fredoka, sans-serif' }} className="text-[#FF7A1F]">
             Mentoreo
           </span>
         </Link>
         <span className="text-sm text-stone-400 font-medium">
-          {currentStep + 1} / {STEPS.length}
+          {currentStep + 1} / {steps.length}
         </span>
       </nav>
 

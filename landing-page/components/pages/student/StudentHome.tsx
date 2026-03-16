@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { 
   Search, Sparkles, GraduationCap, Building2, 
   MapPin, SlidersHorizontal, Star, Briefcase, 
@@ -8,106 +8,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { motion } from "motion/react";
-
-// Mock Database of Mentors
-const MOCK_MENTORS = [
-  {
-    id: "m1",
-    name: "Aditi Rao",
-    college: "IIT Bombay",
-    collegeType: "Public",
-    exam: "JEE",
-    image: "https://images.unsplash.com/photo-1750008559378-3f4b60a6b81b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-    rating: 4.9,
-    reviews: 124,
-    pricePerMin: 5,
-    tags: ["Tech", "Placement", "CS"]
-  },
-  {
-    id: "m4",
-    name: "Rahul Verma",
-    college: "BITS Pilani",
-    collegeType: "Private",
-    exam: "JEE",
-    image: "https://images.unsplash.com/photo-1698356253803-838dceb68946?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-    rating: 4.7,
-    reviews: 89,
-    pricePerMin: 4,
-    tags: ["Core Eng", "Startups"]
-  },
-  {
-    id: "m5",
-    name: "Sneha Reddy",
-    college: "MIT Manipal",
-    collegeType: "Private",
-    exam: "CUET",
-    image: "https://images.unsplash.com/photo-1761125050322-bbfc155571bd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-    rating: 4.6,
-    reviews: 56,
-    pricePerMin: 3,
-    tags: ["Electronics", "Masters"]
-  },
-  {
-    id: "m2",
-    name: "Vikram Singh",
-    college: "IIM Ahmedabad",
-    collegeType: "Public",
-    exam: "CAT",
-    image: "https://images.unsplash.com/photo-1604177091072-b7b677a077f6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-    rating: 4.8,
-    reviews: 210,
-    pricePerMin: 8,
-    tags: ["MBA", "Strategy"]
-  },
-  {
-    id: "m6",
-    name: "Karan Gupta",
-    college: "Symbiosis Pune",
-    collegeType: "Private",
-    exam: "CAT",
-    image: "https://images.unsplash.com/photo-1764967116421-342cb89025bf?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-    rating: 4.8,
-    reviews: 92,
-    pricePerMin: 6,
-    tags: ["HR", "Consulting"]
-  },
-  {
-    id: "m3",
-    name: "Dr. Ananya Patel",
-    college: "AIIMS Delhi",
-    collegeType: "Public",
-    exam: "NEET",
-    image: "https://images.unsplash.com/photo-1741707039571-f1c3f957a2e8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-    rating: 5.0,
-    reviews: 340,
-    pricePerMin: 7,
-    tags: ["NEET PG", "Surgery"]
-  },
-  {
-    id: "m7",
-    name: "Priya Das",
-    college: "KMC Manipal",
-    collegeType: "Private",
-    exam: "NEET",
-    image: "https://images.unsplash.com/photo-1750008559378-3f4b60a6b81b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-    rating: 4.7,
-    reviews: 112,
-    pricePerMin: 5,
-    tags: ["Dentistry", "USMLE"]
-  },
-  {
-    id: "m8",
-    name: "Rohan Kapoor",
-    college: "NID Ahmedabad",
-    collegeType: "Public",
-    exam: "NID",
-    image: "https://images.unsplash.com/photo-1698356253803-838dceb68946?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-    rating: 4.9,
-    reviews: 156,
-    pricePerMin: 5,
-    tags: ["UI/UX", "Portfolio"]
-  }
-];
+import MentorCardSkeleton from "@/components/skeletons/MentorCardSkeleton";
+import { useMentorBrowseStore } from "@/store/mentorBrowseStore";
 
 const EXAMS = [
   { id: 'JEE', label: 'JEE Main/Adv', icon: Cpu },
@@ -133,11 +35,18 @@ export default function StudentHome() {
   const [collegeType, setCollegeType] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const { mentors, loading, error, fetchMentors } = useMentorBrowseStore();
 
-  const filteredMentors = MOCK_MENTORS.filter(m => 
-    (activeExam === "All" || m.exam === activeExam) && 
-    (collegeType === "All" || m.collegeType === collegeType) &&
-    (searchQuery === "" || m.name.toLowerCase().includes(searchQuery.toLowerCase()) || m.college.toLowerCase().includes(searchQuery.toLowerCase()))
+  useEffect(() => {
+    if (!mentors.length) fetchMentors();
+  }, [mentors.length, fetchMentors]);
+
+  const filteredMentors = mentors.filter((m) =>
+    (activeExam === "All" || !m.exam || m.exam === activeExam) &&
+    (collegeType === "All" || !m.collegeType || m.collegeType === collegeType) &&
+    (searchQuery === "" ||
+      m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (m.college ?? "").toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   return (
@@ -246,15 +155,26 @@ export default function StudentHome() {
           <div className="flex justify-between items-end mb-4">
             <h3 className="text-xl font-bold text-[#111827] flex items-center gap-2" style={{ fontFamily: 'Fredoka, sans-serif' }}>
               <Sparkles className="h-5 w-5 text-[#9758FF]" fill="#9758FF" fillOpacity={0.2} /> 
-              Top Mentors
+              Mentors
             </h3>
-            <Link href="/browse" className="text-sm font-bold text-[#9758FF] hover:underline flex items-center">
-              See All <ChevronRight className="w-4 h-4 ml-0.5" />
-            </Link>
           </div>
           
           <div className="flex gap-4 overflow-x-auto pb-4 snap-x hide-scrollbar -mx-4 px-4 md:mx-0 md:px-0 md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 md:overflow-visible md:gap-6">
-            {filteredMentors.length > 0 ? (
+            {loading ? (
+              Array.from({ length: 6 }).map((_, index) => (
+                <MentorCardSkeleton key={`mentor-skeleton-${index}`} />
+              ))
+            ) : error ? (
+              <div className="w-full text-center py-10 bg-white rounded-[24px] border border-dashed border-gray-200">
+                <p className="text-[#6B7280] font-medium">{error}</p>
+                <button
+                  onClick={() => fetchMentors()}
+                  className="mt-3 text-[#9758FF] text-sm font-bold hover:underline"
+                >
+                  Retry
+                </button>
+              </div>
+            ) : filteredMentors.length > 0 ? (
               filteredMentors.map((mentor, i) => (
                 <motion.div 
                   key={mentor.id}
@@ -263,27 +183,34 @@ export default function StudentHome() {
                   transition={{ delay: i * 0.1 }}
                   className="min-w-[280px] md:min-w-0 snap-center bg-white rounded-[24px] p-3 shadow-sm border border-gray-100 flex flex-col relative hover:shadow-md hover:border-[#E9D5FF] transition-all"
                 >
-                  <Link href={`/mentor/${mentor.id}`} className="absolute inset-0 z-10" aria-label={`View ${mentor.name}'s profile`} />
+                  <Link href={`/mentor/${encodeURIComponent(mentor.id)}`} className="absolute inset-0 z-10" aria-label={`View ${mentor.name}'s profile`} />
                   
                   <div className="relative">
                     <img 
-                      src={mentor.image} 
+                      src={mentor.image ? mentor.image : "/student-logo.png"} 
                       alt={mentor.name} 
+                      onError={(e) => {
+                        e.currentTarget.src = "/student-logo.png";
+                      }}
                       className="w-full h-40 object-cover rounded-[16px] mb-3"
                     />
                     {/* College Type Badge */}
-                    <div className="absolute top-2 left-2 bg-black/50 backdrop-blur-md px-2.5 py-1 rounded-lg flex items-center gap-1.5 shadow-sm border border-white/10">
-                      <Building2 className="h-3 w-3 text-white" />
-                      <span className="text-[10px] font-bold text-white uppercase tracking-wider">{mentor.collegeType}</span>
-                    </div>
+                    {mentor.collegeType && (
+                      <div className="absolute top-2 left-2 bg-black/50 backdrop-blur-md px-2.5 py-1 rounded-lg flex items-center gap-1.5 shadow-sm border border-white/10">
+                        <Building2 className="h-3 w-3 text-white" />
+                        <span className="text-[10px] font-bold text-white uppercase tracking-wider">{mentor.collegeType}</span>
+                      </div>
+                    )}
                     {/* Rating Badge */}
-                    <div className="absolute top-2 right-2 bg-white/95 backdrop-blur-md px-2 py-1 rounded-lg flex items-center gap-1 shadow-sm">
-                      <Star className="h-3.5 w-3.5 text-yellow-400" fill="currentColor" />
-                      <span className="text-xs font-bold text-gray-900">{mentor.rating}</span>
-                    </div>
+                    {mentor.rating !== null && mentor.rating !== undefined && (
+                      <div className="absolute top-2 right-2 bg-white/95 backdrop-blur-md px-2 py-1 rounded-lg flex items-center gap-1 shadow-sm">
+                        <Star className="h-3.5 w-3.5 text-yellow-400" fill="currentColor" />
+                        <span className="text-xs font-bold text-gray-900">{mentor.rating}</span>
+                      </div>
+                    )}
                   </div>
                   
-                  <div className="px-1 flex flex-col flex-1">
+                  <div className="px-1 flex flex-col flex-1 min-h-[10rem]">
                     <div className="flex justify-between items-start mb-1">
                       <div>
                         <h4 className="font-bold text-[#111827] text-lg leading-tight">{mentor.name}</h4>
@@ -294,17 +221,17 @@ export default function StudentHome() {
                     </div>
                     
                     <div className="flex gap-1.5 mt-3 flex-wrap">
-                      {mentor.tags.map(tag => (
+                      {(mentor.tags ?? []).map(tag => (
                         <span key={tag} className="px-2 py-1 bg-[#F8F5FF] text-[#6B21A8] rounded-md text-[10px] font-bold border border-[#E9D5FF]">
                           {tag}
                         </span>
                       ))}
                     </div>
 
-                    <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
+                    <div className="mt-auto pt-3 border-t border-gray-100 flex items-center justify-between">
                       <div className="flex flex-col">
                         <span className="text-[10px] text-gray-500 font-bold uppercase">Session Fee</span>
-                        <span className="text-sm font-bold text-[#111827]">₹{mentor.pricePerMin}/min</span>
+                        <span className="text-sm font-bold text-[#111827]">₹{mentor.pricePerMin ?? 5}/min</span>
                       </div>
                       <button className="bg-[#111827] text-white px-4 py-2 rounded-xl text-xs font-bold shadow-sm relative z-20 hover:bg-[#9758FF] transition-colors">
                         Book Now

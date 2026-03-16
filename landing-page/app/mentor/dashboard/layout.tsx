@@ -8,7 +8,6 @@ export default function MentorDashboardLayout({
 }) {
   return (
     <div className="min-h-screen bg-[#F8F9FB]">
-      <MentorNavbar />
       {children}
     </div>
   );
