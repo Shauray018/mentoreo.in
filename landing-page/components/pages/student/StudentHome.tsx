@@ -183,7 +183,7 @@ export default function StudentHome() {
                   transition={{ delay: i * 0.1 }}
                   className="min-w-[280px] md:min-w-0 snap-center bg-white rounded-[24px] p-3 shadow-sm border border-gray-100 flex flex-col relative hover:shadow-md hover:border-[#E9D5FF] transition-all"
                 >
-                  <Link href={`/mentor/${encodeURIComponent(mentor.id)}`} className="absolute inset-0 z-10" aria-label={`View ${mentor.name}'s profile`} />
+                  {/* <Link href={`/mentor/${encodeURIComponent(mentor.id)}`} className="absolute inset-0 z-10" aria-label={`View ${mentor.name}'s profile`} /> */}
                   
                   <div className="relative">
                     <img 
