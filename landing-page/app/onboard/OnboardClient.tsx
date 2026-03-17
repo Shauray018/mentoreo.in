@@ -9,6 +9,7 @@ import clsx from 'clsx'
 import institutions from '@/data/institutions.json'
 import courses from '@/data/courses.json'
 import branches from '@/data/branches.json'
+import CollegeDropdown from '@/components/onboard/CollegeDropdown'
 
 // Service role client only used for hashing — safe here since this runs server-side
 // Actually we'll hash via a Supabase RPC call from client using anon key (RPC is public)
@@ -54,6 +55,22 @@ const BRANCH_OPTIONS = (branches as string[]).map((b) => b.trim()).filter(Boolea
 // ─── Steps config ────────────────────────────────────────────────────────────
 const STEPS: Step[] = [
   {
+    id: 'email',
+    question: 'Your college / personal email?',
+    hint: 'Use your official college email — or click "Use Google" to fill it instantly.',
+    type: 'email',
+    placeholder: 'you@college.edu.in',
+    validate: (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? null : 'Please enter a valid email address.',
+  },
+  {
+    id: 'emailOtp',
+    question: 'Verify your email',
+    hint: 'Enter the 6-digit code we just sent.',
+    type: 'text',
+    placeholder: '000000',
+    validate: (v) => /^[0-9]{6}$/.test(v) ? null : 'Please enter the 6-digit code.',
+  },
+  {
     id: 'name',
     question: 'What is your full name?',
     hint: "We'll use this on your profile.",
@@ -71,22 +88,6 @@ const STEPS: Step[] = [
       const digits = v.replace(/\D/g, '')
       return digits.length < 10 ? 'Please enter a valid phone number.' : null
     },
-  },
-  {
-    id: 'email',
-    question: 'Your college / personal email?',
-    hint: 'Use your official college email — or click "Use Google" to fill it instantly.',
-    type: 'email',
-    placeholder: 'you@college.edu.in',
-    validate: (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? null : 'Please enter a valid email address.',
-  },
-  {
-    id: 'emailOtp',
-    question: 'Verify your email',
-    hint: 'Enter the 6-digit code we just sent.',
-    type: 'text',
-    placeholder: '000000',
-    validate: (v) => /^[0-9]{6}$/.test(v) ? null : 'Please enter the 6-digit code.',
   },
   {
     id: 'college',
@@ -184,10 +185,15 @@ export default function SignupPage() {
       if (prefillName) {
         setFormData(prev => ({ ...prev, name: decodeURIComponent(prefillName) }))
       }
-      setCurrentStep(0)
+      if (isGoogle) {
+        const nextIndex = steps.findIndex((s) => s.id === 'phone')
+        setCurrentStep(nextIndex >= 0 ? nextIndex : 0)
+      } else {
+        setCurrentStep(0)
+      }
       setAnimKey(k => k + 1)
     }
-  }, [searchParams, isGoogle])
+  }, [searchParams, isGoogle, steps])
 
   const step = steps[currentStep]
   const progress = (currentStep / steps.length) * 100
@@ -199,15 +205,15 @@ export default function SignupPage() {
   const suggestionState = useMemo(() => {
     if (currentStep >= steps.length) return { id: null, list: [] as string[] }
     const id = steps[currentStep].id
+    if (id === 'college') return { id, list: [] as string[] }
     const value = formData[id].trim()
     if (value.length < 1) return { id, list: [] as string[] }
     const q = value.toLowerCase()
     let source: string[] = []
-    if (id === 'college') source = COLLEGE_OPTIONS
     if (id === 'course') source = COURSE_OPTIONS
     if (id === 'branch') source = BRANCH_OPTIONS
     return { id, list: source.filter((name) => name.toLowerCase().includes(q)).slice(0, 4) }
-  }, [currentStep, formData])
+  }, [currentStep, formData, steps])
 
   // Auto-focus input on step change
   useEffect(() => {
@@ -492,7 +498,16 @@ export default function SignupPage() {
             />
 
             {/* Suggestions dropdown */}
-            {(step.id === 'college' || step.id === 'course' || step.id === 'branch') &&
+            {step.id === 'college' && showSuggestionsFor === 'college' && (
+              <CollegeDropdown
+                query={formData.college}
+                options={COLLEGE_OPTIONS}
+                open={true}
+                onSelect={(value) => setFormData(prev => ({ ...prev, college: value }))}
+                onClose={() => setShowSuggestionsFor(null)}
+              />
+            )}
+            {(step.id === 'course' || step.id === 'branch') &&
               showSuggestionsFor === step.id &&
               suggestionState.id === step.id &&
               suggestionState.list.length > 0 && (

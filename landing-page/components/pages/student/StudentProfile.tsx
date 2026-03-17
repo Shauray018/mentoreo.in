@@ -174,7 +174,7 @@ export default function StudentProfile() {
           </div>
 
           {/* Menu Options */}
-          <div className="bg-white rounded-3xl shadow-sm md:shadow-md border border-[#F3E8FF] overflow-hidden mb-8">
+          {/* <div className="bg-white rounded-3xl shadow-sm md:shadow-md border border-[#F3E8FF] overflow-hidden mb-8">
             {menuItems.map((item, i) => (
               <Link key={i} href={item.link} className={`flex items-center justify-between p-4 md:p-5 hover:bg-gray-50 transition-colors ${i !== menuItems.length - 1 ? 'border-b border-[#F9F5FF]' : ''}`}>
                 <div className="flex items-center gap-4">
@@ -186,7 +186,7 @@ export default function StudentProfile() {
                 <ChevronRight className="w-5 h-5 text-[#9CA3AF]" />
               </Link>
             ))}
-          </div>
+          </div> */}
 
           {/* Log Out */}
           <button 
