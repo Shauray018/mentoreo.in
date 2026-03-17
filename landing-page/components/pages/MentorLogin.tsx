@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { signIn, signOut, useSession } from "next-auth/react";
+import { getSession, signIn, signOut, useSession } from "next-auth/react";
 import { motion } from "motion/react";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
@@ -88,7 +88,7 @@ export default function MentorLogin() {
       }
       if (res.ok) {
         const data = await res.json();
-        if (data?.password === null) {
+        if (!data?.password) {
           toast.error("This account uses Google sign-in. Please continue with Google.");
           setError("This account uses Google sign-in. Please continue with Google.");
           return;
@@ -114,6 +114,13 @@ export default function MentorLogin() {
     setLoading(false);
 
     if (result?.ok) {
+      const sess = await getSession();
+      const role = (sess?.user as any)?.role;
+      if (!sess?.user?.email || role !== "mentor") {
+        setError("This email is registered via Google login. Please continue with Google.");
+        toast.error("This email is registered via Google login. Please continue with Google.");
+        return;
+      }
       toast.success("Signed in");
       router.push(result.url ?? "/mentor/dashboard");
     } else {
@@ -140,7 +147,7 @@ export default function MentorLogin() {
       }
       if (lookup.ok) {
         const data = await lookup.json();
-        if (data?.password === null) {
+        if (!data?.password) {
           toast.error("This account uses Google sign-in. Please continue with Google.");
           return;
         }
@@ -191,7 +198,7 @@ export default function MentorLogin() {
       }
       if (lookup.ok) {
         const data = await lookup.json();
-        if (data?.password === null) {
+        if (!data?.password) {
           toast.error("This account uses Google sign-in. Please continue with Google.");
           return;
         }

@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { Textarea } from "@/app/components/ui/textarea";
+import { signOut } from "next-auth/react";
 import {
   Calendar,
   Camera,
@@ -24,6 +25,7 @@ import {
   Star,
   User,
   Wallet,
+  LogOut,
   X,
 } from "lucide-react";
 import { AVAILABILITY_SLOTS, EXPERTISE_OPTIONS } from "./constants";
@@ -386,6 +388,16 @@ export default function ProfileTab({
             </button>
           );
         })}
+      </div>
+      <div className="pt-2 md:hidden">
+        <Button
+          variant="outline"
+          className="w-full border-red-200 text-red-600 hover:bg-red-50"
+          onClick={() => signOut({ callbackUrl: "/" })}
+        >
+          <LogOut className="h-4 w-4 mr-2" />
+          Log Out
+        </Button>
       </div>
     </div>
   );
@@ -890,7 +902,19 @@ export default function ProfileTab({
           {activeProfileTab === "earnings" && renderEarnings()}
           {activeProfileTab === "reviews" && renderReviews()}
         </motion.div>
+        <div className="pt-2 md:hidden">
+        <Button
+          variant="outline"
+          className="w-full border-red-200 text-red-600 hover:bg-red-50"
+          onClick={() => signOut({ callbackUrl: "/" })}
+        >
+          <LogOut className="h-4 w-4 mr-2" />
+          Log Out
+        </Button>
+      </div>
       </AnimatePresence>
+
+      
     </div>
   );
 }
