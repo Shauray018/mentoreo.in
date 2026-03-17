@@ -68,6 +68,31 @@ export default function StudentLogin() {
       return;
     }
 
+    // Check account existence + block password login for Google-only accounts
+    try {
+      const res = await fetch(`/api/student-signups?email=${encodeURIComponent(email)}`);
+      if (res.status === 404) {
+        toast.error("No student account found with this email.");
+        setError("No student account found. Please sign up.");
+        return;
+      }
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.password === null) {
+          toast.error("This account uses Google sign-in. Please continue with Google.");
+          setError("This account uses Google sign-in. Please continue with Google.");
+          return;
+        }
+      } else {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data?.error || "Unable to verify account.");
+        return;
+      }
+    } catch {
+      toast.error("Unable to verify account. Please try again.");
+      return;
+    }
+
     setLoading(true);
     const result = await signIn("credentials", {
       email,
@@ -90,6 +115,27 @@ export default function StudentLogin() {
   const handleSendResetCode = async () => {
     if (!resetEmail.trim()) {
       toast.error("Enter your email first.");
+      return;
+    }
+    try {
+      const lookup = await fetch(`/api/student-signups?email=${encodeURIComponent(resetEmail)}`);
+      if (lookup.status === 404) {
+        toast.error("No student account found with this email.");
+        return;
+      }
+      if (lookup.ok) {
+        const data = await lookup.json();
+        if (data?.password === null) {
+          toast.error("This account uses Google sign-in. Please continue with Google.");
+          return;
+        }
+      } else {
+        const data = await lookup.json().catch(() => ({}));
+        toast.error(data?.error || "Unable to verify account.");
+        return;
+      }
+    } catch {
+      toast.error("Unable to verify account. Please try again.");
       return;
     }
     setResetSending(true);
@@ -115,6 +161,27 @@ export default function StudentLogin() {
   const handleResetPassword = async () => {
     if (!resetEmail.trim() || !resetCode.trim()) {
       toast.error("Email and code are required.");
+      return;
+    }
+    try {
+      const lookup = await fetch(`/api/student-signups?email=${encodeURIComponent(resetEmail)}`);
+      if (lookup.status === 404) {
+        toast.error("No student account found with this email.");
+        return;
+      }
+      if (lookup.ok) {
+        const data = await lookup.json();
+        if (data?.password === null) {
+          toast.error("This account uses Google sign-in. Please continue with Google.");
+          return;
+        }
+      } else {
+        const data = await lookup.json().catch(() => ({}));
+        toast.error(data?.error || "Unable to verify account.");
+        return;
+      }
+    } catch {
+      toast.error("Unable to verify account. Please try again.");
       return;
     }
     if (resetPassword.length < 8) {

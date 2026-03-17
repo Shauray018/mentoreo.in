@@ -73,9 +73,19 @@ export default function MentorLogin() {
       return;
     }
 
-    // Block password login if the account was created via Google
+    // Check account existence + block password login for Google-only accounts
     try {
       const res = await fetch(`/api/signups?email=${encodeURIComponent(email)}`);
+      if (res.status === 404) {
+        toast.error("No mentor account found with this email.", {
+          action: {
+            label: "Apply",
+            onClick: () => router.push("/onboard"),
+          },
+        });
+        setError("No mentor account found. Please apply to become a mentor.");
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         if (data?.password === null) {
@@ -83,9 +93,14 @@ export default function MentorLogin() {
           setError("This account uses Google sign-in. Please continue with Google.");
           return;
         }
+      } else {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data?.error || "Unable to verify account.");
+        return;
       }
     } catch {
-      // ignore lookup failures and proceed to normal auth
+      toast.error("Unable to verify account. Please try again.");
+      return;
     }
 
     setLoading(true);
@@ -114,15 +129,29 @@ export default function MentorLogin() {
     }
     try {
       const lookup = await fetch(`/api/signups?email=${encodeURIComponent(resetEmail)}`);
+      if (lookup.status === 404) {
+        toast.error("No mentor account found with this email.", {
+          action: {
+            label: "Apply",
+            onClick: () => router.push("/onboard"),
+          },
+        });
+        return;
+      }
       if (lookup.ok) {
         const data = await lookup.json();
         if (data?.password === null) {
           toast.error("This account uses Google sign-in. Please continue with Google.");
           return;
         }
+      } else {
+        const data = await lookup.json().catch(() => ({}));
+        toast.error(data?.error || "Unable to verify account.");
+        return;
       }
     } catch {
-      // ignore lookup failures
+      toast.error("Unable to verify account. Please try again.");
+      return;
     }
     setResetSending(true);
     try {
@@ -151,15 +180,29 @@ export default function MentorLogin() {
     }
     try {
       const lookup = await fetch(`/api/signups?email=${encodeURIComponent(resetEmail)}`);
+      if (lookup.status === 404) {
+        toast.error("No mentor account found with this email.", {
+          action: {
+            label: "Apply",
+            onClick: () => router.push("/onboard"),
+          },
+        });
+        return;
+      }
       if (lookup.ok) {
         const data = await lookup.json();
         if (data?.password === null) {
           toast.error("This account uses Google sign-in. Please continue with Google.");
           return;
         }
+      } else {
+        const data = await lookup.json().catch(() => ({}));
+        toast.error(data?.error || "Unable to verify account.");
+        return;
       }
     } catch {
-      // ignore lookup failures
+      toast.error("Unable to verify account. Please try again.");
+      return;
     }
     if (resetPassword.length < 8) {
       toast.error("Password must be at least 8 characters.");
