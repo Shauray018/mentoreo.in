@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
 import { Badge } from "@/app/components/ui/badge";
 import { Button } from "@/app/components/ui/button";
@@ -18,12 +19,18 @@ import {
   Clock,
   GraduationCap,
   IndianRupee,
+  ExternalLink,
   MessageSquare,
+  MapPin,
   Pencil,
   Save,
   Sparkles,
   Star,
   User,
+  Award,
+  Building2,
+  Shield,
+  Video,
   Wallet,
   LogOut,
   X,
@@ -98,8 +105,11 @@ export default function ProfileTab({
 }: ProfileTabProps) {
   const [activeProfileTab, setActiveProfileTab] = useState<"menu" | "details" | "schedule" | "earnings" | "reviews">("menu");
   const [tasks, setTasks] = useState<ProfileTask[]>(initialTasks);
-  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
-  const [profileCompletionExpanded, setProfileCompletionExpanded] = useState(false);
+  const [profileCompletionExpanded, setProfileCompletionExpanded] = useState(true);
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState("");
+  const [avatarUploading, setAvatarUploading] = useState(false);
 
   const [bio, setBio] = useState("");
   const [approach, setApproach] = useState("");
@@ -112,7 +122,6 @@ export default function ProfileTab({
   const [year, setYear] = useState("4th Year");
   const [activeSlots, setActiveSlots] = useState<Record<string, boolean>>({});
   const [isProfileEditing, setIsProfileEditing] = useState(false);
-  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     setDisplayName(profile?.display_name ?? signupName ?? "");
@@ -184,11 +193,28 @@ export default function ProfileTab({
   const progress = Math.round((completedCount / tasks.length) * 100);
   const profileComplete = progress === 100;
   const activeSlotCount = Object.values(activeSlots).filter(Boolean).length;
-
-  const completeTask = (id: string) => {
-    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, completed: true } : t)));
-    setActiveTaskId(null);
+  const profileAvatarUrl = profile?.avatar_url ?? "";
+  const profileAvatarUpdatedAt = profile?.updated_at ?? "";
+  const withCacheBust = (url: string, stamp?: string) => {
+    if (!url) return "";
+    const separator = url.includes("?") ? "&" : "?";
+    const token = stamp ? encodeURIComponent(stamp) : Date.now().toString();
+    return `${url}${separator}v=${token}`;
   };
+  const displayAvatarUrl = avatarPreviewUrl || (profileAvatarUrl ? withCacheBust(profileAvatarUrl, profileAvatarUpdatedAt) : "");
+
+  useEffect(() => {
+    setTasks((prev) =>
+      prev.map((task) => {
+        if (task.id === "photo") return { ...task, completed: Boolean(displayAvatarUrl) };
+        if (task.id === "bio") return { ...task, completed: Boolean(bio.trim()) };
+        if (task.id === "expertise") return { ...task, completed: selectedExpertise.length > 0 };
+        if (task.id === "availability") return { ...task, completed: activeSlotCount > 0 };
+        if (task.id === "upi") return { ...task, completed: Boolean(upiId.trim()) };
+        return task;
+      })
+    );
+  }, [activeSlotCount, bio, displayAvatarUrl, selectedExpertise.length, upiId]);
 
   const toggleExpertise = (tag: string) => {
     setSelectedExpertise((prev) =>
@@ -214,131 +240,145 @@ export default function ProfileTab({
       course,
       availability: activeSlots,
     });
-    setSaved(true);
     setIsProfileEditing(false);
-    setTimeout(() => setSaved(false), 2500);
+    toast.success("Profile saved");
   };
 
-  const renderTaskPanel = (taskId: string) => {
-    switch (taskId) {
-      case "photo":
-        return (
-          <div className="space-y-4">
-            <div className="border-2 border-dashed border-gray-300 rounded-2xl p-10 text-center hover:border-[#FF7A1F] transition-colors cursor-pointer">
-              <Camera className="h-10 w-10 text-gray-400 mx-auto mb-3" />
-              <p className="text-gray-600">Click to upload or drag & drop</p>
-              <p className="text-xs text-gray-400 mt-1">JPG or PNG, max 5 MB</p>
-            </div>
-            <Button className="bg-[#FF7A1F] hover:bg-[#FF6A0F] w-full" onClick={() => completeTask("photo")}>Save Photo</Button>
-          </div>
-        );
-      case "bio":
-        return (
-          <div className="space-y-4">
-            <Textarea placeholder="Hey! I'm a 3rd year CS student at IIT Delhi…" value={bio} onChange={(e) => setBio(e.target.value)} className="min-h-32" />
-            <p className="text-xs text-gray-500">Be honest and relatable. Students want real talk, not a resume!</p>
-            <Button className="bg-[#FF7A1F] hover:bg-[#FF6A0F] w-full" onClick={() => completeTask("bio")}>Save Bio</Button>
-          </div>
-        );
-      case "expertise":
-        return (
-          <div className="space-y-4">
-            <div className="grid sm:grid-cols-2 gap-2">
-              {EXPERTISE_OPTIONS.map((tag) => (
-                <div key={tag} onClick={() => toggleExpertise(tag)} className={`p-3 border rounded-xl cursor-pointer transition-all text-sm ${selectedExpertise.includes(tag) ? "border-[#FF7A1F] bg-orange-50 text-[#FF7A1F]" : "border-gray-200 hover:border-gray-300 text-gray-700"}`}>
-                  <div className="flex items-center gap-2">
-                    {selectedExpertise.includes(tag) && <CheckCircle2 className="h-4 w-4 text-[#FF7A1F]" />}
-                    <span>{tag}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <Button className="bg-[#FF7A1F] hover:bg-[#FF6A0F] w-full" onClick={() => completeTask("expertise")}>Save Expertise ({selectedExpertise.length} selected)</Button>
-          </div>
-        );
-      case "availability":
-        return (
-          <div className="space-y-4">
-            <p className="text-sm text-gray-500">Pick time slots when students can reach you.</p>
-            <div className="space-y-2">
-              {AVAILABILITY_SLOTS.map(({ day, slots }) => (
-                <div key={day} className="flex items-center gap-3">
-                  <span className="w-20 text-xs text-gray-600 flex-shrink-0" style={{ fontWeight: 500 }}>{day.slice(0, 3)}</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {slots.map((slot) => {
-                      const key = `${day}-${slot}`;
-                      return (
-                        <button key={key} onClick={() => toggleSlot(key)} className={`px-2.5 py-1.5 rounded-lg text-xs border transition-all ${activeSlots[key] ? "border-[#FF7A1F] bg-orange-50 text-[#FF7A1F]" : "border-gray-200 text-gray-500 hover:border-gray-300"}`} style={{ fontWeight: activeSlots[key] ? 600 : 400 }}>{slot}</button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="flex items-center gap-3">
-              <Button className="bg-[#FF7A1F] hover:bg-[#FF6A0F] flex-1" onClick={() => completeTask("availability")}>Save Availability{activeSlotCount > 0 && ` (${activeSlotCount})`}</Button>
-              {activeSlotCount > 0 && (
-                <Button variant="outline" className="text-gray-500 hover:text-red-500 hover:border-red-300" onClick={clearAllSlots}><X className="h-4 w-4 mr-1" />Clear</Button>
-              )}
-            </div>
-          </div>
-        );
-      case "upi":
-        return (
-          <div className="space-y-4">
-            <div>
-              <Label>UPI ID</Label>
-              <Input placeholder="yourname@upi" value={upiId} onChange={(e) => setUpiId(e.target.value)} className="mt-1" />
-              <p className="text-xs text-gray-500 mt-1">We'll send weekly payouts to this UPI ID.</p>
-            </div>
-            <Button className="bg-[#FF7A1F] hover:bg-[#FF6A0F] w-full" onClick={() => completeTask("upi")}>Save Payment Info</Button>
-          </div>
-        );
-      default:
-        return null;
+  const handleAvailabilitySave = async () => {
+    await onSaveProfile({ availability: activeSlots });
+  };
+
+  const handleAvatarPick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const email = profile?.email ?? signupEmail;
+    if (!email) return;
+
+    setAvatarPreviewUrl(URL.createObjectURL(file));
+    setAvatarUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("email", email);
+      const res = await fetch("/api/upload-avatar", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Upload failed");
+      if (data?.url) {
+        setAvatarPreviewUrl(withCacheBust(data.url));
+        await onSaveProfile({ avatar_url: data.url });
+      }
+    } catch {
+      setAvatarPreviewUrl(profileAvatarUrl);
+    } finally {
+      setAvatarUploading(false);
+      event.target.value = "";
     }
   };
 
   const renderProfileMenu = () => (
-    <div className="space-y-4">
-      <Card className="border-0 shadow-sm">
-        <CardContent className="p-5">
-          <div className="flex items-start gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-orange-100 flex items-center justify-center text-orange-600 font-bold text-xl">
-              {getInitials(displayName || signupName)}
+    <div className="space-y-6 max-w-4xl mx-auto">
+      <Card className="border-0 shadow-sm relative pt-6">
+        <CardContent className="px-6 pb-6 relative">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-5 mb-2">
+            <div className="relative group">
+              <button
+                onClick={() => !profileComplete && setProfileCompletionExpanded(!profileCompletionExpanded)}
+                className="relative focus:outline-none flex items-center justify-center w-[110px] h-[110px]"
+              >
+                {!profileComplete && (
+                  <svg className="absolute inset-0 w-full h-full -rotate-90 z-20 pointer-events-none" viewBox="0 0 120 120">
+                    <circle cx="60" cy="60" r="56" fill="none" stroke="#e5e7eb" strokeWidth="6" />
+                    <circle
+                      cx="60"
+                      cy="60"
+                      r="56"
+                      fill="none"
+                      stroke="#FF7A1F"
+                      strokeWidth="6"
+                      strokeLinecap="round"
+                      strokeDasharray={`${2 * Math.PI * 56}`}
+                      strokeDashoffset={`${2 * Math.PI * 56 * (1 - progress / 100)}`}
+                      className="transition-all duration-700 drop-shadow-sm"
+                    />
+                  </svg>
+                )}
+
+                <div className="w-24 h-24 rounded-full bg-orange-100 flex items-center justify-center text-3xl relative z-10 overflow-hidden shadow-inner border-[3px] border-white text-orange-700" style={{ fontWeight: 700 }}>
+                  {displayAvatarUrl ? (
+                    <img src={displayAvatarUrl} alt={displayName || signupName} className="w-full h-full object-cover" />
+                  ) : (
+                    getInitials(displayName || signupName)
+                  )}
+                  {!profileComplete && (
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[1px] transition-all group-hover:bg-black/50">
+                      <span className="text-white text-xl drop-shadow-md" style={{ fontWeight: 700 }}>{progress}%</span>
+                    </div>
+                  )}
+                </div>
+
+                {profileComplete && (
+                  <div className="absolute bottom-1 right-1 bg-green-500 text-white rounded-full p-1.5 shadow-lg z-20 border-2 border-white">
+                    <CheckCircle2 className="w-4 h-4" />
+                  </div>
+                )}
+              </button>
             </div>
-            <div className="flex-1">
-              <h2 className="text-lg font-bold text-gray-900">{displayName || signupName}</h2>
-              <p className="text-sm text-gray-500">{signupEmail}</p>
+
+            <div>
+              <h2 className="text-2xl text-gray-900" style={{ fontFamily: "Fredoka, sans-serif", fontWeight: 600 }}>{displayName || signupName}</h2>
+              <p className="text-sm text-gray-600 flex items-center gap-1.5 mt-1" style={{ fontWeight: 500 }}>
+                <MapPin className="h-3.5 w-3.5" /> {college || signupCollege}
+              </p>
             </div>
-          </div>
-          <div className="mt-4 flex items-center gap-2">
-            <Badge className="bg-green-100 text-green-700 hover:bg-green-100">Profile {progress}% Complete</Badge>
-            <Button variant="outline" size="sm" className="text-xs" onClick={() => setProfileCompletionExpanded((prev) => !prev)}>
-              {profileCompletionExpanded ? "Hide tasks" : "View tasks"}
-            </Button>
           </div>
 
           <AnimatePresence>
-            {profileCompletionExpanded && (
+            {profileCompletionExpanded && !profileComplete && (
               <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3 }}
                 className="overflow-hidden"
               >
-                <div className="mt-4 space-y-2">
-                  {tasks.map((task) => {
-                    const Icon = task.icon;
-                    return (
-                      <div
-                        key={task.id}
-                        className={`p-3 rounded-xl border cursor-pointer transition-all ${task.completed ? "border-green-200 bg-green-50" : "border-gray-100 hover:border-gray-200"}`}
-                        onClick={() => setActiveTaskId(task.id)}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${task.completed ? "bg-green-100 text-green-600" : "bg-orange-50 text-[#FF7A1F]"}`}>
-                            <Icon className="w-4 h-4" />
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-bold text-gray-900">Complete Your Profile</h3>
+                    <button
+                      onClick={() => setProfileCompletionExpanded(false)}
+                      className="text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-600 mb-4">
+                    Complete all tasks to verify your profile and start getting bookings from students.
+                  </p>
+                  <div className="space-y-2">
+                    {tasks.map((task) => {
+                      const Icon = task.icon;
+                      return (
+                        <div
+                          key={task.id}
+                          className={`flex items-start gap-3 p-3 rounded-xl border transition-all ${
+                            task.completed
+                              ? "bg-green-50 border-green-200"
+                              : "bg-orange-50/50 border-orange-200 hover:border-[#FF7A1F] cursor-pointer"
+                          }`}
+                          onClick={() => !task.completed && setActiveProfileTab("details")}
+                        >
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                            task.completed ? "bg-green-500" : "bg-orange-100"
+                          }`}>
+                            {task.completed ? (
+                              <CheckCircle2 className="w-4 h-4 text-white" />
+                            ) : (
+                              <Icon className="w-4 h-4 text-[#FF7A1F]" />
+                            )}
                           </div>
                           <div className="flex-1 min-w-0">
                             <h4 className="text-sm font-semibold text-gray-900 mb-0.5">{task.label}</h4>
@@ -346,17 +386,17 @@ export default function ProfileTab({
                           </div>
                           {!task.completed && <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0 mt-1" />}
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
+                  <Button
+                    className="w-full mt-4 bg-[#FF7A1F] hover:bg-[#E66A15] text-white"
+                    onClick={() => setActiveProfileTab("details")}
+                  >
+                    Complete All Tasks
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
                 </div>
-                <Button
-                  className="w-full mt-4 bg-[#FF7A1F] hover:bg-[#E66A15] text-white"
-                  onClick={() => setActiveProfileTab("details")}
-                >
-                  Complete All Tasks
-                  <ChevronRight className="w-4 h-4 ml-1" />
-                </Button>
               </motion.div>
             )}
           </AnimatePresence>
@@ -444,7 +484,7 @@ export default function ProfileTab({
               </div>
             ))}
           </div>
-          <Button className="bg-[#FF7A1F] hover:bg-[#FF6A0F] w-full mt-6 h-11" onClick={() => completeTask("availability")}>
+          <Button className="bg-[#FF7A1F] hover:bg-[#FF6A0F] w-full mt-6 h-11" onClick={handleAvailabilitySave}>
             <Save className="h-4 w-4 mr-2" />
             Save Availability
           </Button>
@@ -671,17 +711,6 @@ export default function ProfileTab({
 
   const renderProfileDetails = () => (
     <div className="space-y-6">
-      <AnimatePresence>
-        {saved && (
-          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-green-50 border border-green-200 text-green-700 text-sm">
-              <CheckCircle2 className="h-4 w-4" />
-              <span style={{ fontWeight: 600 }}>Profile saved successfully!</span>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       <div className="grid lg:grid-cols-5 gap-6">
         <div className="lg:col-span-3 space-y-4">
           <div className="flex items-center justify-between">
@@ -714,14 +743,32 @@ export default function ProfileTab({
             <CardContent className="space-y-3 pt-0">
               <div className="flex items-center gap-4 mb-2">
                 <div className="relative group">
-                  <div className="w-16 h-16 rounded-2xl bg-orange-100 flex items-center justify-center text-2xl">
-                    {getInitials(displayName || signupName)}
-                  </div>
-                  {isProfileEditing && (
-                    <button className="absolute inset-0 bg-black/40 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Camera className="h-4 w-4 text-white" />
-                    </button>
+                  <div className="w-16 h-16 rounded-2xl bg-orange-100 flex items-center justify-center text-2xl overflow-hidden text-orange-700" style={{ fontWeight: 700 }}>
+                  {displayAvatarUrl ? (
+                    <img src={displayAvatarUrl} alt={displayName || signupName} className="w-full h-full object-cover" />
+                  ) : (
+                    getInitials(displayName || signupName)
                   )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAvatarPick}
+                    className={`absolute inset-0 rounded-2xl flex items-center justify-center transition-opacity ${isProfileEditing ? "bg-black/40 opacity-0 group-hover:opacity-100" : "bg-black/20 opacity-0 group-hover:opacity-100"}`}
+                    aria-label="Change profile photo"
+                  >
+                    {avatarUploading ? (
+                      <div className="h-4 w-4 rounded-full border-2 border-white/70 border-t-white animate-spin" />
+                    ) : (
+                      <Camera className="h-4 w-4 text-white" />
+                    )}
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    onChange={handleAvatarChange}
+                    className="hidden"
+                  />
                 </div>
                 <div>
                   <p className="text-sm" style={{ fontWeight: 600 }}>{displayName || signupName}</p>
@@ -768,7 +815,8 @@ export default function ProfileTab({
             <CardHeader className="pb-3">
               <CardTitle className="text-sm flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-[#FF7A1F]" /> Expertise Tags
+                  <Award className="h-4 w-4 text-[#FF7A1F]" /> Expertise Areas
+                  <span className="text-[11px] text-gray-400" style={{ fontWeight: 400 }}>({selectedExpertise.length} selected)</span>
                 </div>
                 {tasks.find((t) => t.id === "expertise")?.completed && (
                   <Badge className="bg-green-100 text-green-700 hover:bg-green-100 text-[10px]">
@@ -777,106 +825,164 @@ export default function ProfileTab({
                 )}
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 pt-0">
-              <div className="grid sm:grid-cols-2 gap-2">
-                {EXPERTISE_OPTIONS.map((tag) => (
-                  <div key={tag} onClick={() => isProfileEditing && toggleExpertise(tag)} className={`p-3 border rounded-xl cursor-pointer transition-all text-sm ${selectedExpertise.includes(tag) ? "border-[#FF7A1F] bg-orange-50 text-[#FF7A1F]" : "border-gray-200 hover:border-gray-300 text-gray-700"}`}>
-                    <div className="flex items-center gap-2">
-                      {selectedExpertise.includes(tag) && <CheckCircle2 className="h-4 w-4 text-[#FF7A1F]" />}
-                      <span>{tag}</span>
-                    </div>
-                  </div>
-                ))}
+            <CardContent className="pt-0">
+              <div className="flex flex-wrap gap-1.5">
+                {EXPERTISE_OPTIONS.map((tag) => {
+                  const isSelected = selectedExpertise.includes(tag);
+                  return (
+                    <button
+                      key={tag}
+                      onClick={() => isProfileEditing && toggleExpertise(tag)}
+                      disabled={!isProfileEditing}
+                      className={`px-3 py-1.5 rounded-full text-xs transition-all ${isSelected ? "bg-[#FF7A1F] text-white" : isProfileEditing ? "bg-gray-100 text-gray-500 hover:bg-gray-200" : "bg-gray-100 text-gray-400"}`}
+                      style={{ fontWeight: isSelected ? 600 : 400 }}
+                    >
+                      {isSelected && <CheckCircle2 className="h-3 w-3 inline mr-1 -mt-0.5" />}
+                      {tag}
+                    </button>
+                  );
+                })}
               </div>
-              {isProfileEditing && (
-                <Button size="sm" className="bg-[#FF7A1F] hover:bg-[#FF6A0F] text-white gap-1.5" onClick={() => completeTask("expertise")}>
-                  <Save className="h-3.5 w-3.5" /> Save Expertise
-                </Button>
-              )}
             </CardContent>
           </Card>
         </div>
 
-        <div className="lg:col-span-2 space-y-4">
-          <Card className="border-0 shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <IndianRupee className="h-4 w-4 text-[#FF7A1F]" /> Payment Info
-                </div>
-                {tasks.find((t) => t.id === "upi")?.completed && (
-                  <Badge className="bg-green-100 text-green-700 hover:bg-green-100 text-[10px]">
-                    <CheckCircle2 className="w-3 h-3 mr-0.5" /> Complete
-                  </Badge>
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 pt-0">
-              <Label className="text-[11px] text-gray-400">UPI ID</Label>
-              <Input value={upiId} onChange={(e) => setUpiId(e.target.value)} disabled={!isProfileEditing} className="h-9 text-sm disabled:bg-gray-50 disabled:border-transparent" />
-            </CardContent>
-          </Card>
+        <div className="lg:col-span-2">
+          <div className="sticky top-8 space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-gray-400" style={{ fontWeight: 600 }}>LIVE PREVIEW</p>
+              <Button variant="outline" size="sm" className="gap-1 text-[10px] h-7">
+                <ExternalLink className="h-3 w-3" />View Public
+              </Button>
+            </div>
 
-          <Card className="border-0 shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm flex items-center justify-between">Profile Completion</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
-                <div className="h-full bg-[#FF7A1F]" style={{ width: `${progress}%` }} />
-              </div>
-              <p className="text-xs text-gray-500 mt-2">{progress}% completed</p>
-              {activeTaskId && (
-                <div className="mt-4 p-4 rounded-xl border">
-                  {renderTaskPanel(activeTaskId)}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            <div className="relative mx-auto w-full max-w-[320px] bg-[#FFF9F5] border-[6px] border-gray-900 rounded-[2.5rem] shadow-xl overflow-hidden h-[600px] flex flex-col font-nunito">
+              <div className="absolute top-0 inset-x-0 h-6 bg-gray-900 rounded-b-2xl w-1/2 mx-auto z-50"></div>
 
-          {profileComplete && (
-            <Card className="border-green-200 bg-gradient-to-r from-green-50 to-emerald-50">
-              <CardContent className="p-5 flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center"><Sparkles className="h-5 w-5 text-green-600" /></div>
-                <div>
-                  <h3 className="text-green-900 text-sm" style={{ fontWeight: 700 }}>Your profile is live! 🎉</h3>
-                  <p className="text-xs text-green-700">Students can now find and book sessions with you.</p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+              <div className="flex-1 overflow-y-auto hide-scrollbar pb-20 relative">
+                <div className="relative h-48 w-full bg-gradient-to-b from-[#FF7A1F] to-amber-500 rounded-b-[32px] overflow-hidden">
+                  <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMiIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjEpIi8+PC9zdmc+')] opacity-30"></div>
+                  <div className="absolute inset-0 flex items-center justify-center -mt-6">
+                  {displayAvatarUrl ? (
+                    <img src={displayAvatarUrl} alt={displayName || signupName} className="w-20 h-20 rounded-full object-cover shadow-lg border-4 border-white/60" />
+                  ) : (
+                    <span className="text-6xl drop-shadow-lg">{getInitials(displayName || signupName)}</span>
+                  )}
+                  </div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent"></div>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center"><Calendar className="h-4 w-4 text-green-600" /></div>
-                Upcoming Sessions
-                <Badge className="bg-green-100 text-green-700 hover:bg-green-100 text-xs">{upcomingSessions.length}</Badge>
-              </CardTitle>
-              <Button variant="ghost" size="sm" className="text-xs" onClick={() => { setActiveProfileTab("schedule"); }}>View All</Button>
-            </CardHeader>
-            <CardContent className="space-y-2.5 pt-0">
-              {upcomingSessions.map((session) => (
-                <div key={session.id} className="p-3.5 border rounded-xl hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center gap-3.5">
-                    <img src={session.student.image} alt={session.student.name} className="w-10 h-10 rounded-full object-cover" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-sm" style={{ fontWeight: 600 }}>{session.student.name}</h4>
-                        <span className="text-[#FF7A1F] text-sm" style={{ fontWeight: 600 }}>+₹{session.earning}</span>
+                  <div className="absolute bottom-4 left-4 right-4">
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      {profileComplete && (
+                        <span className="bg-green-500 text-white text-[8px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                          <Shield className="w-2.5 h-2.5" /> Verified
+                        </span>
+                      )}
+                      <span className="bg-white/20 backdrop-blur-md text-white text-[8px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                        <Building2 className="w-2.5 h-2.5" /> Public
+                      </span>
+                    </div>
+                    <h1 className="text-xl font-bold text-white mb-0.5" style={{ fontFamily: "Fredoka, sans-serif" }}>
+                      {displayName || signupName}
+                    </h1>
+                    <p className="text-white/90 text-[11px] font-semibold flex items-center gap-1">
+                      <MapPin className="w-3 h-3" /> {college || signupCollege}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="px-4 py-4 border-b border-gray-100 flex justify-between items-center bg-white">
+                  <div className="text-center">
+                    <div className="flex items-center justify-center gap-1 mb-0.5">
+                      <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                      <span className="font-bold text-[#111827] text-sm">{stats.averageRating}</span>
+                    </div>
+                    <p className="text-[9px] text-[#6B7280] font-semibold">Rating</p>
+                  </div>
+                  <div className="w-px h-8 bg-gray-100"></div>
+                  <div className="text-center">
+                    <div className="flex items-center justify-center gap-1 mb-0.5">
+                      <Video className="w-4 h-4 text-[#FF7A1F]" />
+                      <span className="font-bold text-[#111827] text-sm">{stats.totalSessions}</span>
+                    </div>
+                    <p className="text-[9px] text-[#6B7280] font-semibold">Sessions</p>
+                  </div>
+                  <div className="w-px h-8 bg-gray-100"></div>
+                  <div className="text-center">
+                    <div className="flex items-center justify-center gap-1 mb-0.5">
+                      <MessageSquare className="w-4 h-4 text-blue-500" />
+                      <span className="font-bold text-[#111827] text-sm">&lt; 2h</span>
+                    </div>
+                    <p className="text-[9px] text-[#6B7280] font-semibold">Response</p>
+                  </div>
+                </div>
+
+                <div className="px-4 py-5 space-y-6 bg-white">
+                  <div>
+                    <h3 className="text-sm font-bold text-[#111827] mb-2.5" style={{ fontFamily: "Fredoka, sans-serif" }}>
+                      Academic Profile
+                    </h3>
+                    <div className="bg-[#FFF9F5] rounded-xl p-3 border border-orange-100">
+                      <div className="flex justify-between items-center mb-1.5">
+                        <span className="text-[#6B7280] text-[11px]">Course</span>
+                        <span className="text-[#111827] font-bold text-[11px] text-right ml-2">{course || signupCourse}</span>
                       </div>
-                      <p className="text-xs text-gray-500 truncate">{session.topic}</p>
-                      <div className="flex items-center gap-3 text-[11px] text-gray-400 mt-1">
-                        <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{session.date}</span>
-                        <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{session.time}</span>
-                        <span className="flex items-center gap-1"><MessageSquare className="h-3 w-3" />{session.duration}</span>
+                      <div className="flex justify-between items-center pt-1.5 border-t border-orange-100">
+                        <span className="text-[#6B7280] text-[11px]">Year</span>
+                        <span className="text-[#111827] font-bold text-[11px]">{year || "Not set"}</span>
                       </div>
                     </div>
                   </div>
+
+                  {(bio || approach) && (
+                    <div>
+                      <h3 className="text-sm font-bold text-[#111827] mb-2" style={{ fontFamily: "Fredoka, sans-serif" }}>
+                        About Me
+                      </h3>
+                      <p className="text-[#4B5563] text-[11px] leading-relaxed">
+                        {bio || approach}
+                      </p>
+                    </div>
+                  )}
+
+                  {selectedExpertise.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-bold text-[#111827] mb-2" style={{ fontFamily: "Fredoka, sans-serif" }}>
+                        I can help you with
+                      </h3>
+                      <div className="flex flex-wrap gap-1.5">
+                        {selectedExpertise.map((skill, index) => (
+                          <span
+                            key={index}
+                            className="bg-white border border-orange-100 text-[#FF7A1F] px-2 py-1 rounded-lg text-[9px] font-bold shadow-sm"
+                          >
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              ))}
-            </CardContent>
-          </Card>
+              </div>
+
+              <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-orange-100 p-3 flex items-center justify-between shadow-[0_-4px_20px_rgba(0,0,0,0.05)] rounded-b-[2.5rem]">
+                <div>
+                  <p className="text-[8px] font-semibold text-[#6B7280] uppercase tracking-wider mb-0.5">Session Price</p>
+                  <div className="flex items-baseline gap-0.5">
+                    <span className="text-lg font-black text-[#111827]" style={{ fontFamily: "Fredoka, sans-serif" }}>
+                      ₹9
+                    </span>
+                    <span className="text-[10px] font-bold text-[#6B7280]">/min</span>
+                  </div>
+                </div>
+
+                <Button className="bg-[#FF7A1F] hover:bg-[#E66A15] text-white px-5 py-4 rounded-xl shadow-lg shadow-orange-200 font-bold text-xs flex items-center gap-1.5 h-auto">
+                  <Calendar className="w-3.5 h-3.5" />
+                  Book
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

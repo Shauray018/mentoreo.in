@@ -1,4 +1,13 @@
 import { create } from "zustand";
+import {
+  fetchSignup,
+  fetchMentorProfile,
+  fetchMentorSessions,
+  fetchMentorReviews,
+  fetchMentorEarnings,
+  saveMentorProfile,
+  updateSessionStatus,
+} from "@/services/mentorApi";
 
 // ── Types ──
 export interface SignupRow {
@@ -24,6 +33,7 @@ export interface MentorProfile {
   is_available: boolean;
   avatar_url: string | null;
   availability: Record<string, boolean> | null;
+  updated_at?: string | null;
 }
 
 export interface Session {
@@ -102,20 +112,12 @@ export const useMentorStore = create<MentorStore>((set, get) => ({
   fetchAll: async (email) => {
     set({ loading: true, error: null });
     try {
-      const [signupRes, profileRes, sessionsRes, reviewsRes, earningsRes] = await Promise.all([
-        fetch(`/api/signups?email=${encodeURIComponent(email)}`),
-        fetch(`/api/mentor-profiles?email=${encodeURIComponent(email)}`),
-        fetch(`/api/sessions?mentor_email=${encodeURIComponent(email)}`),
-        fetch(`/api/reviews?mentor_email=${encodeURIComponent(email)}`),
-        fetch(`/api/earnings?mentor_email=${encodeURIComponent(email)}`),
-      ]);
-
       const [signup, profile, sessions, reviews, earnings] = await Promise.all([
-        signupRes.ok ? signupRes.json() : null,
-        profileRes.ok ? profileRes.json() : null,
-        sessionsRes.ok ? sessionsRes.json() : [],
-        reviewsRes.ok ? reviewsRes.json() : [],
-        earningsRes.ok ? earningsRes.json() : [],
+        fetchSignup(email),
+        fetchMentorProfile(email),
+        fetchMentorSessions(email),
+        fetchMentorReviews(email),
+        fetchMentorEarnings(email),
       ]);
 
       set({ signup, profile, sessions, reviews, earnings });
@@ -128,23 +130,23 @@ export const useMentorStore = create<MentorStore>((set, get) => ({
   },
 
   fetchProfile: async (email) => {
-    const res = await fetch(`/api/mentor-profiles?email=${encodeURIComponent(email)}`);
-    if (res.ok) set({ profile: await res.json() });
+    const profile = await fetchMentorProfile(email);
+    set({ profile });
   },
 
   fetchSessions: async (email) => {
-    const res = await fetch(`/api/sessions?mentor_email=${encodeURIComponent(email)}`);
-    if (res.ok) set({ sessions: await res.json() });
+    const sessions = await fetchMentorSessions(email);
+    set({ sessions });
   },
 
   fetchReviews: async (email) => {
-    const res = await fetch(`/api/reviews?mentor_email=${encodeURIComponent(email)}`);
-    if (res.ok) set({ reviews: await res.json() });
+    const reviews = await fetchMentorReviews(email);
+    set({ reviews });
   },
 
   fetchEarnings: async (email) => {
-    const res = await fetch(`/api/earnings?mentor_email=${encodeURIComponent(email)}`);
-    if (res.ok) set({ earnings: await res.json() });
+    const earnings = await fetchMentorEarnings(email);
+    set({ earnings });
   },
 
   // ── Save profile (optimistic update) ──
@@ -154,19 +156,13 @@ export const useMentorStore = create<MentorStore>((set, get) => ({
       profile: state.profile ? { ...state.profile, ...patch } : ({ email, ...patch } as MentorProfile),
     }));
 
-    const res = await fetch(`/api/mentor-profiles?email=${encodeURIComponent(email)}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(patch),
-    });
-
-    if (!res.ok) {
+    try {
+      const updated = await saveMentorProfile(email, patch);
+      set({ profile: updated });
+    } catch {
       // Revert on failure
       set({ error: "Failed to save profile" });
       get().fetchProfile(email);
-    } else {
-      const updated = await res.json();
-      set({ profile: updated });
     }
   },
 
@@ -175,12 +171,9 @@ export const useMentorStore = create<MentorStore>((set, get) => ({
     set((state) => ({
       sessions: state.sessions.map((s) => s.id === id ? { ...s, status: "upcoming" } : s),
     }));
-    const res = await fetch(`/api/sessions?id=${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "upcoming" }),
-    });
-    if (!res.ok) {
+    try {
+      await updateSessionStatus(id, "upcoming");
+    } catch {
       // Revert
       set((state) => ({
         sessions: state.sessions.map((s) => s.id === id ? { ...s, status: "requested" } : s),
@@ -193,12 +186,9 @@ export const useMentorStore = create<MentorStore>((set, get) => ({
     set((state) => ({
       sessions: state.sessions.filter((s) => s.id !== id),
     }));
-    const res = await fetch(`/api/sessions?id=${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "declined" }),
-    });
-    if (!res.ok) {
+    try {
+      await updateSessionStatus(id, "declined");
+    } catch {
       // Revert — refetch to restore
       const { signup } = get();
       if (signup?.email) get().fetchSessions(signup.email);

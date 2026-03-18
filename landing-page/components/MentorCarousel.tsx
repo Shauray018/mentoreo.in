@@ -21,10 +21,10 @@ const MENTORS = [
   },
   {
     id: 3,
-    name: 'Cihir Reddy',
-    title: 'JEE Topper',
-    college: 'IIT Delhi',
-    img: 'https://images.unsplash.com/photo-1648577739099-f1e18f8563f0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=600',
+    name: 'Isha',
+    title: 'NEET Topper',
+    college: 'GMERS MEDICAL COLLEGE',
+    img: 'https://jyjzhuevnslcmjauguaz.supabase.co/storage/v1/object/public/avatars/isha0904@icloud.com/avatar.jpeg',
   },
   {
     id: 4,

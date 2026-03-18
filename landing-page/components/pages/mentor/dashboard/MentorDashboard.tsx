@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Users, History } from "lucide-react";
 
 import { useMentorStore } from "@/store/mentorStore";
+import { useMentorData } from "@/hooks/useMentorData";
 import { Switch } from "@/app/components/ui/switch";
 
 import { TabId, TABS } from "./constants";
@@ -66,11 +67,9 @@ export default function MentorDashboard() {
     sessions,
     reviews,
     earnings,
-    fetchAll,
     saveProfile,
     acceptSession,
     declineSession,
-    clear,
   } = useMentorStore();
 
   const [activeTab, setActiveTab] = useState<TabId>("home");
@@ -84,10 +83,7 @@ export default function MentorDashboard() {
     if (status === "unauthenticated") router.replace("/mentor/login");
   }, [status, router]);
 
-  useEffect(() => {
-    if (session?.user?.email) fetchAll(session.user.email);
-    return () => clear();
-  }, [session?.user?.email]);
+  useMentorData(session?.user?.email);
 
   useEffect(() => {
     if (profile?.is_available !== undefined) setIsAvailable(profile.is_available);
