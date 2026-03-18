@@ -1,12 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Phone, Video, MoreVertical, Send, Image as ImageIcon, Paperclip, IndianRupee, Clock, ShieldAlert, MessageSquare } from "lucide-react";
 import { motion } from "motion/react";
 import { useSession } from "next-auth/react";
 import { useStudentStore } from "@/store/studentStore";
+import { useCallSignaling } from "@/hooks/useCallSignaling";
+import { useWebRTC } from "@/hooks/useWebRTC";
+import type { CallType, SignalPayload } from "@/services/webrtcSignaling";
 
 const CHAT_DATA: Record<string, {
   name: string;
@@ -84,17 +87,36 @@ export default function StudentChatDetail() {
       }
     : CHAT_DATA[chatId as keyof typeof CHAT_DATA];
   
-  const [messages, setMessages] = useState<{ id: string; sender: string; text: string; time: string }[]>(
-    chat?.messages || []
-  );
+  const [messages, setMessages] = useState<{ id: string; sender: string; text: string; time: string }[]>(chat?.messages || []);
   const [inputText, setInputText] = useState("");
   
   // Astrotalk-like billing state
-  const [sessionType, setSessionType] = useState<'idle' | 'requesting' | 'chat' | 'call' | 'video' | 'ended'>('idle');
-  const [requestedType, setRequestedType] = useState<'chat' | 'call' | 'video' | null>(null);
+  const [sessionType, setSessionType] = useState<"idle" | "requesting" | "chat" | "call" | "video" | "ended">("idle");
+  const [requestedType, setRequestedType] = useState<CallType | "chat" | null>(null);
   const [walletBalance, setWalletBalance] = useState((wallet?.balance_paise ?? 0) / 100);
   const [sessionSeconds, setSessionSeconds] = useState(0);
   const [activeRate, setActiveRate] = useState(0);
+  const [callType, setCallType] = useState<CallType | null>(null);
+  const [incomingCall, setIncomingCall] = useState<CallType | null>(null);
+  const [outgoingCallType, setOutgoingCallType] = useState<CallType | null>(null);
+
+  const localVideoRef = useRef<HTMLVideoElement | null>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+
+  const {
+    localStream,
+    remoteStream,
+    startCaller,
+    handleOffer,
+    handleAnswer,
+    addIceCandidate,
+    endCall,
+  } = useWebRTC();
+
+  useEffect(() => {
+    if (localVideoRef.current && localStream) localVideoRef.current.srcObject = localStream;
+    if (remoteVideoRef.current && remoteStream) remoteVideoRef.current.srcObject = remoteStream;
+  }, [localStream, remoteStream]);
 
   useEffect(() => {
     const email = session?.user?.email;
@@ -111,6 +133,15 @@ export default function StudentChatDetail() {
       setWalletBalance(wallet.balance_paise / 100);
     }
   }, [wallet?.balance_paise]);
+
+  useEffect(() => {
+    setIncomingCall(null);
+    setOutgoingCallType(null);
+    setSessionType("idle");
+    setCallType(null);
+    setSessionSeconds(0);
+    endCall();
+  }, [chatId, endCall]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -131,18 +162,60 @@ export default function StudentChatDetail() {
     return () => clearInterval(timer);
   }, [sessionType, sessionSeconds, walletBalance, chat, activeRate]);
 
-  useEffect(() => {
-    let requestTimer: NodeJS.Timeout;
-    if (sessionType === 'requesting' && requestedType) {
-      // Mock mentor accepting the request after 3 seconds
-      requestTimer = setTimeout(() => {
-        setSessionType(requestedType);
-      }, 3000);
-    }
-    return () => clearTimeout(requestTimer);
-  }, [sessionType, requestedType]);
+  const role = "student" as const;
+  const userId = session?.user?.email ?? "";
 
-  const requestSession = (type: 'chat' | 'call' | 'video', rate: number) => {
+  const handleSignal = useCallback(
+    async (payload: SignalPayload) => {
+      if (payload.fromRole === role) return;
+      if (payload.type === "call-request" && payload.callType) {
+        if (sessionType === "call" || sessionType === "video") return;
+        setIncomingCall(payload.callType);
+      }
+      if (payload.type === "call-accept" && payload.callType && outgoingCallType) {
+        setCallType(payload.callType);
+        setSessionType(payload.callType);
+        await startCaller(
+          payload.callType,
+          (candidate) => sendSignal({ type: "ice", chatId, fromRole: role, fromId: userId, candidate }),
+          (offer) => sendSignal({ type: "offer", chatId, fromRole: role, fromId: userId, callType: payload.callType, offer })
+        );
+        setOutgoingCallType(null);
+      }
+      if (payload.type === "call-decline") {
+        setSessionType("idle");
+        setRequestedType(null);
+        setOutgoingCallType(null);
+      }
+      if (payload.type === "offer" && payload.offer && payload.callType) {
+        setCallType(payload.callType);
+        setSessionType(payload.callType);
+        await handleOffer(
+          payload.offer,
+          payload.callType,
+          (candidate) => sendSignal({ type: "ice", chatId, fromRole: role, fromId: userId, candidate }),
+          (answer) => sendSignal({ type: "answer", chatId, fromRole: role, fromId: userId, answer })
+        );
+      }
+      if (payload.type === "answer" && payload.answer) {
+        await handleAnswer(payload.answer);
+      }
+      if (payload.type === "ice" && payload.candidate) {
+        await addIceCandidate(payload.candidate);
+      }
+      if (payload.type === "hangup") {
+        endCall();
+        setSessionType("ended");
+        setIncomingCall(null);
+        setOutgoingCallType(null);
+      }
+    },
+    [addIceCandidate, chatId, endCall, handleAnswer, handleOffer, outgoingCallType, role, sessionType, startCaller, userId]
+  );
+
+  const sendSignal = useCallSignaling(chatId, handleSignal);
+
+  const requestSession = (type: "chat" | CallType, rate: number) => {
     if (!chat.isOnline) {
       alert("Mentor is currently offline. You will be notified when they are back.");
       return;
@@ -153,8 +226,22 @@ export default function StudentChatDetail() {
     }
     setActiveRate(rate);
     setRequestedType(type);
-    setSessionType('requesting');
     setSessionSeconds(0);
+    if (type === "chat") {
+      setSessionType("chat");
+      return;
+    }
+    setSessionType("requesting");
+    setCallType(type);
+    setOutgoingCallType(type);
+    sendSignal({
+      type: "call-request",
+      chatId,
+      fromRole: role,
+      fromId: userId,
+      callType: type,
+      timestamp: Date.now(),
+    });
   };
 
   if (!chat) {
@@ -179,6 +266,20 @@ export default function StudentChatDetail() {
     const m = Math.floor(totalSeconds / 60);
     const s = totalSeconds % 60;
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const acceptIncomingCall = () => {
+    if (!incomingCall) return;
+    setCallType(incomingCall);
+    setSessionType(incomingCall);
+    sendSignal({ type: "call-accept", chatId, fromRole: role, fromId: userId, callType: incomingCall });
+    setIncomingCall(null);
+  };
+
+  const declineIncomingCall = () => {
+    if (!incomingCall) return;
+    sendSignal({ type: "call-decline", chatId, fromRole: role, fromId: userId, callType: incomingCall });
+    setIncomingCall(null);
   };
 
   const totalCost = Math.ceil(sessionSeconds / 60) * activeRate;
@@ -227,6 +328,16 @@ export default function StudentChatDetail() {
             <span className="text-[10px] text-gray-400 font-bold mt-1 pr-1">Wallet</span>
           </div>
         </div>
+
+        {incomingCall && sessionType === "idle" && (
+          <div className="bg-[#111827] text-white text-xs font-bold text-center py-2 flex items-center justify-center gap-3 relative z-20">
+            Incoming {incomingCall === "video" ? "video" : "voice"} call from {chat.name}
+            <div className="flex items-center gap-2">
+              <button onClick={acceptIncomingCall} className="px-3 py-1 rounded-full bg-green-500 text-white text-[11px]">Accept</button>
+              <button onClick={declineIncomingCall} className="px-3 py-1 rounded-full bg-red-500 text-white text-[11px]">Decline</button>
+            </div>
+          </div>
+        )}
 
         {/* Low Balance Warning Banner */}
         {isLowBalance && (
@@ -280,32 +391,42 @@ export default function StudentChatDetail() {
         </div>
 
         {/* ACTIVE CALL UI */}
-        {(sessionType === 'call' || sessionType === 'video') && (
+        {(sessionType === "call" || sessionType === "video") && (
           <div className="flex-1 flex flex-col items-center justify-center bg-[#111827] text-white relative p-6">
             <div className="absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-[#111827] to-transparent"></div>
-            
-            <div className="relative z-10 flex flex-col items-center mb-10">
-              <div className="w-32 h-32 md:w-40 md:h-40 relative">
-                <div className="absolute inset-0 bg-[#9758FF] rounded-full animate-ping opacity-20"></div>
-                <div className="absolute inset-2 bg-[#9758FF] rounded-full animate-pulse opacity-40"></div>
-                <img src={chat.image} alt={chat.name} className="absolute inset-0 w-full h-full rounded-full object-cover border-4 border-[#111827] shadow-xl z-10" />
+
+            {sessionType === "video" ? (
+              <div className="absolute inset-0">
+                <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
+                <video ref={localVideoRef} autoPlay playsInline muted className="absolute bottom-6 right-6 w-32 h-44 md:w-40 md:h-56 object-cover rounded-2xl border border-white/20 shadow-xl" />
+                <div className="absolute top-4 left-4 bg-black/40 px-2.5 py-1 rounded-full text-xs font-bold">
+                  {formatTime(sessionSeconds)}
+                </div>
               </div>
-              <h2 className="text-2xl font-bold mt-6" style={{ fontFamily: 'Fredoka, sans-serif' }}>{chat.name}</h2>
-              <p className="text-white/60 font-medium">{sessionType === 'video' ? 'Video Call' : 'Voice Call'} in progress</p>
-              <p className="text-3xl font-black mt-4 font-mono">{formatTime(sessionSeconds)}</p>
-              <div className="bg-white/10 px-3 py-1 rounded-full text-xs font-bold text-white/80 mt-2 flex items-center gap-1.5">
-                 <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
-                 Deducting ₹{activeRate}/min
+            ) : (
+              <div className="relative z-10 flex flex-col items-center mb-10">
+                <div className="w-32 h-32 md:w-40 md:h-40 relative">
+                  <div className="absolute inset-0 bg-[#9758FF] rounded-full animate-ping opacity-20"></div>
+                  <div className="absolute inset-2 bg-[#9758FF] rounded-full animate-pulse opacity-40"></div>
+                  <img src={chat.image} alt={chat.name} className="absolute inset-0 w-full h-full rounded-full object-cover border-4 border-[#111827] shadow-xl z-10" />
+                </div>
+                <h2 className="text-2xl font-bold mt-6" style={{ fontFamily: "Fredoka, sans-serif" }}>{chat.name}</h2>
+                <p className="text-white/60 font-medium">Voice Call in progress</p>
+                <p className="text-3xl font-black mt-4 font-mono">{formatTime(sessionSeconds)}</p>
+                <div className="bg-white/10 px-3 py-1 rounded-full text-xs font-bold text-white/80 mt-2 flex items-center gap-1.5">
+                   <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                   Deducting ₹{activeRate}/min
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="absolute bottom-8 inset-x-0 flex justify-center gap-6 z-10">
               <button className="w-14 h-14 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors backdrop-blur-sm">
                  <MoreVertical className="w-6 h-6 text-white" />
               </button>
-              <button 
-                onClick={() => setSessionType('ended')}
-                className="w-16 h-16 rounded-full bg-red-500 flex items-center justify-center hover:bg-red-600 transition-transform active:scale-95 shadow-lg shadow-red-500/20"
+                  <button 
+                  onClick={() => { sendSignal({ type: "hangup", chatId, fromRole: role, fromId: userId }); endCall(); setSessionType("ended"); }}
+                  className="w-16 h-16 rounded-full bg-red-500 flex items-center justify-center hover:bg-red-600 transition-transform active:scale-95 shadow-lg shadow-red-500/20"
               >
                  <Phone className="w-7 h-7 text-white transform rotate-[135deg]" />
               </button>
@@ -365,7 +486,7 @@ export default function StudentChatDetail() {
               <h4 className="font-bold text-[#111827] text-lg">Requesting {requestedType}...</h4>
               <p className="text-sm text-[#6B7280]">Waiting for {chat.name} to accept.</p>
               <button 
-                onClick={() => { setSessionType('idle'); setRequestedType(null); }}
+                onClick={() => { sendSignal({ type: "call-decline", chatId, fromRole: role, fromId: userId }); setSessionType("idle"); setRequestedType(null); }}
                 className="mt-4 px-6 py-2 rounded-xl text-red-500 font-bold text-sm bg-red-50 hover:bg-red-100 transition-colors"
               >
                 Cancel Request

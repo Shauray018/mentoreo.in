@@ -83,7 +83,7 @@ export default function MentorDashboard() {
     if (status === "unauthenticated") router.replace("/mentor/login");
   }, [status, router]);
 
-  useMentorData(session?.user?.email);
+  useMentorData(session?.user?.email ?? undefined);
 
   useEffect(() => {
     if (profile?.is_available !== undefined) setIsAvailable(profile.is_available);

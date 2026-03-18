@@ -4,12 +4,14 @@ import { useEffect, useState } from "react";
 import { 
   Search, Sparkles, GraduationCap, Building2, 
   MapPin, SlidersHorizontal, Star, Briefcase, 
-  Stethoscope, Palette, Cpu, ChevronRight, BookOpen, Target, FileText, Users
+  Stethoscope, Palette, Cpu, ChevronRight, BookOpen, Target, FileText, Users,
+  Calendar, Zap, Wallet, Phone, Video, MessageSquare, Clock
 } from "lucide-react";
 import Link from "next/link";
 import { motion } from "motion/react";
 import MentorCardSkeleton from "@/components/skeletons/MentorCardSkeleton";
 import { useMentorBrowseStore } from "@/store/mentorBrowseStore";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/app/components/ui/dialog";
 
 const EXAMS = [
   { id: 'JEE', label: 'JEE Main/Adv', icon: Cpu },
@@ -35,6 +37,13 @@ export default function StudentHome() {
   const [collegeType, setCollegeType] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const [bookingOpen, setBookingOpen] = useState(false);
+  const [bookingMode, setBookingMode] = useState<"now" | "later">("now");
+  const [bookingStep, setBookingStep] = useState<1 | 2>(1);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [bookingNote, setBookingNote] = useState("");
+  const [selectedMentor, setSelectedMentor] = useState<(typeof mentors)[number] | null>(null);
   const { mentors, loading, error, fetchMentors } = useMentorBrowseStore();
 
   useEffect(() => {
@@ -48,6 +57,27 @@ export default function StudentHome() {
       m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (m.college ?? "").toLowerCase().includes(searchQuery.toLowerCase()))
   );
+
+  const openBooking = (mentor: (typeof mentors)[number]) => {
+    setSelectedMentor(mentor);
+    setBookingOpen(true);
+    setBookingMode("now");
+    setBookingStep(1);
+    setSelectedDate(null);
+    setSelectedTime(null);
+    setBookingNote("");
+  };
+
+  const closeBooking = () => {
+    setBookingOpen(false);
+    setSelectedMentor(null);
+    setBookingStep(1);
+    setSelectedDate(null);
+    setSelectedTime(null);
+  };
+
+  const upcomingDates = ["Today", "Tomorrow", "Wed, 18 Mar", "Thu, 19 Mar", "Fri, 20 Mar", "Sat, 21 Mar"];
+  const timeBlocks = ["Morning", "Afternoon", "Evening"];
 
   return (
     <div className="bg-[#F8F9FA] min-h-screen pb-24 font-nunito">
@@ -100,6 +130,169 @@ export default function StudentHome() {
       </div>
 
       <div className="w-full max-w-md md:max-w-6xl mx-auto px-4 md:px-8 mt-6 md:mt-10">
+        <Dialog open={bookingOpen} onOpenChange={(open) => (open ? setBookingOpen(true) : closeBooking())}>
+          <DialogContent className="max-w-[520px] rounded-[28px] p-0 overflow-hidden border-0 shadow-xl">
+            <div className="p-6 pb-5">
+              <DialogHeader className="space-y-1">
+                <DialogTitle className="text-lg font-bold text-[#111827]">
+                  Connect with {selectedMentor?.name ?? "Mentor"}
+                </DialogTitle>
+                <DialogDescription className="text-xs text-gray-500 font-medium">
+                  ₹{selectedMentor?.pricePerMin ?? 5}/min • Pay as you go
+                </DialogDescription>
+              </DialogHeader>
+
+              {bookingStep === 1 && (
+                <div className="mt-5 space-y-4">
+                  <div className="grid grid-cols-2 gap-2 bg-[#F8F5FF] p-2 rounded-2xl">
+                    <button
+                      onClick={() => setBookingMode("now")}
+                      className={`py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                        bookingMode === "now" ? "bg-white text-[#9758FF] shadow-sm" : "text-gray-500"
+                      }`}
+                    >
+                      <Zap className="w-4 h-4" /> Connect Now
+                    </button>
+                    <button
+                      onClick={() => setBookingMode("later")}
+                      className={`py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                        bookingMode === "later" ? "bg-white text-[#9758FF] shadow-sm" : "text-gray-500"
+                      }`}
+                    >
+                      <Calendar className="w-4 h-4" /> Schedule Later
+                    </button>
+                  </div>
+
+                  {bookingMode === "now" ? (
+                    <div className="rounded-2xl border border-[#E9D5FF] bg-[#F7F2FF] px-5 py-6 text-center">
+                      <div className="w-12 h-12 rounded-full bg-[#E9D5FF] flex items-center justify-center mx-auto mb-3">
+                        <Zap className="w-5 h-5 text-[#9758FF]" />
+                      </div>
+                      <h4 className="text-sm font-bold text-[#111827]">Mentor is Live!</h4>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Start a chat instantly. You’ll only be charged for the time you spend talking.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div>
+                        <p className="text-xs font-bold text-[#6B21A8] uppercase tracking-wider flex items-center gap-2 mb-2">
+                          <Calendar className="w-3.5 h-3.5" /> Select Date
+                        </p>
+                        <div className="flex gap-2 overflow-x-auto pb-1">
+                          {upcomingDates.map((d) => (
+                            <button
+                              key={d}
+                              onClick={() => setSelectedDate(d)}
+                              className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all whitespace-nowrap ${
+                                selectedDate === d ? "bg-[#9758FF] text-white border-[#9758FF]" : "bg-white border-gray-200 text-gray-600"
+                              }`}
+                            >
+                              {d}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="text-xs font-bold text-[#6B21A8] uppercase tracking-wider flex items-center gap-2 mb-2">
+                          <Clock className="w-3.5 h-3.5" /> Available Times
+                        </p>
+                        <div className="grid grid-cols-3 gap-2">
+                          {timeBlocks.map((t) => (
+                            <button
+                              key={t}
+                              onClick={() => setSelectedTime(t)}
+                              className={`py-2 rounded-xl text-xs font-bold border transition-all ${
+                                selectedTime === t ? "bg-[#9758FF] text-white border-[#9758FF]" : "bg-white border-gray-200 text-gray-600"
+                              }`}
+                            >
+                              {t}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {bookingStep === 2 && (
+                <div className="mt-5 space-y-4">
+                  <div className="rounded-2xl border border-[#E9D5FF] bg-[#F7F2FF] p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-sm font-bold text-[#111827]">Session Info</h4>
+                        <p className="text-xs text-gray-500">
+                          {bookingMode === "now" ? "Instant Connection" : `${selectedDate ?? "Select date"} • ${selectedTime ?? "Select time"}`}
+                        </p>
+                      </div>
+                      <div className="text-sm font-bold text-[#9758FF]">₹{selectedMentor?.pricePerMin ?? 5}/min</div>
+                    </div>
+                    <div className="mt-3 bg-white/70 border border-[#E9D5FF] text-[#6B21A8] text-[11px] font-semibold rounded-lg px-3 py-2">
+                      You will only be charged based on your session’s duration. Minimum wallet balance required to connect ₹100.
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-bold text-[#111827]">Add a note for {selectedMentor?.name ?? "Mentor"}</p>
+                      <span className="text-[10px] text-gray-400 font-bold">{bookingNote.length}/100</span>
+                    </div>
+                    <textarea
+                      value={bookingNote}
+                      onChange={(e) => setBookingNote(e.target.value.slice(0, 100))}
+                      placeholder="Briefly describe what you'd like to discuss... (Optional)"
+                      className="w-full rounded-xl border border-gray-200 bg-white p-3 text-sm outline-none focus:ring-2 focus:ring-[#9758FF]"
+                      rows={3}
+                    />
+                  </div>
+
+                  <div className="rounded-xl border border-gray-100 bg-white p-3 flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-[#F8F5FF] flex items-center justify-center text-[#9758FF]">
+                      <Wallet className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 font-bold">Wallet Balance</p>
+                      <p className="text-sm font-bold text-emerald-600">₹1,500 Available</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 pt-0">
+              {bookingStep === 1 ? (
+                <button
+                  onClick={() => setBookingStep(2)}
+                  disabled={bookingMode === "later" && (!selectedDate || !selectedTime)}
+                  className={`w-full py-3 rounded-2xl text-sm font-bold transition-all ${
+                    bookingMode === "later" && (!selectedDate || !selectedTime)
+                      ? "bg-[#E9D5FF] text-white/70"
+                      : "bg-[#9758FF] text-white hover:bg-[#874ef2]"
+                  }`}
+                >
+                  Continue
+                </button>
+              ) : (
+                <div className="grid grid-cols-3 gap-3">
+                  <button className="py-3 rounded-2xl bg-[#111827] text-white text-xs font-bold flex flex-col items-center gap-1">
+                    <MessageSquare className="w-4 h-4" />
+                    Chat
+                  </button>
+                  <button className="py-3 rounded-2xl bg-[#111827] text-white text-xs font-bold flex flex-col items-center gap-1">
+                    <Phone className="w-4 h-4" />
+                    Call
+                  </button>
+                  <button className="py-3 rounded-2xl bg-[#111827] text-white text-xs font-bold flex flex-col items-center gap-1">
+                    <Video className="w-4 h-4" />
+                    Video
+                  </button>
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
         
         {/* EXPANDABLE FILTERS PANEL */}
         {showFilters && (
@@ -233,7 +426,7 @@ export default function StudentHome() {
                         <span className="text-[10px] text-gray-500 font-bold uppercase">Session Fee</span>
                         <span className="text-sm font-bold text-[#111827]">₹{mentor.pricePerMin ?? 5}/min</span>
                       </div>
-                      <button className="bg-[#111827] text-white px-4 py-2 rounded-xl text-xs font-bold shadow-sm relative z-20 hover:bg-[#9758FF] transition-colors">
+                      <button onClick={() => openBooking(mentor)} className="bg-[#111827] text-white px-4 py-2 rounded-xl text-xs font-bold shadow-sm relative z-20 hover:bg-[#9758FF] transition-colors">
                         Book Now
                       </button>
                     </div>

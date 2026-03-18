@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { motion } from "motion/react";
+import { useSession } from "next-auth/react";
 import {
   ArrowLeft,
   CheckCheck,
@@ -11,6 +12,9 @@ import {
   Send,
   Video,
 } from "lucide-react";
+import { useCallSignaling } from "@/hooks/useCallSignaling";
+import { useWebRTC } from "@/hooks/useWebRTC";
+import type { CallType, SignalPayload } from "@/services/webrtcSignaling";
 
 const dummyChats = [
   {
@@ -49,15 +53,135 @@ const dummyChats = [
 ];
 
 export default function MessagesTab() {
+  const { data: session } = useSession();
   const [activeChatId, setActiveChatId] = useState<number | null>(null);
   const [chatMessage, setChatMessage] = useState("");
   const [messagesTab, setMessagesTab] = useState<"all" | "unread">("all");
   const [messagesSearchQuery, setMessagesSearchQuery] = useState("");
+  const [sessionType, setSessionType] = useState<"idle" | "call" | "video" | "ended">("idle");
+  const [incomingCall, setIncomingCall] = useState<CallType | null>(null);
+  const [outgoingCallType, setOutgoingCallType] = useState<CallType | null>(null);
+  const [callSeconds, setCallSeconds] = useState(0);
+
+  const chatId = activeChatId ? String(activeChatId) : null;
+  const role = "mentor" as const;
+  const userId = session?.user?.email ?? "";
+
+  const localVideoRef = useRef<HTMLVideoElement | null>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+
+  const {
+    localStream,
+    remoteStream,
+    startCaller,
+    handleOffer,
+    handleAnswer,
+    addIceCandidate,
+    endCall,
+  } = useWebRTC();
+
+  useEffect(() => {
+    if (localVideoRef.current && localStream) localVideoRef.current.srcObject = localStream;
+    if (remoteVideoRef.current && remoteStream) remoteVideoRef.current.srcObject = remoteStream;
+  }, [localStream, remoteStream]);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout | null = null;
+    if (sessionType === "call" || sessionType === "video") {
+      timer = setInterval(() => setCallSeconds((s) => s + 1), 1000);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [sessionType]);
+
+  const handleSignal = useCallback(
+    async (payload: SignalPayload) => {
+      if (!chatId) return;
+      if (payload.fromRole === role) return;
+      if (payload.type === "call-request" && payload.callType) {
+        if (sessionType === "call" || sessionType === "video") return;
+        setIncomingCall(payload.callType);
+      }
+      if (payload.type === "call-accept" && payload.callType && outgoingCallType) {
+        setSessionType(payload.callType);
+        await startCaller(
+          payload.callType,
+          (candidate) => sendSignal({ type: "ice", chatId, fromRole: role, fromId: userId, candidate }),
+          (offer) => sendSignal({ type: "offer", chatId, fromRole: role, fromId: userId, callType: payload.callType, offer })
+        );
+        setOutgoingCallType(null);
+      }
+      if (payload.type === "call-decline") {
+        setSessionType("idle");
+        setOutgoingCallType(null);
+      }
+      if (payload.type === "offer" && payload.offer && payload.callType) {
+        setSessionType(payload.callType);
+        await handleOffer(
+          payload.offer,
+          payload.callType,
+          (candidate) => sendSignal({ type: "ice", chatId, fromRole: role, fromId: userId, candidate }),
+          (answer) => sendSignal({ type: "answer", chatId, fromRole: role, fromId: userId, answer })
+        );
+      }
+      if (payload.type === "answer" && payload.answer) {
+        await handleAnswer(payload.answer);
+      }
+      if (payload.type === "ice" && payload.candidate) {
+        await addIceCandidate(payload.candidate);
+      }
+      if (payload.type === "hangup") {
+        endCall();
+        setSessionType("ended");
+        setIncomingCall(null);
+        setOutgoingCallType(null);
+        setCallSeconds(0);
+      }
+    },
+    [addIceCandidate, chatId, endCall, handleAnswer, handleOffer, outgoingCallType, role, sessionType, startCaller, userId]
+  );
+
+  const sendSignal = useCallSignaling(chatId, handleSignal);
+
+  const acceptIncomingCall = () => {
+    if (!incomingCall || !chatId) return;
+    setSessionType(incomingCall);
+    sendSignal({ type: "call-accept", chatId, fromRole: role, fromId: userId, callType: incomingCall });
+    setIncomingCall(null);
+  };
+
+  const declineIncomingCall = () => {
+    if (!incomingCall || !chatId) return;
+    sendSignal({ type: "call-decline", chatId, fromRole: role, fromId: userId, callType: incomingCall });
+    setIncomingCall(null);
+  };
+
+  const requestCall = (type: CallType) => {
+    if (!chatId) return;
+    setSessionType("idle");
+    setOutgoingCallType(type);
+    sendSignal({ type: "call-request", chatId, fromRole: role, fromId: userId, callType: type, timestamp: Date.now() });
+  };
+
+  const formatTime = (totalSeconds: number) => {
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
+    return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  };
 
   const activeChat = useMemo(
     () => (activeChatId ? dummyChats.find((c) => c.id === activeChatId) : null),
     [activeChatId]
   );
+
+  useEffect(() => {
+    setIncomingCall(null);
+    setOutgoingCallType(null);
+    setSessionType("idle");
+    setCallSeconds(0);
+    endCall();
+  }, [activeChatId, endCall]);
 
   if (activeChat) {
     return (
@@ -84,16 +208,58 @@ export default function MessagesTab() {
             </div>
 
             <div className="flex gap-2">
-              <button className="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center text-[#FF7A1F] hover:bg-orange-100 transition-colors">
+              <button onClick={() => requestCall("call")} className="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center text-[#FF7A1F] hover:bg-orange-100 transition-colors">
                 <Phone className="w-5 h-5" />
               </button>
-              <button className="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center text-[#FF7A1F] hover:bg-orange-100 transition-colors">
+              <button onClick={() => requestCall("video")} className="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center text-[#FF7A1F] hover:bg-orange-100 transition-colors">
                 <Video className="w-5 h-5" />
               </button>
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 flex flex-col pb-6 space-y-4 bg-[#F8F9FA]">
+          {incomingCall && sessionType === "idle" && (
+            <div className="bg-[#111827] text-white text-xs font-bold text-center py-2 flex items-center justify-center gap-3 relative z-20">
+              Incoming {incomingCall === "video" ? "video" : "voice"} call from {activeChat.student.name}
+              <div className="flex items-center gap-2">
+                <button onClick={acceptIncomingCall} className="px-3 py-1 rounded-full bg-green-500 text-white text-[11px]">Accept</button>
+                <button onClick={declineIncomingCall} className="px-3 py-1 rounded-full bg-red-500 text-white text-[11px]">Decline</button>
+              </div>
+            </div>
+          )}
+
+          {(sessionType === "call" || sessionType === "video") ? (
+            <div className="flex-1 flex flex-col items-center justify-center bg-[#111827] text-white relative p-6">
+              {sessionType === "video" ? (
+                <div className="absolute inset-0">
+                  <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
+                  <video ref={localVideoRef} autoPlay playsInline muted className="absolute bottom-6 right-6 w-32 h-44 md:w-40 md:h-56 object-cover rounded-2xl border border-white/20 shadow-xl" />
+                  <div className="absolute top-4 left-4 bg-black/40 px-2.5 py-1 rounded-full text-xs font-bold">
+                    {formatTime(callSeconds)}
+                  </div>
+                </div>
+              ) : (
+                <div className="relative z-10 flex flex-col items-center">
+                  <div className="w-32 h-32 md:w-40 md:h-40 relative">
+                    <div className="absolute inset-0 bg-[#FF7A1F] rounded-full animate-ping opacity-20"></div>
+                    <div className="absolute inset-2 bg-[#FF7A1F] rounded-full animate-pulse opacity-40"></div>
+                    <img src={activeChat.student.image} alt={activeChat.student.name} className="absolute inset-0 w-full h-full rounded-full object-cover border-4 border-[#111827] shadow-xl z-10" />
+                  </div>
+                  <h2 className="text-2xl font-bold mt-6" style={{ fontFamily: "Fredoka, sans-serif" }}>{activeChat.student.name}</h2>
+                  <p className="text-white/60 font-medium">Voice Call in progress</p>
+                  <p className="text-3xl font-black mt-4 font-mono">{formatTime(callSeconds)}</p>
+                </div>
+              )}
+              <div className="absolute bottom-8 inset-x-0 flex justify-center gap-6 z-10">
+                <button
+                  onClick={() => { sendSignal({ type: "hangup", chatId: chatId ?? "", fromRole: role, fromId: userId }); endCall(); setSessionType("ended"); setCallSeconds(0); }}
+                  className="w-16 h-16 rounded-full bg-red-500 flex items-center justify-center hover:bg-red-600 transition-transform active:scale-95 shadow-lg shadow-red-500/20"
+                >
+                  <Phone className="w-7 h-7 text-white transform rotate-[135deg]" />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex-1 overflow-y-auto p-4 flex flex-col pb-6 space-y-4 bg-[#F8F9FA]">
             {activeChat.messages.map((msg) => {
               const isMe = msg.sender === "me";
               return (
@@ -117,7 +283,8 @@ export default function MessagesTab() {
                 </motion.div>
               );
             })}
-          </div>
+            </div>
+          )}
 
           <div className="bg-white border-t border-gray-100 p-3 md:p-4">
             <div className="flex items-end gap-2">
