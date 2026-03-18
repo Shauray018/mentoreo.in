@@ -32,7 +32,7 @@
 //   }, [isOpen, isLive]);
 
 //   const dates = ["Today", "Tomorrow", "Wed, 18 Mar", "Thu, 19 Mar", "Fri, 20 Mar"];
-//   const times = ["Morning", "Afternoon", "Evening"];
+// const times = ["Morning", "Afternoon", "Evening"];
 
 //   return (
 //     <AnimatePresence>
