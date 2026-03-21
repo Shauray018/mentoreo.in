@@ -9,6 +9,9 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@cometchat/calls-sdk-javascript": "^4.1.0",
+    "@cometchat/chat-sdk-javascript": "^4.1.8",
+    "@cometchat/chat-uikit-react": "^4.3.38",
     "@supabase/supabase-js": "^2.98.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

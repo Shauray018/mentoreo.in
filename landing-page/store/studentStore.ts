@@ -1,4 +1,15 @@
 import { create } from "zustand";
+import {
+  fetchStudentProfile,
+  saveStudentProfileApi,
+  createStudentProfileApi,
+  syncStudentSignup,
+  fetchStudentWallet,
+  fetchStudentWalletTxs,
+  fetchStudentChats,
+  createStudentChat,
+  fetchStudentMessages,
+} from "@/services/studentApi";
 
 export interface StudentProfile {
   email: string;
@@ -63,7 +74,16 @@ interface StudentStore {
   fetchWalletTxs: (email: string) => Promise<void>;
   refreshWallet: (email: string) => Promise<void>;
   fetchChats: (email: string) => Promise<void>;
+  createChat: (payload: {
+    student_email: string;
+    mentor_email: string;
+    mentor_name?: string | null;
+    mentor_avatar?: string | null;
+    chat_rate?: number | null;
+    call_rate?: number | null;
+  }) => Promise<StudentChat | null>;
   fetchMessages: (chatId: string) => Promise<void>;
+  applyWalletDelta: (deltaPaise: number) => void;
   clear: () => void;
 }
 
@@ -77,8 +97,8 @@ export const useStudentStore = create<StudentStore>((set, get) => ({
   error: null,
 
   fetchProfile: async (email) => {
-    const res = await fetch(`/api/student-profiles?email=${encodeURIComponent(email)}`);
-    if (res.ok) set({ profile: await res.json() });
+    const profile = await fetchStudentProfile(email);
+    set({ profile });
   },
 
   saveProfile: async (email, patch) => {
@@ -87,50 +107,24 @@ export const useStudentStore = create<StudentStore>((set, get) => ({
       profile: state.profile ? { ...state.profile, ...patch } : ({ email, ...patch } as StudentProfile),
     }));
 
-    const res = await fetch(`/api/student-profiles?email=${encodeURIComponent(email)}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...patch, email }),
-    });
-
-    if (!res.ok) {
-      // create if missing
-      await fetch("/api/student-profiles", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...patch, email }),
-      }).catch(() => {});
-    } else {
-      set({ profile: await res.json() });
+    try {
+      const updated = await saveStudentProfileApi(email, patch);
+      set({ profile: updated });
+    } catch {
+      await createStudentProfileApi(email, patch).catch(() => {});
     }
 
-    // keep signups in sync
-    await fetch(`/api/student-signups?email=${encodeURIComponent(email)}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: patch.name, phone: patch.phone }),
-    }).catch(() => {});
+    await syncStudentSignup(email, patch);
   },
 
   fetchWallet: async (email) => {
-    const res = await fetch(`/api/student-wallet?email=${encodeURIComponent(email)}`);
-    if (res.ok) {
-      set({ wallet: await res.json() });
-      return;
-    }
-    if (res.status === 404) {
-      const create = await fetch("/api/student-wallet", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      if (create.ok) set({ wallet: await create.json() });
-    }
+    const wallet = await fetchStudentWallet(email);
+    if (wallet) set({ wallet });
   },
 
   fetchWalletTxs: async (email) => {
-    const res = await fetch(`/api/student-wallet/transactions?email=${encodeURIComponent(email)}`);
-    if (res.ok) set({ walletTxs: await res.json() });
+    const walletTxs = await fetchStudentWalletTxs(email);
+    set({ walletTxs });
   },
 
   refreshWallet: async (email) => {
@@ -138,17 +132,35 @@ export const useStudentStore = create<StudentStore>((set, get) => ({
   },
 
   fetchChats: async (email) => {
-    const res = await fetch(`/api/student-chats?student_email=${encodeURIComponent(email)}`);
-    if (res.ok) set({ chats: await res.json() });
+    const chats = await fetchStudentChats(email);
+    set({ chats });
+  },
+
+  createChat: async (payload) => {
+    try {
+      const chat = await createStudentChat(payload);
+      set((state) => ({ chats: [chat, ...state.chats] }));
+      return chat;
+    } catch {
+      return null;
+    }
   },
 
   fetchMessages: async (chatId) => {
-    const res = await fetch(`/api/student-messages?chat_id=${encodeURIComponent(chatId)}`);
-    if (res.ok) {
-      const msgs = await res.json();
-      set((state) => ({ messagesByChat: { ...state.messagesByChat, [chatId]: msgs } }));
-    }
+    const msgs = await fetchStudentMessages(chatId);
+    set((state) => ({ messagesByChat: { ...state.messagesByChat, [chatId]: msgs } }));
   },
+
+  applyWalletDelta: (deltaPaise) =>
+    set((state) => {
+      if (!state.wallet) return state;
+      return {
+        wallet: {
+          ...state.wallet,
+          balance_paise: Math.max(0, state.wallet.balance_paise + deltaPaise),
+        },
+      };
+    }),
 
   clear: () => set({
     profile: null,

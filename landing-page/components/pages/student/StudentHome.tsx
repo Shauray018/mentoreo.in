@@ -5,13 +5,19 @@ import {
   Search, Sparkles, GraduationCap, Building2, 
   MapPin, SlidersHorizontal, Star, Briefcase, 
   Stethoscope, Palette, Cpu, ChevronRight, BookOpen, Target, FileText, Users,
-  Calendar, Zap, Phone, Video, MessageCircle, Clock, X, CreditCard
+  Calendar, Zap, Phone, MessageCircle, Clock, X, CreditCard
 } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import MentorCardSkeleton from "@/components/skeletons/MentorCardSkeleton";
 import { useMentorBrowseStore } from "@/store/mentorBrowseStore";
-import { useRouter } from "next/navigation";
+import { useStudentStore } from "@/store/studentStore";
+import { useSession } from "next-auth/react";
+import { useOnlineMentors } from "@/hooks/useOnlineMentors";
+import { sendLiveRequest, subscribeLiveResponses } from "@/services/liveRequests";
+import { buildCometUid } from "@/lib/cometchat-uid";
+import { toast } from "sonner";
+import { useRouter, useSearchParams } from "next/navigation";
 
 const EXAMS = [
   { id: 'JEE', label: 'JEE Main/Adv', icon: Cpu },
@@ -34,6 +40,7 @@ const GOALS = [
 
 export default function StudentHome() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [activeExam, setActiveExam] = useState("All");
   const [collegeType, setCollegeType] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
@@ -47,10 +54,24 @@ export default function StudentHome() {
   const [bookingNote, setBookingNote] = useState("");
   const [selectedMentor, setSelectedMentor] = useState<(typeof mentors)[number] | null>(null);
   const { mentors, loading, error, fetchMentors } = useMentorBrowseStore();
+  const { chats, fetchChats, createChat } = useStudentStore();
+  const { data: session } = useSession();
+  const onlineMentors = useOnlineMentors();
 
   useEffect(() => {
     if (!mentors.length) fetchMentors();
   }, [mentors.length, fetchMentors]);
+
+  useEffect(() => {
+    const mentorEmail = searchParams.get("bookMentor");
+    const mode = searchParams.get("mode");
+    if (!mentorEmail || mentors.length === 0) return;
+    const target = mentors.find((m) => m.id === mentorEmail);
+    if (!target) return;
+    openBooking(target);
+    if (mode === "schedule") setBookingMode("schedule");
+    router.replace("/student/dashboard");
+  }, [searchParams, mentors, router]);
 
   const filteredMentors = mentors.filter((m) =>
     (activeExam === "All" || !m.exam || m.exam === activeExam) &&
@@ -61,9 +82,10 @@ export default function StudentHome() {
   );
 
   const openBooking = (mentor: (typeof mentors)[number]) => {
+    const isLive = Boolean(mentor.is_available && onlineMentors.has(mentor.id));
     setSelectedMentor(mentor);
     setBookingOpen(true);
-    setBookingMode(mentor.is_available ? "instant" : "schedule");
+    setBookingMode(isLive ? "instant" : "schedule");
     setBookingStep(1);
     setSelectedDate(null);
     setSelectedTime(null);
@@ -82,6 +104,87 @@ export default function StudentHome() {
 
   const upcomingDates = ["Today", "Tomorrow", "Wed, 18 Mar", "Thu, 19 Mar", "Fri, 20 Mar", "Sat, 21 Mar"];
   const timeBlocks = ["Morning", "Afternoon", "Evening"];
+
+  const ensureChatAndGo = async () => {
+    const email = session?.user?.email;
+    if (!email || !selectedMentor) {
+      router.push("/student/login");
+      return;
+    }
+
+    if (chats.length === 0) await fetchChats(email);
+    const existing = chats.find((c) => c.mentor_email === selectedMentor.id);
+    if (existing) {
+      closeBooking();
+      router.push(`/student/chats/${buildCometUid(existing.mentor_email)}?mentor=${encodeURIComponent(existing.mentor_email)}`);
+      return;
+    }
+
+    const created = await createChat({
+      student_email: email,
+      mentor_email: selectedMentor.id,
+      mentor_name: selectedMentor.name,
+      mentor_avatar: selectedMentor.image ?? null,
+      chat_rate: selectedMentor.pricePerMin ?? 5,
+      call_rate: selectedMentor.pricePerMin ?? 5,
+    });
+
+    if (created) {
+      closeBooking();
+      const mentorEmail = created?.mentor_email || selectedMentor?.id || "";
+      if (mentorEmail) router.push(`/student/chats/${buildCometUid(mentorEmail)}?mentor=${encodeURIComponent(mentorEmail)}`);
+    }
+  };
+
+  const isMentorLive = (mentorId?: string | null, mentorAvailable?: boolean | null) =>
+    Boolean(mentorAvailable && mentorId && onlineMentors.has(mentorId));
+
+  const handleInstantContinue = () => {
+    if (!selectedMentor) return;
+    if (!session?.user?.email) {
+      router.push("/student/login");
+      return;
+    }
+    if (!isMentorLive(selectedMentor.id, selectedMentor.is_available)) {
+      toast.error("Mentor is not live right now.");
+      return;
+    }
+    fetch("/api/cometchat/user", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: selectedMentor.id,
+        name: selectedMentor.name,
+        avatar: selectedMentor.avatar_url ?? null,
+      }),
+    }).catch(() => null);
+    sendLiveRequest(selectedMentor.id, {
+      id: `${selectedMentor.id}-${Date.now()}`,
+      studentEmail: session.user.email,
+      studentName: session?.user?.name ?? "Student",
+      studentImage: null,
+      type: "chat",
+      topic: selectedMentor.course ?? "Mentoring",
+      rate: selectedMentor.pricePerMin ?? 5,
+      createdAt: Date.now(),
+    });
+    toast.success("Request sent to mentor");
+    closeBooking();
+  };
+
+  useEffect(() => {
+    const email = session?.user?.email;
+    if (!email) return;
+    const { cleanup } = subscribeLiveResponses(email, (payload) => {
+      toast(`${payload.mentorName} joined the chat`, {
+        action: {
+          label: "Open",
+          onClick: () => router.push(`/student/chats/${buildCometUid(payload.mentorEmail)}?mentor=${encodeURIComponent(payload.mentorEmail)}`),
+        },
+      });
+    });
+    return () => cleanup();
+  }, [session?.user?.email, router]);
 
   return (
     <div className="bg-[#F8F9FA] min-h-screen pb-24 font-nunito">
@@ -172,7 +275,7 @@ export default function StudentHome() {
                 <div className="p-5 sm:p-6 overflow-y-auto">
                   {bookingStep === 1 ? (
                     <div className="space-y-6">
-                      {selectedMentor?.is_available && (
+                      {isMentorLive(selectedMentor?.id, selectedMentor?.is_available) && (
                         <div className="flex bg-gray-50 p-1 rounded-2xl">
                           <button
                             onClick={() => setBookingMode("instant")}
@@ -318,7 +421,13 @@ export default function StudentHome() {
                   {bookingStep === 1 ? (
                     <button
                       disabled={bookingMode === "schedule" && (!selectedDate || !selectedTime)}
-                      onClick={() => setBookingStep(2)}
+                      onClick={() => {
+                        if (bookingMode === "instant") {
+                          handleInstantContinue();
+                          return;
+                        }
+                        setBookingStep(2);
+                      }}
                       className="w-full py-4 bg-[#9758FF] hover:bg-[#8B5CF6] text-white rounded-2xl font-bold text-base disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md shadow-[#9758FF]/20 active:scale-[0.98]"
                     >
                       Continue
@@ -326,34 +435,18 @@ export default function StudentHome() {
                   ) : (
                     <div className="flex gap-2 sm:gap-3">
                       <button
-                        onClick={() => {
-                          router.push("/student/chats");
-                          closeBooking();
-                        }}
+                        onClick={ensureChatAndGo}
                         className="flex-1 py-3 sm:py-4 bg-[#111827] hover:bg-black text-white rounded-2xl font-bold text-xs sm:text-sm transition-all shadow-md shadow-black/10 active:scale-[0.98] flex flex-col items-center justify-center gap-1.5"
                       >
                         <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6" />
                         <span>Chat</span>
                       </button>
                       <button
-                        onClick={() => {
-                          router.push("/student/chats");
-                          closeBooking();
-                        }}
+                        onClick={ensureChatAndGo}
                         className="flex-1 py-3 sm:py-4 bg-[#111827] hover:bg-black text-white rounded-2xl font-bold text-xs sm:text-sm transition-all shadow-md shadow-black/10 active:scale-[0.98] flex flex-col items-center justify-center gap-1.5"
                       >
                         <Phone className="w-5 h-5 sm:w-6 sm:h-6" />
                         <span>Call</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          router.push("/student/chats");
-                          closeBooking();
-                        }}
-                        className="flex-1 py-3 sm:py-4 bg-[#111827] hover:bg-black text-white rounded-2xl font-bold text-xs sm:text-sm transition-all shadow-md shadow-black/10 active:scale-[0.98] flex flex-col items-center justify-center gap-1.5"
-                      >
-                        <Video className="w-5 h-5 sm:w-6 sm:h-6" />
-                        <span>Video</span>
                       </button>
                     </div>
                   )}
@@ -483,8 +576,8 @@ export default function StudentHome() {
                     </div>
                     
                     <div className="flex gap-1.5 mt-3 flex-wrap">
-                      {(mentor.tags ?? []).map(tag => (
-                        <span key={tag} className="px-2 py-1 bg-[#F8F5FF] text-[#6B21A8] rounded-md text-[10px] font-bold border border-[#E9D5FF]">
+                      {(mentor.tags ?? []).map((tag, idx) => (
+                        <span key={`${tag}-${idx}`} className="px-2 py-1 bg-[#F8F5FF] text-[#6B21A8] rounded-md text-[10px] font-bold border border-[#E9D5FF]">
                           {tag}
                         </span>
                       ))}

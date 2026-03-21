@@ -132,6 +132,7 @@ export default function ProfileTab({
     setApproach(profile?.approach ?? "");
     setUpiId(profile?.upi_id ?? "");
     setLinkedIn(profile?.linkedin ?? "");
+    setSelectedExpertise(profile?.expertise_tags ?? []);
     setActiveSlots(profile?.availability ?? {});
   }, [profile, signupName, signupCollege, signupCourse]);
 
@@ -238,6 +239,7 @@ export default function ProfileTab({
       year,
       college,
       course,
+      expertise_tags: selectedExpertise,
       availability: activeSlots,
     });
     setIsProfileEditing(false);
@@ -842,6 +844,87 @@ export default function ProfileTab({
                     </button>
                   );
                 })}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <IndianRupee className="h-4 w-4 text-[#FF7A1F]" /> Payments & Availability
+                </div>
+                <div className="flex items-center gap-2">
+                  {tasks.find((t) => t.id === "upi")?.completed && (
+                    <Badge className="bg-green-100 text-green-700 hover:bg-green-100 text-[10px]">
+                      <CheckCircle2 className="w-3 h-3 mr-0.5" /> UPI
+                    </Badge>
+                  )}
+                  {tasks.find((t) => t.id === "availability")?.completed && (
+                    <Badge className="bg-green-100 text-green-700 hover:bg-green-100 text-[10px]">
+                      <CheckCircle2 className="w-3 h-3 mr-0.5" /> Availability
+                    </Badge>
+                  )}
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0 space-y-4">
+              <div>
+                <Label className="text-[11px] text-gray-400 mb-1 block">UPI ID</Label>
+                <Input
+                  placeholder="yourname@upi"
+                  value={upiId}
+                  onChange={(e) => setUpiId(e.target.value)}
+                  disabled={!isProfileEditing}
+                  className="h-9 text-sm disabled:bg-gray-50 disabled:border-transparent"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-[11px] text-gray-400">Availability</Label>
+                  {activeSlotCount > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-[10px] h-7 px-2 text-gray-500 hover:text-red-500 hover:border-red-300"
+                      onClick={clearAllSlots}
+                      disabled={!isProfileEditing}
+                    >
+                      Clear all
+                    </Button>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  {AVAILABILITY_SLOTS.map(({ day, slots }) => (
+                    <div key={day} className="flex items-center gap-3">
+                      <span className="w-20 text-[11px] text-gray-500 flex-shrink-0">{day}</span>
+                      <div className="flex flex-wrap gap-2">
+                        {slots.map((slot) => {
+                          const key = `${day}-${slot}`;
+                          const isActive = activeSlots[key];
+                          return (
+                            <button
+                              key={key}
+                              onClick={() => isProfileEditing && toggleSlot(key)}
+                              disabled={!isProfileEditing}
+                              className={`px-3 py-1.5 rounded-lg text-[11px] border transition-all ${
+                                isActive
+                                  ? "border-[#FF7A1F] bg-orange-50 text-[#FF7A1F]"
+                                  : isProfileEditing
+                                  ? "border-gray-200 text-gray-500 hover:border-gray-300"
+                                  : "border-gray-200 text-gray-400"
+                              }`}
+                              style={{ fontWeight: isActive ? 600 : 400 }}
+                            >
+                              {slot}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </CardContent>
           </Card>

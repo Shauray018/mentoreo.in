@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await supabaseServer
     .from("student_signups")
-    .insert([{ name, phone, email, password }])
+    .insert([{ name, phone, email: email?.toLowerCase?.() ?? email, password }])
     .select()
     .single();
 

@@ -31,6 +31,7 @@ export interface SessionRequest {
 
 export interface LiveRequest {
   id: string;
+  studentEmail?: string;
   studentName: string;
   type: "chat" | "call" | "video";
   topic: string;
@@ -45,6 +46,7 @@ interface HomeTabProps {
   requests: SessionRequest[];
   liveRequests: LiveRequest[];
   setLiveRequests: (next: LiveRequest[]) => void;
+  onAcceptLiveRequest: (req: LiveRequest) => void;
   onAcceptRequest: (id: string) => void;
   onDeclineRequest: (id: string) => void;
   onGoBoost: () => void;
@@ -56,6 +58,7 @@ export default function HomeTab({
   requests,
   liveRequests,
   setLiveRequests,
+  onAcceptLiveRequest,
   onAcceptRequest,
   onDeclineRequest,
   onGoBoost,
@@ -111,7 +114,9 @@ export default function HomeTab({
                         <img src={req.image} alt={req.studentName} className="w-12 h-12 rounded-full object-cover border-2 border-gray-100" />
                         <div>
                           <h4 className="font-bold text-gray-900">{req.studentName}</h4>
-                          <p className="text-xs text-gray-500 font-medium bg-gray-100 px-2 py-0.5 rounded-md inline-block mt-0.5">{req.topic}</p>
+                          {req.topic && (
+                            <p className="text-xs text-gray-500 font-medium bg-gray-100 px-2 py-0.5 rounded-md inline-block mt-0.5">{req.topic}</p>
+                          )}
                         </div>
                       </div>
                       <div className="text-right">
@@ -138,7 +143,7 @@ export default function HomeTab({
                         <Button
                           size="sm"
                           className="rounded-xl bg-[#FF7A1F] hover:bg-[#E66A15] text-white shadow-md shadow-orange-200"
-                          onClick={() => setLiveRequests(liveRequests.filter((r) => r.id !== req.id))}
+                          onClick={() => onAcceptLiveRequest(req)}
                         >
                           Accept & Join
                         </Button>

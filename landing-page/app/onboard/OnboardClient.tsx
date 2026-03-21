@@ -289,7 +289,7 @@ export default function SignupPage() {
     const { error } = await supabase.from('signups').insert([{
       name: formData.name,
       phone: formData.phone,
-      email: formData.email,
+      email: formData.email.trim().toLowerCase(),
       college: formData.college,
       course: formData.course,
       branch: formData.branch,

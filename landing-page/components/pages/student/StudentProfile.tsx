@@ -23,7 +23,6 @@ export default function StudentProfile() {
   const [formName, setFormName] = useState("");
   const [formPhone, setFormPhone] = useState("");
   const [formCollege, setFormCollege] = useState("");
-  const [formClass, setFormClass] = useState("");
 
   useEffect(() => {
     const email = session?.user?.email;
@@ -40,7 +39,6 @@ export default function StudentProfile() {
   useEffect(() => {
     setFormPhone(profile?.phone ?? "");
     setFormCollege(profile?.college ?? "");
-    setFormClass(profile?.class_level ?? "");
   }, [profile]);
   const initials = name
     .split(" ")
@@ -127,20 +125,11 @@ export default function StudentProfile() {
                 <Input id="student-email" value={email} disabled />
               </div>
               <div>
-                <Label htmlFor="student-college">College / Class</Label>
+                <Label htmlFor="student-college">School / College</Label>
                 <Input
                   id="student-college"
                   value={formCollege}
                   onChange={(e) => setFormCollege(e.target.value)}
-                  disabled={!isEditing}
-                />
-              </div>
-              <div>
-                <Label htmlFor="student-class">Class Level</Label>
-                <Input
-                  id="student-class"
-                  value={formClass}
-                  onChange={(e) => setFormClass(e.target.value)}
                   disabled={!isEditing}
                 />
               </div>
@@ -159,7 +148,7 @@ export default function StudentProfile() {
                       name: formName.trim(),
                       phone: formPhone.trim(),
                       college: formCollege.trim(),
-                      class_level: formClass.trim(),
+                      class_level: null,
                     };
                     await saveProfile(email, payload);
                     setSaving(false);

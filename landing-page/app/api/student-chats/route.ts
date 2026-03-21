@@ -27,6 +27,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "student_email and mentor_email required" }, { status: 400 });
   }
 
+  const { data: existing } = await supabaseServer
+    .from("student_chats")
+    .select("*")
+    .eq("student_email", student_email)
+    .eq("mentor_email", mentor_email)
+    .single();
+
+  if (existing) return NextResponse.json(existing);
+
   const { data, error } = await supabaseServer
     .from("student_chats")
     .insert([{ student_email, mentor_email, mentor_name, mentor_avatar, chat_rate, call_rate }])

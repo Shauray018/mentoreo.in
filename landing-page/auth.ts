@@ -13,6 +13,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
   pages: {
     signIn: "/mentor/login",
+    error: "/auth/error",
   },
   providers: [
     Credentials({
@@ -23,38 +24,44 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         role: { label: "Role", type: "text" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
+        try {
+          if (!credentials?.email || !credentials?.password) return null;
 
-        const role = (credentials.role as string | undefined) === "student" ? "student" : "mentor";
-        const table = role === "student" ? "student_signups" : "signups";
+          const email = String(credentials.email).trim().toLowerCase();
+          const role = (credentials.role as string | undefined) === "student" ? "student" : "mentor";
+          const table = role === "student" ? "student_signups" : "signups";
 
-        // Fetch user with password hash from signups table
-        const { data: signup, error } = await supabase
-          .from(table)
-          .select("*")
-          .eq("email", credentials.email as string)
-          .single();
+          // Fetch user with password hash from signups table (case-insensitive)
+          const { data: signup, error } = await supabase
+            .from(table)
+            .select("*")
+            .ilike("email", email)
+            .maybeSingle();
 
-        if (error || !signup) return null;
+          if (error || !signup) return null;
 
-        // If user signed up via Google they won't have a password
-        if (!signup.password) return null;
+          // If user signed up via Google they won't have a password
+          if (!signup.password) return null;
 
-        // Verify bcrypt hash using Supabase pgcrypto
-        const { data: verified } = await supabase.rpc("verify_password", {
-          input_password: credentials.password as string,
-          hashed_password: signup.password,
-        });
+          // Verify bcrypt hash using Supabase pgcrypto
+          const { data: verified, error: verifyError } = await supabase.rpc("verify_password", {
+            input_password: credentials.password as string,
+            hashed_password: signup.password,
+          });
 
-        if (!verified) return null;
+          if (verifyError || !verified) return null;
 
-        return {
-          id: signup.id,
-          email: signup.email,
-          name: signup.name,
-          image: null,
-          role,
-        };
+          return {
+            id: signup.id,
+            email: signup.email,
+            name: signup.name,
+            image: null,
+            role,
+          };
+        } catch (err) {
+          console.error("[auth] credentials authorize failed", err);
+          return null;
+        }
       },
     }),
     Google({
@@ -137,8 +144,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const { data: mentorSignup } = await supabase
           .from("signups")
           .select("email")
-          .eq("email", email)
-          .single();
+          .ilike("email", email ?? "")
+          .maybeSingle();
 
         if (mentorSignup) {
           token.role = "mentor";

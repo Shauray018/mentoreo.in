@@ -1,7 +1,10 @@
-"use client";
-
-import StudentHome from "@/components/pages/student/StudentHome";
+import { Suspense } from "react";
+import StudentDashboardClient from "./StudentDashboardClient";
 
 export default function StudentDashboardPage() {
-  return <StudentHome />;
+  return (
+    <Suspense fallback={null}>
+      <StudentDashboardClient />
+    </Suspense>
+  );
 }

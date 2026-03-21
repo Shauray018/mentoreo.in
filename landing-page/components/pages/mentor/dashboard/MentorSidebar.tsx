@@ -8,9 +8,10 @@ interface MentorSidebarProps {
   onTabChange: (tab: TabId) => void;
   onLogout: () => void;
   onLogoClick: () => void;
+  messagesBadge?: number;
 }
 
-export function MentorSidebar({ activeTab, onTabChange, onLogout, onLogoClick }: MentorSidebarProps) {
+export function MentorSidebar({ activeTab, onTabChange, onLogout, onLogoClick, messagesBadge = 0 }: MentorSidebarProps) {
   return (
     <aside className="hidden md:flex flex-col w-64 bg-white border-r border-orange-100 fixed h-full z-40">
       <div className="p-6">
@@ -35,7 +36,16 @@ export function MentorSidebar({ activeTab, onTabChange, onLogout, onLogoClick }:
               }`}
             >
               <Icon className="w-5 h-5" />
-              {tab.label}
+              <span className="flex items-center gap-2">
+                {tab.label}
+                {tab.id === "messages" && messagesBadge > 0 && (
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    isActive ? "bg-white/90 text-[#FF7A1F]" : "bg-[#FF7A1F]/10 text-[#FF7A1F]"
+                  }`}>
+                    {messagesBadge}
+                  </span>
+                )}
+              </span>
             </button>
           );
         })}
@@ -57,9 +67,10 @@ export function MentorSidebar({ activeTab, onTabChange, onLogout, onLogoClick }:
 interface MentorMobileNavProps {
   activeTab: TabId;
   onTabChange: (tab: TabId) => void;
+  messagesBadge?: number;
 }
 
-export function MentorMobileNav({ activeTab, onTabChange }: MentorMobileNavProps) {
+export function MentorMobileNav({ activeTab, onTabChange, messagesBadge = 0 }: MentorMobileNavProps) {
   return (
     <div className="md:hidden fixed bottom-4 left-4 right-4 z-50">
       <div className="bg-white/90 backdrop-blur-md rounded-2xl shadow-lg border border-gray-200 p-2 flex justify-around items-center max-w-md mx-auto overflow-x-auto scrollbar-hide">
@@ -74,7 +85,14 @@ export function MentorMobileNav({ activeTab, onTabChange }: MentorMobileNavProps
                 isActive ? "text-[#FF7A1F] bg-orange-50" : "text-gray-400 hover:text-[#FF7A1F]/70"
               }`}
             >
-              <Icon className="h-5 w-5 mb-1" />
+              <div className="relative">
+                <Icon className="h-5 w-5 mb-1" />
+                {tab.id === "messages" && messagesBadge > 0 && (
+                  <span className="absolute -top-1 -right-2 text-[9px] font-bold px-1.5 rounded-full bg-[#FF7A1F] text-white">
+                    {messagesBadge}
+                  </span>
+                )}
+              </div>
               <span className="text-[10px] font-bold">{tab.label}</span>
             </button>
           );

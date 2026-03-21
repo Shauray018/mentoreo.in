@@ -30,6 +30,7 @@ export interface MentorProfile {
   year: string | null;
   college: string | null;
   course: string | null;
+  expertise_tags?: string[] | null;
   is_available: boolean;
   avatar_url: string | null;
   availability: Record<string, boolean> | null;

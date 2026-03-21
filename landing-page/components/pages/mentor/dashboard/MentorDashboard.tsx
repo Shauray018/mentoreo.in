@@ -13,10 +13,15 @@ import { Switch } from "@/app/components/ui/switch";
 import { TabId, TABS } from "./constants";
 import HomeTab, { LiveRequest, SessionRequest } from "./HomeTab";
 import MessagesTab from "./MessagesTab";
+import { buildCometUid } from "@/lib/cometchat-uid";
 import BoostTab from "./BoostTab";
 import ProfileTab from "./ProfileTab";
 import { MentorMobileNav, MentorSidebar } from "./MentorSidebar";
 import { MentorHistoryPanel, MentorRequestsPanel } from "./MentorPanels";
+import { useMentorPresence } from "@/hooks/useMentorPresence";
+import { sendLiveResponse, subscribeLiveRequests, subscribeSessionStarts } from "@/services/liveRequests";
+import { createStudentChat } from "@/services/studentApi";
+import { toast } from "sonner";
 
 function formatDate(date?: string) {
   if (!date) return "TBD";
@@ -36,26 +41,6 @@ function getInitials(name: string) {
   return name?.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2) ?? "?";
 }
 
-const initialLiveRequests: LiveRequest[] = [
-  {
-    id: "req1",
-    studentName: "Aryan Gupta",
-    type: "chat",
-    topic: "JEE Strategy & Mock Tests",
-    timeRequested: "Just now",
-    image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-    rate: 5,
-  },
-  {
-    id: "req2",
-    studentName: "Neha Sharma",
-    type: "call",
-    topic: "College Branch Selection",
-    timeRequested: "2 mins ago",
-    image: "https://images.unsplash.com/photo-1517841905240-472988babdf9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-    rate: 10,
-  },
-];
 
 export default function MentorDashboard() {
   const router = useRouter();
@@ -73,9 +58,10 @@ export default function MentorDashboard() {
   } = useMentorStore();
 
   const [activeTab, setActiveTab] = useState<TabId>("home");
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [requestsPanelOpen, setRequestsPanelOpen] = useState(false);
   const [historyPanelOpen, setHistoryPanelOpen] = useState(false);
-  const [liveRequests, setLiveRequests] = useState<LiveRequest[]>(initialLiveRequests);
+  const [liveRequests, setLiveRequests] = useState<LiveRequest[]>([]);
   const [isOnline, setIsOnline] = useState(true);
   const [isAvailable, setIsAvailable] = useState(true);
 
@@ -98,6 +84,106 @@ export default function MentorDashboard() {
   const mentorEmail = signup?.email ?? session?.user?.email ?? "";
   const mentorCollege = signup?.college ?? "";
   const mentorCourse = signup?.course ?? "";
+  useMentorPresence(mentorEmail || undefined, Boolean(isAvailable));
+
+  useEffect(() => {
+    if (!mentorEmail) return;
+    const { cleanup } = subscribeLiveRequests(mentorEmail, (payload) => {
+      setLiveRequests((prev) => {
+        if (prev.some((r) => r.id === payload.id)) return prev;
+        return [
+          {
+            id: payload.id,
+            studentEmail: payload.studentEmail,
+            studentName: payload.studentName,
+            type: payload.type,
+            topic: payload.topic ?? "",
+            timeRequested: "Just now",
+            image: payload.studentImage ?? "https://images.unsplash.com/photo-1534528741775-53994a69daeb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+            rate: payload.rate,
+          },
+          ...prev,
+        ];
+      });
+    });
+    const { cleanup: cleanupSessions } = subscribeSessionStarts(mentorEmail, (payload) => {
+      toast.custom(
+        () => (
+          <div className="w-full max-w-sm bg-white border border-[#FFE3D1] shadow-xl rounded-2xl p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#FFF2E8] flex items-center justify-center text-[#FF7A1F] font-black">
+              S
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-bold text-[#111827]">{payload.studentName} started a chat</p>
+              <p className="text-xs text-[#6B7280]">Open Messages to respond.</p>
+            </div>
+            <button
+              onClick={() => {
+                setActiveTab("messages");
+                setActiveChatId(buildCometUid(payload.studentEmail));
+              }}
+              className="px-3 py-1.5 rounded-full bg-[#FF7A1F] text-white text-xs font-bold hover:bg-[#FF6A0F]"
+            >
+              Open
+            </button>
+          </div>
+        ),
+        { duration: 5000 }
+      );
+
+      setLiveRequests((prev) => {
+        if (prev.some((r) => r.id === payload.id)) return prev;
+        return [
+          {
+            id: payload.id,
+            studentEmail: payload.studentEmail,
+            studentName: payload.studentName,
+            type: payload.mode,
+            topic: "Session started",
+            timeRequested: "Just now",
+            image: payload.studentImage ?? "https://images.unsplash.com/photo-1534528741775-53994a69daeb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+            rate: 0,
+          },
+          ...prev,
+        ];
+      });
+    });
+    return () => {
+      cleanup();
+      cleanupSessions();
+    };
+  }, [mentorEmail]);
+
+  const handleAcceptLiveRequest = async (req: LiveRequest) => {
+    if (!mentorEmail || !req.studentEmail) return;
+    fetch("/api/cometchat/user", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: req.studentEmail,
+        name: req.studentName,
+        avatar: req.image,
+      }),
+    }).catch(() => null);
+    const chat = await createStudentChat({
+      student_email: req.studentEmail,
+      mentor_email: mentorEmail,
+      mentor_name: mentorName,
+      mentor_avatar: profile?.avatar_url ?? null,
+      chat_rate: req.rate,
+      call_rate: req.rate,
+    });
+    if (!chat) return;
+    setLiveRequests((prev) => prev.filter((r) => r.id !== req.id));
+    setActiveTab("messages");
+    setActiveChatId(buildCometUid(req.studentEmail));
+    sendLiveResponse(req.studentEmail, {
+      chatId: chat.id,
+      mentorEmail,
+      mentorName,
+      mode: req.type === "call" ? "call" : "chat",
+    });
+  };
 
   const requests: SessionRequest[] = useMemo(
     () => sessions
@@ -154,6 +240,7 @@ export default function MentorDashboard() {
         onTabChange={setActiveTab}
         onLogout={() => signOut({ callbackUrl: "/" })}
         onLogoClick={() => router.push("/")}
+        messagesBadge={liveRequests.length}
       />
 
       <main className={`flex-1 md:ml-64 w-full max-w-full overflow-x-hidden ${activeTab === "messages" ? "h-screen flex flex-col" : ""}`}>
@@ -248,12 +335,13 @@ export default function MentorDashboard() {
                     requests={requests}
                     liveRequests={liveRequests}
                     setLiveRequests={setLiveRequests}
+                    onAcceptLiveRequest={handleAcceptLiveRequest}
                     onAcceptRequest={acceptSession}
                     onDeclineRequest={declineSession}
                     onGoBoost={() => setActiveTab("boost")}
                   />
                 )}
-                {activeTab === "messages" && <MessagesTab />}
+                {activeTab === "messages" && <MessagesTab activeChatId={activeChatId} onActiveChatChange={setActiveChatId} />}
                 {activeTab === "boost" && <BoostTab />}
                 {activeTab === "profile" && (
                   <ProfileTab
@@ -274,7 +362,7 @@ export default function MentorDashboard() {
         </div>
       </main>
 
-      <MentorMobileNav activeTab={activeTab} onTabChange={setActiveTab} />
+      <MentorMobileNav activeTab={activeTab} onTabChange={setActiveTab} messagesBadge={liveRequests.length} />
     </div>
   );
 }

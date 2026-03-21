@@ -1,6 +1,8 @@
 import { create } from "zustand";
 
 export type MentorBrowse = {
+  avatar_url: null;
+  course: string;
   id: string;
   name: string;
   college: string;
