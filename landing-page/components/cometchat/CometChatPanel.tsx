@@ -427,7 +427,7 @@ export default function CometChatPanel({
           </div>
         )}
 
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 flex flex-col pb-24 md:pb-28 space-y-4 bg-[#F8F9FA]">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 flex flex-col pb-6 md:pb-6 space-y-4 bg-[#F8F9FA]">
           {messages.map((msg) => {
             const isMe = msg.isMe;
             return (
@@ -459,10 +459,10 @@ export default function CometChatPanel({
           )}
         </div>
 
-        <div className="bg-white border-t border-gray-100 pb-safe md:pb-4">
+        <div className="bg-white border-t border-gray-100 pb-safe">
           <div className="p-3 md:p-4">
             {!sessionStartedAt && showTalkNow ? (
-              <div className="flex items-center justify-center">
+              <div className="flex flex-col items-center gap-2">
                 <button
                   onClick={() => {
                     if (!canStart) {
@@ -476,14 +476,17 @@ export default function CometChatPanel({
                     startTimerIfNeeded();
                   }}
                   disabled={!canStart}
-                  className={`px-6 py-3 rounded-full text-sm font-bold transition-all ${
+                  className={`w-full max-w-sm px-6 py-3.5 rounded-2xl text-sm font-bold transition-all ${
                     canStart
-                      ? "bg-[#9758FF] text-white shadow-md hover:bg-[#8A4CE6]"
+                      ? "bg-gradient-to-r from-[#8F5BFF] via-[#9758FF] to-[#A855F7] text-white shadow-lg shadow-[#9758FF]/25 hover:brightness-110 active:scale-[0.99]"
                       : "bg-gray-100 text-gray-400"
                   }`}
                 >
                   Talk Now
                 </button>
+                <p className="text-[11px] text-[#9CA3AF] font-semibold">
+                  Starts paid chat at ₹{ratePerMin}/min
+                </p>
               </div>
             ) : (
               <div className="flex items-end gap-2">

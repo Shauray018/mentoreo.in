@@ -133,22 +133,25 @@ export default function UnifiedLanding() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.7, delay: 0.4 }}
-                className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 px-4 sm:px-0"
+                className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center lg:justify-start gap-3 sm:gap-4 px-4 sm:px-0"
               >
                 <Button
                   asChild
-                  className="w-full sm:w-auto bg-[#FF8000] hover:bg-[#E67300] text-white rounded-full px-8 py-6 text-lg shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all h-auto inline-flex items-center justify-center gap-2"
+                  className="w-full sm:w-auto sm:min-w-[220px] bg-[#FF8000] hover:bg-[#E67300] text-white rounded-full px-7 sm:px-8 py-4 sm:py-5 text-base sm:text-lg shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all h-auto inline-flex items-center justify-center gap-2"
                   style={{ fontWeight: 700 }}
                 >
                   <Link href="/student">
                     Find your Mentor <Search className="w-5 h-5" />
                   </Link>
                 </Button>
-                <Link href="/onboard">
-                  <Button variant="outline" className="w-full sm:w-auto bg-white/80 backdrop-blur-sm border-2 border-[#FF8000] text-[#FF8000] hover:bg-[#FFF9F5] rounded-full px-8 py-6 text-lg shadow-sm hover:shadow-md transition-all h-auto inline-flex items-center justify-center gap-2" style={{ fontWeight: 700 }}>
-                    Join as Mentor ✨
-                  </Button>
-                </Link>
+                <Button
+                  asChild
+                  variant="outline"
+                  className="w-full sm:w-auto sm:min-w-[220px] bg-white/80 backdrop-blur-sm border-2 border-[#FF8000] text-[#FF8000] hover:bg-[#FFF3EA] rounded-full px-7 sm:px-8 py-4 sm:py-5 text-base sm:text-lg shadow-sm hover:shadow-md transition-all h-auto inline-flex items-center justify-center gap-2"
+                  style={{ fontWeight: 700 }}
+                >
+                  <Link href="/onboard">Join as Mentor ✨</Link>
+                </Button>
               </motion.div>
             </div>
 
@@ -361,7 +364,7 @@ export default function UnifiedLanding() {
           </div>
           <div className="border-t border-[#FF8000]/10 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-[#1F2937]/50">
             <p>© 2026 Mentoreo. Made with 🧡 for students, by students.</p>
-            <p>Starting at <span className="text-[#FF8000]" style={{ fontWeight: 600 }}>₹9/min</span> · Chat-first · No video required</p>
+            <p>Starting at <span className="text-[#FF8000]" style={{ fontWeight: 600 }}>₹500/min</span> · Chat-first · No video required</p>
           </div>
         </div>
       </footer>

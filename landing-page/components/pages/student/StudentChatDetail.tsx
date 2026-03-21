@@ -23,8 +23,8 @@ export default function StudentChatDetail() {
   const mentorIsOnline = mentorEmail ? onlineMentors.has(mentorEmail) : false;
 
   return (
-    <div className="bg-[#F8F9FA] min-h-screen font-nunito p-4 md:p-6">
-      <div className="w-full h-[calc(100vh-120px)] md:h-[calc(100vh-160px)] max-w-5xl mx-auto bg-white rounded-[28px] shadow-sm border border-[#F3E8FF] overflow-hidden">
+    <div className="bg-[#F8F9FA] min-h-[100dvh] font-nunito px-0 pt-0 pb-0 md:p-0">
+      <div className="w-full h-[100dvh] md:h-[100vh] max-w-none mx-auto bg-white overflow-hidden">
         <CometChatPanel
           activeUid={activeUid}
           onBack={() => router.push("/student/chats")}

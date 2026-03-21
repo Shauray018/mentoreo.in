@@ -97,8 +97,14 @@ export default function StudentAppLayout({ children }: { children: React.ReactNo
   if (isAuthPage) return <>{children}</>;
   if (status === "unauthenticated" && !isAuthPage) return null;
 
+  const pathSegments = pathname.split("/").filter(Boolean);
+  const isChatDetail =
+    pathSegments[0] === "student" &&
+    pathSegments[1] === "chats" &&
+    pathSegments.length > 2;
+
   return (
-    <div className="min-h-screen bg-[#F8F5FF] md:bg-[#F3E8FF] pb-24 md:pb-0 font-nunito relative flex">
+    <div className={`min-h-screen bg-[#F8F5FF] md:bg-[#F3E8FF] ${isChatDetail ? "pb-0" : "pb-24"} md:pb-0 font-nunito relative flex`}>
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-64 bg-white border-r border-[#E1D4FF] fixed h-full z-40">
         <div className="p-6">
@@ -154,6 +160,7 @@ export default function StudentAppLayout({ children }: { children: React.ReactNo
       </main>
 
       {/* Mobile Floating Bottom Nav */}
+      {!isChatDetail && (
       <div className="md:hidden fixed bottom-4 left-4 right-4 z-50">
         <div className="bg-white/90 backdrop-blur-md rounded-2xl shadow-lg border border-[#E1D4FF] p-2 flex justify-between items-center max-w-md mx-auto">
           {navItems.map((item) => (
@@ -179,6 +186,7 @@ export default function StudentAppLayout({ children }: { children: React.ReactNo
           ))}
         </div>
       </div>
+      )}
     </div>
   );
 }

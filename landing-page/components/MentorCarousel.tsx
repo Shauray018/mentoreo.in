@@ -28,25 +28,11 @@ const MENTORS = [
   },
   {
     id: 4,
-    name: 'Mentor Four',
+    name: 'Ojas Kampani',
     title: 'JEE Topper',
-    college: 'IIT Madras',
-    img: '/divig3.png',
-  },
-  {
-    id: 5,
-    name: 'Mentor Five',
-    title: 'JEE Topper',
-    college: 'IIT Kharagpur',
-    img: '/aadi.png',
-  },
-  {
-    id: 6,
-    name: 'Mentor Six',
-    title: 'JEE Topper',
-    college: 'IIT Roorkee',
-    img: 'https://images.unsplash.com/photo-1648577739099-f1e18f8563f0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=600',
-  },
+    college: 'PEC Chandigarh',
+    img: 'https://jyjzhuevnslcmjauguaz.supabase.co/storage/v1/object/public/avatars/kampani.ojas@gmail.com/avatar.jpg',
+  }
 ];
 
 function MentorCard({ mentor }: { mentor: typeof MENTORS[0] }) {
