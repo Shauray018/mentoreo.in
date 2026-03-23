@@ -151,9 +151,9 @@ export default function StudentAppLayout({ children }: { children: React.ReactNo
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 md:ml-64 w-full max-w-full overflow-x-hidden">
-        <div className="md:p-8 md:max-w-6xl md:mx-auto min-h-screen">
-          <div className="bg-white md:rounded-[32px] md:shadow-sm md:border border-[#E1D4FF] min-h-screen md:min-h-[calc(100vh-4rem)] overflow-hidden">
+      <main className={`flex-1 md:ml-64 w-full max-w-full overflow-x-hidden ${isChatDetail ? "h-screen" : ""}`}>
+        <div className={`${isChatDetail ? "h-full md:p-0 md:max-w-none md:mx-0" : "md:p-8 md:max-w-6xl md:mx-auto min-h-screen"}`}>
+          <div className={`${isChatDetail ? "h-full bg-white overflow-hidden" : "bg-white md:rounded-[32px] md:shadow-sm md:border border-[#E1D4FF] min-h-screen md:min-h-[calc(100vh-4rem)] overflow-hidden"}`}>
             {children}
           </div>
         </div>

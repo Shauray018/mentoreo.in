@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { Button } from '../components/ui/button';
 import { 
@@ -56,7 +57,22 @@ const truthWall = [
 ];
 
 export default function WhyMentoreo() {
-  const reduceMotion = useReducedMotion();
+  const prefersReducedMotion = useReducedMotion();
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 767px)');
+    const update = () => setIsMobile(media.matches);
+    update();
+    if (media.addEventListener) {
+      media.addEventListener('change', update);
+      return () => media.removeEventListener('change', update);
+    }
+    media.addListener(update);
+    return () => media.removeListener(update);
+  }, []);
+
+  const reduceMotion = prefersReducedMotion || isMobile;
   return (
     <div className="min-h-screen bg-[#FFF9F5] font-sans text-[#1F2937] overflow-hidden">
       {/* Background Orbs */}
@@ -139,10 +155,10 @@ export default function WhyMentoreo() {
 
           {/* Card 2 */}
           <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.1 }}
+            initial={reduceMotion ? false : { opacity: 0, y: 20 }}
+            whileInView={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+            viewport={reduceMotion ? undefined : { once: true }}
+            transition={reduceMotion ? undefined : { delay: 0.1 }}
             className="bg-white/75 rounded-[32px] p-8 border border-[#1F2937]/5 shadow-[0_8px_30px_rgba(31,41,55,0.04)] hover:-translate-y-1 transition-transform"
           >
             <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mb-6">
@@ -156,10 +172,10 @@ export default function WhyMentoreo() {
 
           {/* Card 3 */}
           <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.2 }}
+            initial={reduceMotion ? false : { opacity: 0, y: 20 }}
+            whileInView={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+            viewport={reduceMotion ? undefined : { once: true }}
+            transition={reduceMotion ? undefined : { delay: 0.2 }}
             className="bg-white/75 rounded-[32px] p-8 border border-[#1F2937]/5 shadow-[0_8px_30px_rgba(31,41,55,0.04)] hover:-translate-y-1 transition-transform"
           >
             <div className="w-14 h-14 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mb-6">
@@ -203,10 +219,10 @@ export default function WhyMentoreo() {
           {truthWall.map((item, index) => (
             <motion.div
               key={index}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: index * 0.1 }}
+              initial={reduceMotion ? false : { opacity: 0, y: 20 }}
+              whileInView={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+              viewport={reduceMotion ? undefined : { once: true }}
+              transition={reduceMotion ? undefined : { delay: index * 0.1 }}
               className={`break-inside-avoid p-8 rounded-[32px] border ${item.color} relative group hover:scale-[1.02] transition-transform duration-300`}
             >
               <MessageCircle className="absolute top-6 right-6 w-8 h-8 text-[#1F2937]/10 group-hover:text-[#1F2937]/20 transition-colors" />
@@ -232,9 +248,9 @@ export default function WhyMentoreo() {
       {/* CTA Section */}
       <section className="relative py-24 px-6 text-center z-10">
         <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          whileInView={{ opacity: 1, scale: 1 }}
-          viewport={{ once: true }}
+          initial={reduceMotion ? false : { opacity: 0, scale: 0.9 }}
+          whileInView={reduceMotion ? undefined : { opacity: 1, scale: 1 }}
+          viewport={reduceMotion ? undefined : { once: true }}
           className="max-w-2xl mx-auto"
         >
           <h2 className="text-4xl font-extrabold text-[#1F2937] mb-8" style={{ fontFamily: 'Fredoka, sans-serif' }}>

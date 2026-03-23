@@ -66,6 +66,9 @@ interface StudentStore {
   chats: StudentChat[];
   messagesByChat: Record<string, StudentMessage[]>;
   loading: boolean;
+  profileLoading: boolean;
+  walletLoading: boolean;
+  chatsLoading: boolean;
   error: string | null;
 
   fetchProfile: (email: string) => Promise<void>;
@@ -94,11 +97,19 @@ export const useStudentStore = create<StudentStore>((set, get) => ({
   chats: [],
   messagesByChat: {},
   loading: false,
+  profileLoading: false,
+  walletLoading: false,
+  chatsLoading: false,
   error: null,
 
   fetchProfile: async (email) => {
-    const profile = await fetchStudentProfile(email);
-    set({ profile });
+    set({ profileLoading: true });
+    try {
+      const profile = await fetchStudentProfile(email);
+      set({ profile });
+    } finally {
+      set({ profileLoading: false });
+    }
   },
 
   saveProfile: async (email, patch) => {
@@ -118,8 +129,13 @@ export const useStudentStore = create<StudentStore>((set, get) => ({
   },
 
   fetchWallet: async (email) => {
-    const wallet = await fetchStudentWallet(email);
-    if (wallet) set({ wallet });
+    set({ walletLoading: true });
+    try {
+      const wallet = await fetchStudentWallet(email);
+      if (wallet) set({ wallet });
+    } finally {
+      set({ walletLoading: false });
+    }
   },
 
   fetchWalletTxs: async (email) => {
@@ -132,8 +148,13 @@ export const useStudentStore = create<StudentStore>((set, get) => ({
   },
 
   fetchChats: async (email) => {
-    const chats = await fetchStudentChats(email);
-    set({ chats });
+    set({ chatsLoading: true });
+    try {
+      const chats = await fetchStudentChats(email);
+      set({ chats });
+    } finally {
+      set({ chatsLoading: false });
+    }
   },
 
   createChat: async (payload) => {
@@ -168,6 +189,9 @@ export const useStudentStore = create<StudentStore>((set, get) => ({
     walletTxs: [],
     chats: [],
     messagesByChat: {},
+    profileLoading: false,
+    walletLoading: false,
+    chatsLoading: false,
     error: null,
   }),
 }));

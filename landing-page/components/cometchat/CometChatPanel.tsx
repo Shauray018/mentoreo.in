@@ -26,6 +26,16 @@ interface CometChatPanelProps {
   onMentorOffline?: () => void;
   statusOverride?: "online" | "offline";
   onSessionStart?: () => void;
+  onSessionEnd?: (payload: { minutes: number; rate: number; total: number }) => void;
+  talkNowState?: "idle" | "requesting" | "accepted";
+  onTalkNowRequest?: () => void;
+  sessionStartTrigger?: number;
+  summaryOverlay?: {
+    show: boolean;
+    title: string;
+    lines: string[];
+    onClose?: () => void;
+  };
   billing?: BillingConfig;
 }
 
@@ -55,6 +65,11 @@ export default function CometChatPanel({
   onMentorOffline,
   statusOverride,
   onSessionStart,
+  onSessionEnd,
+  talkNowState = "idle",
+  onTalkNowRequest,
+  sessionStartTrigger,
+  summaryOverlay,
   billing,
 }: CometChatPanelProps) {
   const { data: session } = useSession();
@@ -78,9 +93,11 @@ export default function CometChatPanel({
   const [showSummary, setShowSummary] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
   const sessionNotifiedRef = useRef(false);
+  const sessionEndNotifiedRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   const [currentBalancePaise, setCurrentBalancePaise] = useState(billing?.balancePaise ?? 0);
+  const lastStartTriggerRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (billing?.balancePaise != null) setCurrentBalancePaise(billing.balancePaise);
@@ -93,16 +110,18 @@ export default function CometChatPanel({
     setDebitedMinutes(0);
     setShowSummary(false);
     sessionNotifiedRef.current = false;
+    sessionEndNotifiedRef.current = false;
   }, [activeUid]);
 
-  useEffect(() => {
-    const onVis = () => setIsVisible(document.visibilityState === "visible");
-    document.addEventListener("visibilitychange", onVis);
-    return () => document.removeEventListener("visibilitychange", onVis);
-  }, []);
-
+  const header = useMemo(() => {
+    const name = targetUser?.getName?.() ?? targetUser?.name ?? "Mentor";
+    const avatar = targetUser?.getAvatar?.() ?? targetUser?.avatar ?? fallbackAvatar;
+    const statusRaw = targetUser?.getStatus?.() ?? targetUser?.status ?? "offline";
+    const status = statusOverride ?? (statusRaw === "online" ? "online" : "offline");
+    return { name, avatar, status };
+  }, [targetUser, statusOverride]);
   const billingEnabled = Boolean(billing?.enabled);
-  const showTalkNow = billing?.showTalkNow ?? billingEnabled;
+  const showTalkNow = (billing?.showTalkNow ?? billingEnabled) && talkNowState !== "accepted";
   const ratePerMin = billing?.ratePerMin ?? 5;
   const minMinutes = billing?.minMinutes ?? 10;
   const balanceRupees = currentBalancePaise / 100;
@@ -114,6 +133,28 @@ export default function CometChatPanel({
     : 0;
   const remainingSeconds = Math.max(0, maxSeconds - activeSeconds);
   const timeExpired = billingEnabled && sessionStartedAt != null && remainingSeconds <= 0;
+
+  useEffect(() => {
+    if (!sessionStartTrigger) return;
+    if (lastStartTriggerRef.current === sessionStartTrigger) return;
+    lastStartTriggerRef.current = sessionStartTrigger;
+    if (talkNowState !== "accepted") return;
+    if (billingEnabled && !canStart) {
+      billing?.onLowBalance?.();
+      return;
+    }
+    if (header.status !== "online") {
+      onMentorOffline?.();
+      return;
+    }
+    startTimerIfNeeded();
+  }, [sessionStartTrigger, talkNowState, billingEnabled, canStart, header.status, onMentorOffline]);
+
+  useEffect(() => {
+    const onVis = () => setIsVisible(document.visibilityState === "visible");
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
 
   useEffect(() => {
     if (!sessionStartedAt || showSummary) return;
@@ -280,6 +321,15 @@ export default function CometChatPanel({
   }, [timeExpired, billingEnabled]);
 
   useEffect(() => {
+    if (!billingEnabled) return;
+    if (!showSummary) return;
+    if (sessionEndNotifiedRef.current) return;
+    sessionEndNotifiedRef.current = true;
+    const total = debitedMinutes * ratePerMin;
+    onSessionEnd?.({ minutes: debitedMinutes, rate: ratePerMin, total });
+  }, [billingEnabled, showSummary, debitedMinutes, ratePerMin, onSessionEnd]);
+
+  useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
@@ -326,14 +376,6 @@ export default function CometChatPanel({
     }
   };
 
-  const header = useMemo(() => {
-    const name = targetUser?.getName?.() ?? targetUser?.name ?? "Mentor";
-    const avatar = targetUser?.getAvatar?.() ?? targetUser?.avatar ?? fallbackAvatar;
-    const statusRaw = targetUser?.getStatus?.() ?? targetUser?.status ?? "offline";
-    const status = statusOverride ?? (statusRaw === "online" ? "online" : "offline");
-    return { name, avatar, status };
-  }, [targetUser, statusOverride]);
-
   if (error) {
     return (
       <div className="w-full h-full flex items-center justify-center text-sm text-red-500">
@@ -363,7 +405,7 @@ export default function CometChatPanel({
 
   return (
     <div className={className ?? "w-full h-full"}>
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full min-h-0">
         <div className="bg-white px-4 py-3 flex items-center justify-between shadow-sm border-b border-gray-100">
           <div className="flex items-center gap-3">
             {onBack && (
@@ -427,7 +469,7 @@ export default function CometChatPanel({
           </div>
         )}
 
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 flex flex-col pb-6 md:pb-6 space-y-4 bg-[#F8F9FA]">
+        <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col pb-6 md:pb-6 space-y-4 bg-[#F8F9FA]">
           {messages.map((msg) => {
             const isMe = msg.isMe;
             return (
@@ -465,6 +507,7 @@ export default function CometChatPanel({
               <div className="flex flex-col items-center gap-2">
                 <button
                   onClick={() => {
+                    if (talkNowState === "requesting") return;
                     if (!canStart) {
                       billing?.onLowBalance?.();
                       return;
@@ -473,19 +516,25 @@ export default function CometChatPanel({
                       onMentorOffline?.();
                       return;
                     }
+                    if (talkNowState === "idle" && onTalkNowRequest) {
+                      onTalkNowRequest();
+                      return;
+                    }
                     startTimerIfNeeded();
                   }}
-                  disabled={!canStart}
+                  disabled={!canStart || talkNowState === "requesting"}
                   className={`w-full max-w-sm px-6 py-3.5 rounded-2xl text-sm font-bold transition-all ${
-                    canStart
+                    canStart && talkNowState !== "requesting"
                       ? "bg-gradient-to-r from-[#8F5BFF] via-[#9758FF] to-[#A855F7] text-white shadow-lg shadow-[#9758FF]/25 hover:brightness-110 active:scale-[0.99]"
                       : "bg-gray-100 text-gray-400"
                   }`}
                 >
-                  Talk Now
+                  {talkNowState === "requesting" ? "Waiting for mentor..." : "Talk Now"}
                 </button>
                 <p className="text-[11px] text-[#9CA3AF] font-semibold">
-                  Starts paid chat at ₹{ratePerMin}/min
+                  {talkNowState === "requesting"
+                    ? "We’ll start once the mentor accepts."
+                    : `Starts paid chat at ₹${ratePerMin}/min`}
                 </p>
               </div>
             ) : (
@@ -525,33 +574,48 @@ export default function CometChatPanel({
           </div>
         </div>
 
-        {showSummary && billingEnabled && (
+        {(summaryOverlay?.show || (showSummary && billingEnabled)) && (
           <div className="absolute inset-0 bg-black/40 flex items-center justify-center p-6">
             <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm text-center">
               <div className="w-12 h-12 bg-[#F3E8FF] rounded-full flex items-center justify-center mx-auto mb-3">
                 <Timer className="w-5 h-5 text-[#9758FF]" />
               </div>
-              <h3 className="text-lg font-bold text-[#111827]">Session ended</h3>
-              <p className="text-sm text-gray-500 mt-1">
-                Duration: <span className="font-semibold">{debitedMinutes} min</span>
-              </p>
-              <p className="text-sm text-gray-500">
-                Charged: <span className="font-semibold">₹{debitedMinutes * ratePerMin}</span>
-              </p>
+              <h3 className="text-lg font-bold text-[#111827]">
+                {summaryOverlay?.show ? summaryOverlay.title : "Session ended"}
+              </h3>
+              {(summaryOverlay?.show ? summaryOverlay.lines : [
+                `Duration: ${debitedMinutes} min`,
+                `Charged: ₹${debitedMinutes * ratePerMin}`,
+              ]).map((line, idx) => (
+                <p key={idx} className="text-sm text-gray-500 mt-1">
+                  {line}
+                </p>
+              ))}
               <div className="mt-4 grid gap-2">
-                <button
-                  onClick={billing?.onLowBalance}
-                  className="w-full bg-[#9758FF] text-white font-semibold py-2.5 rounded-xl hover:bg-[#8A4FFF]"
-                >
-                  Top up wallet
-                </button>
-                {onBack && (
+                {summaryOverlay?.show ? (
                   <button
-                    onClick={onBack}
-                    className="w-full border border-gray-200 text-gray-700 font-semibold py-2.5 rounded-xl hover:bg-gray-50"
+                    onClick={summaryOverlay.onClose}
+                    className="w-full bg-[#9758FF] text-white font-semibold py-2.5 rounded-xl hover:bg-[#8A4FFF]"
                   >
-                    Back to inbox
+                    Close
                   </button>
+                ) : (
+                  <>
+                    <button
+                      onClick={billing?.onLowBalance}
+                      className="w-full bg-[#9758FF] text-white font-semibold py-2.5 rounded-xl hover:bg-[#8A4FFF]"
+                    >
+                      Top up wallet
+                    </button>
+                    {onBack && (
+                      <button
+                        onClick={onBack}
+                        className="w-full border border-gray-200 text-gray-700 font-semibold py-2.5 rounded-xl hover:bg-gray-50"
+                      >
+                        Back to inbox
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             </div>

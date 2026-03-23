@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { AnimatePresence, motion } from "motion/react";
 import { Users, History } from "lucide-react";
@@ -22,6 +22,13 @@ import { useMentorPresence } from "@/hooks/useMentorPresence";
 import { sendLiveResponse, subscribeLiveRequests, subscribeSessionStarts } from "@/services/liveRequests";
 import { createStudentChat } from "@/services/studentApi";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/app/components/ui/dialog";
 
 function formatDate(date?: string) {
   if (!date) return "TBD";
@@ -44,6 +51,7 @@ function getInitials(name: string) {
 
 export default function MentorDashboard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: session, status } = useSession();
 
   const {
@@ -64,10 +72,37 @@ export default function MentorDashboard() {
   const [liveRequests, setLiveRequests] = useState<LiveRequest[]>([]);
   const [isOnline, setIsOnline] = useState(true);
   const [isAvailable, setIsAvailable] = useState(true);
+  const [completeProfileOpen, setCompleteProfileOpen] = useState(false);
 
   useEffect(() => {
     if (status === "unauthenticated") router.replace("/mentor/login");
   }, [status, router]);
+
+  useEffect(() => {
+    const tab = (searchParams.get("tab") as TabId | null) ?? null;
+    if (!tab) return;
+    if (TABS.some((t) => t.id === tab)) setActiveTab(tab);
+  }, [searchParams]);
+
+  useEffect(() => {
+    const shouldOpen = searchParams.get("completeProfile") === "1";
+    if (shouldOpen) setCompleteProfileOpen(true);
+  }, [searchParams]);
+
+  const closeCompleteProfile = () => {
+    setCompleteProfileOpen(false);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("completeProfile");
+    router.replace(`/mentor/dashboard${params.toString() ? `?${params.toString()}` : ""}`);
+  };
+
+  const goToProfile = () => {
+    setCompleteProfileOpen(false);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", "profile");
+    params.delete("completeProfile");
+    router.replace(`/mentor/dashboard?${params.toString()}`);
+  };
 
   useMentorData(session?.user?.email ?? undefined);
 
@@ -130,23 +165,6 @@ export default function MentorDashboard() {
         ),
         { duration: 5000 }
       );
-
-      setLiveRequests((prev) => {
-        if (prev.some((r) => r.id === payload.id)) return prev;
-        return [
-          {
-            id: payload.id,
-            studentEmail: payload.studentEmail,
-            studentName: payload.studentName,
-            type: payload.mode,
-            topic: "Session started",
-            timeRequested: "Just now",
-            image: payload.studentImage ?? "https://images.unsplash.com/photo-1534528741775-53994a69daeb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-            rate: 0,
-          },
-          ...prev,
-        ];
-      });
     });
     return () => {
       cleanup();
@@ -233,8 +251,40 @@ export default function MentorDashboard() {
     );
   }
 
+  const isMessageDetail = activeTab === "messages" && Boolean(activeChatId);
+
   return (
     <div className="min-h-screen bg-[#FFF9F5] md:bg-[#FFF9F5] pb-24 md:pb-0 font-nunito relative flex">
+      <Dialog open={completeProfileOpen} onOpenChange={(open) => (open ? setCompleteProfileOpen(true) : closeCompleteProfile())}>
+        <DialogContent className="max-w-3xl w-[calc(100%-2rem)] p-0 bg-white border border-orange-100 shadow-[0_20px_70px_rgba(0,0,0,0.12)]">
+
+          <div className="px-8 py-8">
+            <DialogHeader className="space-y-2">
+              <DialogTitle className="text-[#FF7A1F] text-3xl font-black">Almost there</DialogTitle>
+              <DialogDescription className="text-[#6B7280] text-base text-lg leading-relaxed max-w-2xl">
+                You are not whitelisted yet. Complete your profile so you are ready when First Dollar goes live soon.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="mt-8 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={closeCompleteProfile}
+                className="px-5 py-2.5 rounded-lg border border-orange-200 text-[#FF7A1F] text-sm font-medium hover:bg-orange-50 transition-colors"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={goToProfile}
+                className="px-5 py-2.5 rounded-lg bg-[#FF7A1F] text-white text-sm font-semibold hover:bg-[#FF6A0F] transition-colors"
+              >
+                Complete Profile
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       <MentorSidebar
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -243,9 +293,10 @@ export default function MentorDashboard() {
         messagesBadge={liveRequests.length}
       />
 
-      <main className={`flex-1 md:ml-64 w-full max-w-full overflow-x-hidden ${activeTab === "messages" ? "h-screen flex flex-col" : ""}`}>
-        <div className={`md:p-8 md:max-w-6xl md:mx-auto ${activeTab === "messages" ? "h-full flex flex-col flex-1" : "min-h-screen"}`}>
+      <main className={`flex-1 md:ml-64 w-full max-w-full overflow-x-hidden ${activeTab === "messages" ? "h-[100dvh] md:h-screen flex flex-col" : ""}`}>
+        <div className={`${activeTab === "messages" ? "h-full flex flex-col flex-1 md:p-0 md:max-w-none md:mx-0" : "md:p-8 md:max-w-6xl md:mx-auto min-h-screen"}`}>
           <div className={`${activeTab === "messages" ? "flex flex-col h-full" : "bg-white md:rounded-[32px] md:shadow-sm md:border border-orange-100 min-h-screen md:min-h-[calc(100vh-4rem)] p-4 sm:p-6 lg:p-8"}`}>
+            {!isMessageDetail && (
             <div className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 ${activeTab === "messages" ? "px-4 pt-4 md:px-0 md:pt-0" : ""}`}>
               <div className="flex items-center gap-3.5">
                 <div className="w-12 h-12 rounded-2xl bg-orange-100 flex items-center justify-center text-xl">
@@ -304,20 +355,25 @@ export default function MentorDashboard() {
                 )}
               </div>
             </div>
+            )}
 
-            <MentorRequestsPanel
-              open={requestsPanelOpen}
-              onClose={() => setRequestsPanelOpen(false)}
-              requests={requests}
-              onAccept={acceptSession}
-              onDecline={declineSession}
-            />
+            {!isMessageDetail && (
+              <>
+                <MentorRequestsPanel
+                  open={requestsPanelOpen}
+                  onClose={() => setRequestsPanelOpen(false)}
+                  requests={requests}
+                  onAccept={acceptSession}
+                  onDecline={declineSession}
+                />
 
-            <MentorHistoryPanel
-              open={historyPanelOpen}
-              onClose={() => setHistoryPanelOpen(false)}
-              sessions={historySessions}
-            />
+                <MentorHistoryPanel
+                  open={historyPanelOpen}
+                  onClose={() => setHistoryPanelOpen(false)}
+                  sessions={historySessions}
+                />
+              </>
+            )}
 
             <AnimatePresence mode="wait">
               <motion.div
@@ -326,7 +382,11 @@ export default function MentorDashboard() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.2 }}
-                className={activeTab === "messages" ? "flex-1 min-h-0 flex flex-col px-4 pb-24 md:px-0 md:pb-0" : ""}
+                className={
+                  activeTab === "messages"
+                    ? `flex-1 min-h-0 flex flex-col ${isMessageDetail ? "px-0 pb-0" : "px-4 pb-24"} md:px-0 md:pb-0`
+                    : ""
+                }
               >
                 {activeTab === "home" && (
                   <HomeTab
@@ -362,7 +422,9 @@ export default function MentorDashboard() {
         </div>
       </main>
 
-      <MentorMobileNav activeTab={activeTab} onTabChange={setActiveTab} messagesBadge={liveRequests.length} />
+      {!isMessageDetail && (
+        <MentorMobileNav activeTab={activeTab} onTabChange={setActiveTab} messagesBadge={liveRequests.length} />
+      )}
     </div>
   );
 }

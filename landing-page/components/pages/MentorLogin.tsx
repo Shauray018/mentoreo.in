@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { getSession, signIn, signOut, useSession } from "next-auth/react";
+import { getSession, signIn, useSession } from "next-auth/react";
 import { motion } from "motion/react";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
@@ -35,6 +35,7 @@ export default function MentorLogin() {
   const [resetConfirm, setResetConfirm] = useState("");
   const [resetSending, setResetSending] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
+  const unregisteredToastShown = useRef(false);
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -44,13 +45,17 @@ export default function MentorLogin() {
       if (sess?.unregistered) {
         const unregisteredEmail = sess.unregisteredEmail ?? "";
         const unregisteredName = sess.unregisteredName ?? "";
-        signOut({ redirect: false }).then(() => {
-          const params = new URLSearchParams();
-          if (unregisteredEmail) params.set("email", unregisteredEmail);
-          if (unregisteredName) params.set("name", unregisteredName);
-          params.set("oauth", "google");
-          router.replace(`/onboard?${params.toString()}`);
-        });
+        if (!unregisteredToastShown.current) {
+          unregisteredToastShown.current = true;
+          toast.message("You're almost in.", {
+            description: "Complete the onboarding form to join the mentor waitlist.",
+          });
+        }
+        const params = new URLSearchParams();
+        if (unregisteredEmail) params.set("email", unregisteredEmail);
+        if (unregisteredName) params.set("name", unregisteredName);
+        params.set("oauth", "google");
+        router.replace(`/onboard?${params.toString()}`);
         return;
       }
 

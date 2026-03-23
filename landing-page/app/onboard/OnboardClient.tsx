@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
-import { signIn } from 'next-auth/react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { signIn, useSession } from 'next-auth/react'
 import { supabase } from '@/lib/supabase'
 import clsx from 'clsx'
 import institutions from '@/data/institutions.json'
@@ -141,6 +141,7 @@ const STEPS: Step[] = [
 // ─── Main Component ──────────────────────────────────────────────────────────
 export default function SignupPage() {
   const searchParams = useSearchParams()
+  const router = useRouter()
 
   const [currentStep, setCurrentStep] = useState(0)
   const [direction, setDirection] = useState<'up' | 'down'>('up')
@@ -159,6 +160,7 @@ export default function SignupPage() {
   const [status, setStatus] = useState<SlideStatus>('idle')
   const [errorMsg, setErrorMsg] = useState('')
   const [submitted, setSubmitted] = useState(false)
+  const [authError, setAuthError] = useState('')
   const [showSuggestionsFor, setShowSuggestionsFor] = useState<keyof FormData | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const [emailOtpSentFor, setEmailOtpSentFor] = useState<string | null>(null)
@@ -168,6 +170,7 @@ export default function SignupPage() {
 
   const oauth = searchParams.get('oauth')
   const isGoogle = oauth === 'google'
+  const { status: sessionStatus } = useSession()
 
   const steps = useMemo(() => {
     if (!isGoogle) return STEPS
@@ -308,7 +311,33 @@ export default function SignupPage() {
       return
     }
 
-    setSubmitted(true)
+    setAuthError('')
+
+    if (isGoogle) {
+      if (sessionStatus === 'authenticated') {
+        router.replace('/mentor/dashboard?completeProfile=1')
+        return
+      }
+      setErrorMsg('Finishing Google sign-in…')
+      await signIn('google', { callbackUrl: '/mentor/dashboard?completeProfile=1' })
+      return
+    }
+
+    const result = await signIn('credentials', {
+      email: formData.email.trim().toLowerCase(),
+      password: formData.password,
+      role: 'mentor',
+      redirect: false,
+      callbackUrl: '/mentor/dashboard',
+    })
+
+    if (!result?.ok) {
+      setAuthError('We created your account, but auto-login failed. Please sign in once to continue.')
+      setSubmitted(true)
+      return
+    }
+
+    router.replace('/mentor/dashboard?completeProfile=1')
   }
 
   // ── Keyboard: Enter to advance ──
@@ -381,26 +410,11 @@ export default function SignupPage() {
   if (submitted) {
     return (
       <div className="min-h-screen bg-[#F5F1EB] flex flex-col items-center justify-center text-center px-6">
-        <div className="text-5xl mb-6 w-20 h-20 rounded-full bg-orange-100 flex items-center justify-center">
-          🎉
-        </div>
-        <h1 className="text-4xl md:text-5xl text-stone-900 tracking-tight mb-3">
-          You're on the list!
-        </h1>
-        <p className="text-stone-400 mb-2">
-          We'll reach out to{' '}
-          <strong className="text-stone-700 font-semibold">{formData.email}</strong> soon.
-        </p>
-        <p className="text-stone-400 text-sm mb-10">
-          Welcome to Mentoreo, {formData.name.split(' ')[0]}.
-        </p>
-        <Link
-          href="/mentor/login"
-          className="bg-orange-500 hover:bg-orange-700 text-white font-semibold
-                     px-7 py-3 rounded-full transition-all duration-200 hover:scale-105"
-        >
-          Sign in →
-        </Link>
+        <div className="h-10 w-10 rounded-full border-4 border-[#FF7A1F]/20 border-t-[#FF7A1F] animate-spin mb-4" />
+        <p className="text-stone-500 text-sm">Finishing your signup…</p>
+        {authError && (
+          <p className="text-amber-600 text-sm mt-3">{authError}</p>
+        )}
       </div>
     )
   }

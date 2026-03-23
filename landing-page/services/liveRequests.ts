@@ -56,6 +56,18 @@ export interface SessionStartPayload {
   createdAt: number;
 }
 
+export interface SessionEndPayload {
+  id: string;
+  studentEmail: string;
+  studentName: string;
+  studentImage: string | null;
+  mentorEmail: string;
+  minutes: number;
+  rate: number;
+  total: number;
+  createdAt: number;
+}
+
 export function sendLiveResponse(studentEmail: string, payload: LiveResponsePayload) {
   const channel = supabase.channel(`live-response:${studentEmail}`);
   channel.subscribe((status) => {
@@ -100,6 +112,33 @@ export function subscribeSessionStarts(
   const channel = supabase.channel(`live-requests:${mentorEmail}`);
   channel.on("broadcast", { event: "session-start" }, ({ payload }) => {
     onStart(payload as SessionStartPayload);
+  });
+  channel.subscribe();
+
+  const cleanup = () => {
+    supabase.removeChannel(channel);
+  };
+
+  return { channel, cleanup };
+}
+
+export function sendSessionEnd(mentorEmail: string, payload: SessionEndPayload) {
+  const channel = supabase.channel(`live-requests:${mentorEmail}`);
+  channel.subscribe((status) => {
+    if (status === "SUBSCRIBED") {
+      channel.send({ type: "broadcast", event: "session-end", payload });
+      supabase.removeChannel(channel);
+    }
+  });
+}
+
+export function subscribeSessionEnds(
+  mentorEmail: string,
+  onEnd: (payload: SessionEndPayload) => void
+) {
+  const channel = supabase.channel(`live-requests:${mentorEmail}`);
+  channel.on("broadcast", { event: "session-end" }, ({ payload }) => {
+    onEnd(payload as SessionEndPayload);
   });
   channel.subscribe();
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { Target, Trophy, Flame, Users, ArrowUpRight, CheckCircle2, TrendingUp, Zap, Crown, ChevronRight, ChevronDown, Banknote } from 'lucide-react';
 import { Button } from '../components/ui/button';
@@ -7,7 +8,22 @@ import { Navigation } from '../components/Navigation';
 import Link from 'next/link';
 
 export default function MentorPerks() {
-  const reduceMotion = useReducedMotion();
+  const prefersReducedMotion = useReducedMotion();
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 767px)');
+    const update = () => setIsMobile(media.matches);
+    update();
+    if (media.addEventListener) {
+      media.addEventListener('change', update);
+      return () => media.removeEventListener('change', update);
+    }
+    media.addListener(update);
+    return () => media.removeListener(update);
+  }, []);
+
+  const reduceMotion = prefersReducedMotion || isMobile;
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -93,7 +109,7 @@ export default function MentorPerks() {
             <div className="relative z-10 mt-8">
               <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
                 <div className="h-full bg-[#FF8000] w-[75%] rounded-full relative">
-                  <div className="absolute top-0 right-0 bottom-0 w-4 bg-white/30 skew-x-12 animate-[shimmer_2s_infinite]" />
+                  <div className={`absolute top-0 right-0 bottom-0 w-4 bg-white/30 skew-x-12 ${reduceMotion ? "" : "animate-[shimmer_2s_infinite]"}`} />
                 </div>
               </div>
               <p className="text-white/50 text-xs sm:text-sm font-bold mt-2 sm:mt-3 text-right">Top 5% of Mentors</p>
@@ -108,9 +124,9 @@ export default function MentorPerks() {
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#FF8000]/5 to-transparent -mx-[50vw] px-[50vw] pointer-events-none" />
           
           <motion.div 
-            initial={{ opacity: 0, y: 40 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
+            initial={reduceMotion ? false : { opacity: 0, y: 40 }}
+            whileInView={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+            viewport={reduceMotion ? undefined : { once: true, margin: "-100px" }}
             className="text-center max-w-3xl mx-auto mb-12 sm:mb-16 relative z-10"
           >
             <div className="inline-flex items-center gap-2 px-4 sm:px-6 py-1.5 sm:py-2 rounded-full bg-[#FF8000] text-white font-black text-xs sm:text-sm tracking-wider uppercase mb-6 shadow-lg shadow-[#FF8000]/30 transform -rotate-2">
@@ -124,9 +140,9 @@ export default function MentorPerks() {
 
           {/* NEW: Integrated "Simple Math" & Rules (Floating Cards Animation) */}
           <motion.div 
-            initial={{ opacity: 0, y: 40 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+            initial={reduceMotion ? false : { opacity: 0, y: 40 }}
+            whileInView={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+            viewport={reduceMotion ? undefined : { once: true }}
             className="mb-16 sm:mb-24 relative z-10"
           >
             
@@ -134,8 +150,8 @@ export default function MentorPerks() {
                
                {/* Card 1: The Play & Grind */}
                <motion.div 
-                 animate={{ y: [-6, 6, -6] }} 
-                 transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }} 
+                 animate={reduceMotion ? undefined : { y: [-6, 6, -6] }}
+                 transition={reduceMotion ? undefined : { duration: 4, repeat: Infinity, ease: "easeInOut" }}
                  className="bg-white/85 p-6 sm:p-8 rounded-[24px] sm:rounded-[32px] shadow-xl border border-white w-full lg:w-1/3 text-center relative z-10 flex flex-col h-full"
                >
                   <div className="w-14 h-14 sm:w-16 sm:h-16 bg-blue-50 rounded-2xl mx-auto flex items-center justify-center mb-5">
@@ -162,13 +178,13 @@ export default function MentorPerks() {
                
                {/* Card 2: The Goal */}
                <motion.div 
-                 animate={{ y: [6, -6, 6] }} 
-                 transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay: 0.5 }} 
+                 animate={reduceMotion ? undefined : { y: [6, -6, 6] }}
+                 transition={reduceMotion ? undefined : { duration: 4, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
                  className="bg-white/85 p-6 sm:p-8 rounded-[24px] sm:rounded-[32px] shadow-xl border border-white w-full lg:w-1/3 text-center relative z-10 flex flex-col h-full"
                >
                   <div className="w-14 h-14 sm:w-16 sm:h-16 bg-orange-50 rounded-2xl mx-auto flex items-center justify-center mb-5 relative">
                      <Target className="w-7 h-7 sm:w-8 sm:h-8 text-[#FF8000]" />
-                     <div className="absolute -top-1 -right-1 w-3 h-3 bg-[#FF8000] rounded-full animate-pulse border-2 border-white" />
+                     <div className={`absolute -top-1 -right-1 w-3 h-3 bg-[#FF8000] rounded-full border-2 border-white ${reduceMotion ? "" : "animate-pulse"}`} />
                   </div>
                   <h4 className="font-bold text-[#1F2937] text-lg sm:text-xl mb-3" style={{ fontFamily: 'Fredoka, sans-serif' }}>The Goal</h4>
                   <p className="text-sm text-[#1F2937]/70 font-medium mb-6 flex-grow">Hit the #1 spot on the platform leaderboard by the last day of the week.</p>
@@ -191,8 +207,8 @@ export default function MentorPerks() {
 
                {/* Card 3: The Reward */}
                <motion.div 
-                 animate={{ y: [-6, 6, -6] }} 
-                 transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay: 1 }} 
+                 animate={reduceMotion ? undefined : { y: [-6, 6, -6] }}
+                 transition={reduceMotion ? undefined : { duration: 4, repeat: Infinity, ease: "easeInOut", delay: 1 }}
                  className="bg-gradient-to-br from-yellow-400 to-[#FF8000] p-6 sm:p-8 rounded-[24px] sm:rounded-[32px] shadow-[0_20px_40px_-15px_rgba(255,128,0,0.4)] border border-yellow-300 w-full lg:w-1/3 text-center relative z-10 transform hover:scale-[1.02] transition-transform flex flex-col h-full"
                >
                   <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 rounded-[24px] sm:rounded-[32px]" />
@@ -214,9 +230,9 @@ export default function MentorPerks() {
 
           {/* Centered Live Standings */}
           <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
+            initial={reduceMotion ? false : { opacity: 0, scale: 0.95 }}
+            whileInView={reduceMotion ? undefined : { opacity: 1, scale: 1 }}
+            viewport={reduceMotion ? undefined : { once: true }}
             className="max-w-4xl mx-auto relative z-10 px-4 sm:px-0"
           >
             {/* Decorative elements behind leaderboard */}
@@ -231,7 +247,7 @@ export default function MentorPerks() {
                 <h3 className="text-2xl sm:text-3xl font-bold relative z-10 mb-2" style={{ fontFamily: 'Fredoka, sans-serif' }}>Live Standings</h3>
                 <div className="flex items-center justify-center gap-2">
                   <span className="relative flex h-2.5 w-2.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                    <span className={`absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75 ${reduceMotion ? "" : "animate-ping"}`}></span>
                     <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
                   </span>
                   <p className="text-green-400 text-xs sm:text-sm font-bold tracking-widest relative z-10 uppercase">Live Mentor Count</p>
@@ -262,7 +278,7 @@ export default function MentorPerks() {
                   {/* Progress Bar */}
                   <div className="w-full bg-yellow-200/50 rounded-full h-2 sm:h-2.5 mt-2 relative z-10">
                      <div className="bg-yellow-400 h-full rounded-full w-[95%] relative overflow-hidden">
-                        <div className="absolute top-0 bottom-0 left-0 w-full bg-gradient-to-r from-transparent via-white/40 to-transparent -translate-x-full animate-[shimmer_2s_infinite]" />
+                        <div className={`absolute top-0 bottom-0 left-0 w-full bg-gradient-to-r from-transparent via-white/40 to-transparent -translate-x-full ${reduceMotion ? "" : "animate-[shimmer_2s_infinite]"}`} />
                      </div>
                   </div>
                 </div>
@@ -339,8 +355,8 @@ export default function MentorPerks() {
             
             {/* Floating notification element */}
             <motion.div 
-              animate={{ y: [0, -10, 0] }}
-              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+              animate={reduceMotion ? undefined : { y: [0, -10, 0] }}
+              transition={reduceMotion ? undefined : { duration: 4, repeat: Infinity, ease: "easeInOut" }}
               className="absolute right-2 sm:-right-8 bottom-10 sm:bottom-20 bg-white p-3 sm:p-4 rounded-xl sm:rounded-2xl shadow-xl border border-gray-100 flex items-center gap-3 z-20 transform origin-bottom-right"
             >
               <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center shrink-0">
@@ -356,9 +372,9 @@ export default function MentorPerks() {
 
         {/* Call to Action */}
         <motion.div 
-          initial={{ opacity: 0, scale: 0.95 }}
-          whileInView={{ opacity: 1, scale: 1 }}
-          viewport={{ once: true }}
+          initial={reduceMotion ? false : { opacity: 0, scale: 0.95 }}
+          whileInView={reduceMotion ? undefined : { opacity: 1, scale: 1 }}
+          viewport={reduceMotion ? undefined : { once: true }}
           className="mt-20 md:mt-32 text-center bg-[#FF8000] rounded-[32px] sm:rounded-[40px] p-8 sm:p-12 relative overflow-hidden shadow-2xl shadow-[#FF8000]/20"
         >
           {/* Background pattern */}

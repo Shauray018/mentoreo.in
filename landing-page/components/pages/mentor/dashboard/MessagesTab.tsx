@@ -7,6 +7,7 @@ import { motion } from "motion/react";
 import CometChatPanel from "@/components/cometchat/CometChatPanel";
 import { fetchMentorChats, type MentorChatRow } from "@/services/mentorChatsApi";
 import { buildCometUid } from "@/lib/cometchat-uid";
+import { subscribeSessionEnds } from "@/services/liveRequests";
 
 interface MessagesTabProps {
   activeChatId?: string | null;
@@ -16,12 +17,37 @@ interface MessagesTabProps {
 export default function MessagesTab({ activeChatId, onActiveChatChange }: MessagesTabProps) {
   const { data: session } = useSession();
   const [chats, setChats] = useState<MentorChatRow[]>([]);
+  const [summaryOverlay, setSummaryOverlay] = useState<{
+    show: boolean;
+    title: string;
+    lines: string[];
+  } | null>(null);
 
   useEffect(() => {
     const email = session?.user?.email;
     if (!email) return;
     fetchMentorChats(email).then(setChats).catch(() => setChats([]));
   }, [session?.user?.email]);
+
+  useEffect(() => {
+    const mentorEmail = session?.user?.email;
+    if (!mentorEmail) return;
+    const { cleanup } = subscribeSessionEnds(mentorEmail, (payload) => {
+      if (!activeChatId) return;
+      const targetUid = buildCometUid(payload.studentEmail);
+      if (targetUid !== activeChatId) return;
+      setSummaryOverlay({
+        show: true,
+        title: "Session ended",
+        lines: [
+          `Student: ${payload.studentName}`,
+          `Duration: ${payload.minutes} min`,
+          `You earned: ₹${payload.total}`,
+        ],
+      });
+    });
+    return () => cleanup();
+  }, [session?.user?.email, activeChatId]);
 
   const list = useMemo(() => {
     return chats.map((c) => ({
@@ -43,8 +69,8 @@ export default function MessagesTab({ activeChatId, onActiveChatChange }: Messag
   const showList = !activeChatId;
 
   return (
-    <div className="bg-[#FFF8F3] rounded-[24px] border border-[#FFE8D9] p-4 md:p-6">
-      <div className="w-full h-[calc(100vh-240px)] bg-white rounded-[24px] border border-[#F3E8FF] overflow-hidden">
+    <div className="bg-[#FFF8F3] md:rounded-[24px] md:border border-[#FFE8D9] p-0 md:p-6 h-full flex flex-col overflow-hidden">
+      <div className="w-full flex-1 bg-white md:rounded-[24px] md:border border-[#F3E8FF] overflow-hidden">
         {showList ? (
           <div className="h-full overflow-y-auto p-6">
             <div className="space-y-3">
@@ -106,6 +132,7 @@ export default function MessagesTab({ activeChatId, onActiveChatChange }: Messag
             emptyTitle="Chat not found"
             emptyHint="Go back to messages and pick a conversation."
             billing={{ enabled: false, showTalkNow: false, ratePerMin: 0, minMinutes: 0 }}
+            summaryOverlay={summaryOverlay ? { ...summaryOverlay, onClose: () => setSummaryOverlay(null) } : undefined}
           />
         )}
       </div>

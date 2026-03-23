@@ -116,7 +116,7 @@ export default function StudentHome() {
     const existing = chats.find((c) => c.mentor_email === selectedMentor.id);
     if (existing) {
       closeBooking();
-      router.push(`/student/chats/${buildCometUid(existing.mentor_email)}?mentor=${encodeURIComponent(existing.mentor_email)}`);
+      router.push(`/student/chats/${buildCometUid(existing.mentor_email)}?mentor=${encodeURIComponent(existing.mentor_email)}&live=1`);
       return;
     }
 
@@ -132,7 +132,7 @@ export default function StudentHome() {
     if (created) {
       closeBooking();
       const mentorEmail = created?.mentor_email || selectedMentor?.id || "";
-      if (mentorEmail) router.push(`/student/chats/${buildCometUid(mentorEmail)}?mentor=${encodeURIComponent(mentorEmail)}`);
+      if (mentorEmail) router.push(`/student/chats/${buildCometUid(mentorEmail)}?mentor=${encodeURIComponent(mentorEmail)}&live=1`);
     }
   };
 
@@ -176,10 +176,11 @@ export default function StudentHome() {
     const email = session?.user?.email;
     if (!email) return;
     const { cleanup } = subscribeLiveResponses(email, (payload) => {
+      const chatUrl = `/student/chats/${buildCometUid(payload.mentorEmail)}?mentor=${encodeURIComponent(payload.mentorEmail)}&live=1`;
       toast(`${payload.mentorName} joined the chat`, {
         action: {
           label: "Open",
-          onClick: () => router.push(`/student/chats/${buildCometUid(payload.mentorEmail)}?mentor=${encodeURIComponent(payload.mentorEmail)}`),
+          onClick: () => router.push(chatUrl),
         },
       });
     });

@@ -15,7 +15,7 @@ export default function StudentChats() {
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const { data: session } = useSession();
-  const { chats, wallet } = useStudentStore();
+  const { chats, wallet, chatsLoading, walletLoading } = useStudentStore();
   const onlineMentors = useOnlineMentors();
   const { mentors, fetchMentors } = useMentorBrowseStore();
 
@@ -26,15 +26,17 @@ export default function StudentChats() {
   }, [mentors.length, fetchMentors]);
 
   const availabilityMap = new Map(mentors.map((m) => [m.id, Boolean(m.is_available)]));
+  const collegeMap = new Map(mentors.map((m) => [m.id, m.college]));
 
   const derivedChats = chats.map((c) => ({
     id: c.id,
     name: c.mentor_name ?? "Mentor",
-    role: c.mentor_email ?? "Mentor",
+    mentorEmail: c.mentor_email ?? "",
+    role: collegeMap.get(c.mentor_email) ?? "College",
     lastMessage: c.last_message ?? "Start a conversation",
     time: new Date(c.updated_at).toLocaleTimeString(),
     unread: c.unread_count ?? 0,
-    isOnline: Boolean(availabilityMap.get(c.mentor_email) && onlineMentors.has(c.mentor_email)),
+    isOnline: Boolean(c.mentor_email && availabilityMap.get(c.mentor_email) && onlineMentors.has(c.mentor_email)),
     chatRate: c.chat_rate ?? 0,
     callRate: c.call_rate ?? 0,
     image:
@@ -66,9 +68,13 @@ export default function StudentChats() {
               <div className="flex items-center gap-2 mt-1">
                 <p className="text-[#6B21A8] text-sm font-bold">Wallet Balance:</p>
                 <div className="bg-white/60 px-2 py-0.5 rounded-full flex items-center shadow-sm">
-                  <span className="text-[#111827] text-sm font-black">
-                    ₹{wallet?.balance_paise ? Math.floor(wallet.balance_paise / 100) : 0}
-                  </span>
+                  {walletLoading ? (
+                    <div className="h-4 w-16 rounded-full bg-[#E9D5FF] animate-pulse" />
+                  ) : (
+                    <span className="text-[#111827] text-sm font-black">
+                      ₹{wallet?.balance_paise ? Math.floor(wallet.balance_paise / 100) : 0}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -117,7 +123,29 @@ export default function StudentChats() {
         </div>
 
         <div className="space-y-3">
-          {filteredChats.map((chat, i) => (
+          {chatsLoading &&
+            Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={`chat-skel-${i}`}
+                className="bg-white p-4 rounded-[20px] flex items-center gap-4 shadow-sm border border-[#F3E8FF] animate-pulse"
+              >
+                <div className="w-14 h-14 rounded-full bg-[#EFEAFF]" />
+                <div className="flex-1 min-w-0 space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="h-4 w-32 rounded-full bg-[#E9D5FF]" />
+                    <div className="h-4 w-28 rounded-full bg-[#F3E8FF]" />
+                  </div>
+                  <div className="h-3 w-24 rounded-full bg-[#F3E8FF]" />
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="h-3 w-40 rounded-full bg-[#EFEAFF]" />
+                    <div className="h-5 w-8 rounded-full bg-[#E9D5FF]" />
+                  </div>
+                </div>
+              </div>
+            ))}
+
+          {!chatsLoading &&
+            filteredChats.map((chat, i) => (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -126,7 +154,7 @@ export default function StudentChats() {
               className="bg-white p-4 rounded-[20px] flex items-center gap-4 shadow-sm border border-[#F3E8FF] hover:border-[#9758FF]/50 hover:shadow-md transition-all cursor-pointer group relative"
             >
               <Link
-                href={`/student/chats/${chat.cometUid}?mentor=${encodeURIComponent(chat.role)}`}
+                href={`/student/chats/${chat.cometUid}?mentor=${encodeURIComponent(chat.mentorEmail)}`}
                 className="absolute inset-0 z-10"
                 aria-label={`Chat with ${chat.name}`}
               />
@@ -166,7 +194,7 @@ export default function StudentChats() {
             </motion.div>
           ))}
 
-          {filteredChats.length === 0 && (
+          {!chatsLoading && filteredChats.length === 0 && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-12 bg-white rounded-[24px] border border-dashed border-gray-200 mt-6">
               <div className="w-16 h-16 bg-[#F8F5FF] rounded-full flex items-center justify-center mx-auto mb-4">
                 <MessageSquare className="h-8 w-8 text-[#9758FF]" />

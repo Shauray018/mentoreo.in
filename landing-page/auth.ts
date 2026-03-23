@@ -81,6 +81,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.role = (user as any).role;
       }
 
+      if (token?.unregistered && (token?.email || (token as any)?.unregisteredEmail)) {
+        const lookupEmail = (token?.email ?? (token as any)?.unregisteredEmail ?? "").toString();
+        if (lookupEmail) {
+          const { data: mentorSignup } = await supabase
+            .from("signups")
+            .select("email")
+            .ilike("email", lookupEmail)
+            .maybeSingle();
+
+          if (mentorSignup) {
+            token.role = "mentor";
+            token.unregistered = false;
+            token.unregisteredEmail = undefined;
+            token.unregisteredName = undefined;
+          }
+        }
+      }
+
       if (account?.provider === "google-student") {
         const email =
           user?.email ??
@@ -140,6 +158,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.unregisteredEmail = "";
           return token;
         }
+        token.email = email;
 
         const { data: mentorSignup } = await supabase
           .from("signups")
