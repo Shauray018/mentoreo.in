@@ -9,7 +9,10 @@ import Link from 'next/link';
 
 export default function MentorPerks() {
   const prefersReducedMotion = useReducedMotion();
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(max-width: 767px)').matches;
+  });
 
   useEffect(() => {
     const media = window.matchMedia('(max-width: 767px)');
@@ -24,6 +27,7 @@ export default function MentorPerks() {
   }, []);
 
   const reduceMotion = prefersReducedMotion || isMobile;
+  const motionProps = (props: Record<string, any>) => (reduceMotion ? {} : props);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -51,9 +55,7 @@ export default function MentorPerks() {
         
         {/* Header Section */}
         <motion.div 
-          initial={reduceMotion ? false : { opacity: 0, y: 30 }}
-          animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
-          transition={reduceMotion ? undefined : { duration: 0.6, ease: "easeOut" }}
+          {...motionProps({ initial: { opacity: 0, y: 30 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.6, ease: "easeOut" } })}
           className="text-center max-w-3xl mx-auto mb-12 md:mb-20"
         >
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/80 border border-[#FF8000]/20 text-[#FF8000] font-bold text-sm mb-6 shadow-sm">
@@ -124,9 +126,7 @@ export default function MentorPerks() {
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#FF8000]/5 to-transparent -mx-[50vw] px-[50vw] pointer-events-none" />
           
           <motion.div 
-            initial={reduceMotion ? false : { opacity: 0, y: 40 }}
-            whileInView={reduceMotion ? undefined : { opacity: 1, y: 0 }}
-            viewport={reduceMotion ? undefined : { once: true, margin: "-100px" }}
+            {...motionProps({ initial: { opacity: 0, y: 40 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true, margin: "-100px" } })}
             className="text-center max-w-3xl mx-auto mb-12 sm:mb-16 relative z-10"
           >
             <div className="inline-flex items-center gap-2 px-4 sm:px-6 py-1.5 sm:py-2 rounded-full bg-[#FF8000] text-white font-black text-xs sm:text-sm tracking-wider uppercase mb-6 shadow-lg shadow-[#FF8000]/30 transform -rotate-2">
@@ -140,9 +140,7 @@ export default function MentorPerks() {
 
           {/* NEW: Integrated "Simple Math" & Rules (Floating Cards Animation) */}
           <motion.div 
-            initial={reduceMotion ? false : { opacity: 0, y: 40 }}
-            whileInView={reduceMotion ? undefined : { opacity: 1, y: 0 }}
-            viewport={reduceMotion ? undefined : { once: true }}
+            {...motionProps({ initial: { opacity: 0, y: 40 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true } })}
             className="mb-16 sm:mb-24 relative z-10"
           >
             
@@ -230,9 +228,7 @@ export default function MentorPerks() {
 
           {/* Centered Live Standings */}
           <motion.div 
-            initial={reduceMotion ? false : { opacity: 0, scale: 0.95 }}
-            whileInView={reduceMotion ? undefined : { opacity: 1, scale: 1 }}
-            viewport={reduceMotion ? undefined : { once: true }}
+            {...motionProps({ initial: { opacity: 0, scale: 0.95 }, whileInView: { opacity: 1, scale: 1 }, viewport: { once: true } })}
             className="max-w-4xl mx-auto relative z-10 px-4 sm:px-0"
           >
             {/* Decorative elements behind leaderboard */}
@@ -372,9 +368,7 @@ export default function MentorPerks() {
 
         {/* Call to Action */}
         <motion.div 
-          initial={reduceMotion ? false : { opacity: 0, scale: 0.95 }}
-          whileInView={reduceMotion ? undefined : { opacity: 1, scale: 1 }}
-          viewport={reduceMotion ? undefined : { once: true }}
+          {...motionProps({ initial: { opacity: 0, scale: 0.95 }, whileInView: { opacity: 1, scale: 1 }, viewport: { once: true } })}
           className="mt-20 md:mt-32 text-center bg-[#FF8000] rounded-[32px] sm:rounded-[40px] p-8 sm:p-12 relative overflow-hidden shadow-2xl shadow-[#FF8000]/20"
         >
           {/* Background pattern */}

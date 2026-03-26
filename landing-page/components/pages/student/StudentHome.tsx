@@ -73,6 +73,15 @@ export default function StudentHome() {
     router.replace("/student/dashboard");
   }, [searchParams, mentors, router]);
 
+  const name = session?.user?.name ?? "Student";
+
+   const initials = name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
   const filteredMentors = mentors.filter((m) =>
     (activeExam === "All" || !m.exam || m.exam === activeExam) &&
     (collegeType === "All" || !m.collegeType || m.collegeType === collegeType) &&
@@ -211,7 +220,7 @@ export default function StudentHome() {
               </h2>
             </div>
             <Link href="/student/profile" className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-white shadow-md border-2 border-[#E9D5FF] flex items-center justify-center p-0.5 overflow-hidden active:scale-95 transition-transform md:hidden">
-              <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080" alt="Student" className="w-full h-full object-cover rounded-full" />
+              {initials}
             </Link>
           </header>
 
@@ -513,6 +522,12 @@ export default function StudentHome() {
               <Sparkles className="h-5 w-5 text-[#9758FF]" fill="#9758FF" fillOpacity={0.2} /> 
               Mentors
             </h3>
+            <Link
+              href="/student/mentors"
+              className="text-sm font-bold text-[#9758FF] hover:text-[#8B5CF6] transition-colors md:hidden"
+            >
+              See all
+            </Link>
           </div>
           
           <div className="flex gap-4 overflow-x-auto pb-4 snap-x hide-scrollbar -mx-4 px-4 md:mx-0 md:px-0 md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 md:overflow-visible md:gap-6">

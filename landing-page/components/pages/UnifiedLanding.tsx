@@ -364,7 +364,7 @@ export default function UnifiedLanding() {
           </div>
           <div className="border-t border-[#FF8000]/10 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-[#1F2937]/50">
             <p>© 2026 Mentoreo. Made with 🧡 for students, by students.</p>
-            <p>Starting at <span className="text-[#FF8000]" style={{ fontWeight: 600 }}>₹500/min</span> · Chat-first · No video required</p>
+            <p>Starting at <span className="text-[#FF8000]" style={{ fontWeight: 600 }}>₹5/min</span> · Chat-first · No video required</p>
           </div>
         </div>
       </footer>
