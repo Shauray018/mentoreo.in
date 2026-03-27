@@ -15,6 +15,8 @@ export type MentorBrowse = {
   tags?: string[];
   is_available?: boolean;
   completion?: number;
+  availability?: Record<string, boolean> | null;
+  is_verified?: boolean | null;
 };
 
 interface MentorBrowseStore {

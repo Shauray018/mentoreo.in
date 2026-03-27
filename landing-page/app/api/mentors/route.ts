@@ -15,7 +15,7 @@ export async function GET() {
 
   const { data: profiles } = await supabaseServer
     .from("mentor_profiles")
-    .select("email, display_name, bio, approach, upi_id, availability,linkedin,avatar_url, college, course, year, is_available")
+    .select("email, display_name, bio, approach, upi_id, availability,linkedin,avatar_url, college, course, year, is_available, is_verified")
     .in("email", emails);
 
   const { data: reviews } = await supabaseServer
@@ -69,8 +69,10 @@ export async function GET() {
       pricePerMin: 5,
       tags,
       is_available: profile?.is_available ?? false,
+      is_verified: profile?.is_verified ?? false,
       exam: null,
       collegeType: null,
+      availability: profile?.availability ?? null,
       completion: completionScore,
     };
   });

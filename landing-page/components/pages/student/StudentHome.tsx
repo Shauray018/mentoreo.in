@@ -5,19 +5,20 @@ import {
   Search, Sparkles, GraduationCap, Building2, 
   MapPin, SlidersHorizontal, Star, Briefcase, 
   Stethoscope, Palette, Cpu, ChevronRight, BookOpen, Target, FileText, Users,
-  Calendar, Zap, Phone, MessageCircle, Clock, X, CreditCard
+  Calendar, Zap, Clock, X, CreditCard
 } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import MentorCardSkeleton from "@/components/skeletons/MentorCardSkeleton";
 import { useMentorBrowseStore } from "@/store/mentorBrowseStore";
-import { useStudentStore } from "@/store/studentStore";
 import { useSession } from "next-auth/react";
-import { useOnlineMentors } from "@/hooks/useOnlineMentors";
 import { sendLiveRequest, subscribeLiveResponses } from "@/services/liveRequests";
 import { buildCometUid } from "@/lib/cometchat-uid";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import { useOnlineMentors } from "@/hooks/useOnlineMentors";
 
 const EXAMS = [
   { id: 'JEE', label: 'JEE Main/Adv', icon: Cpu },
@@ -48,13 +49,12 @@ export default function StudentHome() {
   const [bookingOpen, setBookingOpen] = useState(false);
   const [bookingMode, setBookingMode] = useState<"instant" | "schedule">("instant");
   const [bookingStep, setBookingStep] = useState<1 | 2>(1);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [preferredTime, setPreferredTime] = useState("");
   const [bookingNote, setBookingNote] = useState("");
   const [selectedMentor, setSelectedMentor] = useState<(typeof mentors)[number] | null>(null);
   const { mentors, loading, error, fetchMentors } = useMentorBrowseStore();
-  const { chats, fetchChats, createChat } = useStudentStore();
   const { data: session } = useSession();
   const onlineMentors = useOnlineMentors();
 
@@ -91,7 +91,7 @@ export default function StudentHome() {
   );
 
   const openBooking = (mentor: (typeof mentors)[number]) => {
-    const isLive = Boolean(mentor.is_available && onlineMentors.has(mentor.id));
+    const isLive = isMentorLive(mentor.id, mentor.is_available);
     setSelectedMentor(mentor);
     setBookingOpen(true);
     setBookingMode(isLive ? "instant" : "schedule");
@@ -111,42 +111,91 @@ export default function StudentHome() {
     setPreferredTime("");
   };
 
-  const upcomingDates = ["Today", "Tomorrow", "Wed, 18 Mar", "Thu, 19 Mar", "Fri, 20 Mar", "Sat, 21 Mar"];
-  const timeBlocks = ["Morning", "Afternoon", "Evening"];
+  const formatTime12 = (time24: string) => {
+    const [h, m] = time24.split(":").map(Number);
+    const meridiem = h >= 12 ? "PM" : "AM";
+    const hour = h % 12 || 12;
+    return `${hour}:${String(m).padStart(2, "0")} ${meridiem}`;
+  };
 
-  const ensureChatAndGo = async () => {
-    const email = session?.user?.email;
-    if (!email || !selectedMentor) {
-      router.push("/student/login");
-      return;
+  const getSlotsForDate = (availability: Record<string, boolean> | null | undefined, date: Date | null) => {
+    if (!availability || !date) return [];
+    const day = date.toLocaleDateString("en-US", { weekday: "long" });
+    const availableDays = getAvailableDays(availability);
+    if (!availableDays.has(day)) return [];
+
+    const isToday = date.toDateString() === new Date().toDateString();
+    const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
+
+    const slots: string[] = [];
+    for (let minutes = 12 * 60; minutes < 19 * 60; minutes += 30) {
+      if (isToday && minutes <= nowMinutes) continue;
+      const h = Math.floor(minutes / 60);
+      const m = minutes % 60;
+      slots.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
     }
+    return slots;
+  };
 
-    if (chats.length === 0) await fetchChats(email);
-    const existing = chats.find((c) => c.mentor_email === selectedMentor.id);
-    if (existing) {
-      closeBooking();
-      router.push(`/student/chats/${buildCometUid(existing.mentor_email)}?mentor=${encodeURIComponent(existing.mentor_email)}&live=1`);
-      return;
-    }
-
-    const created = await createChat({
-      student_email: email,
-      mentor_email: selectedMentor.id,
-      mentor_name: selectedMentor.name,
-      mentor_avatar: selectedMentor.image ?? null,
-      chat_rate: selectedMentor.pricePerMin ?? 5,
-      call_rate: selectedMentor.pricePerMin ?? 5,
+  const getAvailableDays = (availability: Record<string, boolean> | null | undefined) => {
+    if (!availability) return new Set<string>();
+    const days = new Set<string>();
+    Object.entries(availability).forEach(([key, value]) => {
+      if (!value) return;
+      const day = key.split("-")[0]?.trim();
+      if (day) days.add(day);
     });
+    return days;
+  };
 
-    if (created) {
-      closeBooking();
-      const mentorEmail = created?.mentor_email || selectedMentor?.id || "";
-      if (mentorEmail) router.push(`/student/chats/${buildCometUid(mentorEmail)}?mentor=${encodeURIComponent(mentorEmail)}&live=1`);
-    }
+  const availableDays = getAvailableDays(selectedMentor?.availability);
+  const availableSlots = getSlotsForDate(selectedMentor?.availability, selectedDate);
+  const isDateAvailable = (date: Date) => {
+    if (availableDays.size === 0) return false;
+    const day = date.toLocaleDateString("en-US", { weekday: "long" });
+    return availableDays.has(day);
   };
 
   const isMentorLive = (mentorId?: string | null, mentorAvailable?: boolean | null) =>
     Boolean(mentorAvailable && mentorId && onlineMentors.has(mentorId));
+
+  const createBookingRequest = async () => {
+    if (!selectedMentor || !selectedDate || !selectedTime) return;
+    if (!session?.user?.email) {
+      router.push("/student/login");
+      return;
+    }
+
+    const scheduledDate = selectedDate.toISOString().split("T")[0];
+    const topic = bookingNote.trim() || selectedMentor.course || "Mentoring";
+
+    const res = await fetch("/api/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mentor_email: selectedMentor.id,
+        student_email: session.user.email,
+        student_name: session?.user?.name ?? "Student",
+        student_image: session?.user?.image ?? null,
+        topic,
+        scheduled_date: scheduledDate,
+        scheduled_time: selectedTime,
+        duration_minutes: 0,
+        earning: 0,
+        status: "upcoming",
+        requested_at: new Date().toISOString(),
+      }),
+    });
+
+    if (!res.ok) {
+      toast.error("Failed to send booking request.");
+      return;
+    }
+
+    toast.success("Booking request sent!");
+    closeBooking();
+  };
+
 
   const handleInstantContinue = () => {
     if (!selectedMentor) return;
@@ -263,7 +312,7 @@ export default function StudentHome() {
                 animate={{ y: 0, opacity: 1 }}
                 exit={{ y: "100%", opacity: 0 }}
                 transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                className="relative w-full max-w-lg bg-white sm:rounded-[32px] rounded-t-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+                className="relative w-full max-w-2xl bg-white sm:rounded-[32px] rounded-t-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
               >
                 <div className="p-5 sm:p-6 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0 z-10">
                   <div>
@@ -282,7 +331,7 @@ export default function StudentHome() {
                   </button>
                 </div>
 
-                <div className="p-5 sm:p-6 overflow-y-auto">
+                <div className="p-5 sm:p-6 overflow-y-auto min-h-[440px]">
                   {bookingStep === 1 ? (
                     <div className="space-y-6">
                       {isMentorLive(selectedMentor?.id, selectedMentor?.is_available) && (
@@ -315,43 +364,55 @@ export default function StudentHome() {
                               <Calendar className="w-4 h-4" />
                               Select Date
                             </h3>
-                            <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-2">
-                              {upcomingDates.map((date) => (
-                                <button
-                                  key={date}
-                                  onClick={() => setSelectedDate(date)}
-                                  className={`px-5 py-3 rounded-2xl whitespace-nowrap text-sm font-bold transition-all border-2 ${
-                                    selectedDate === date
-                                      ? "border-[#9758FF] bg-[#F8F5FF] text-[#9758FF]"
-                                      : "border-gray-100 bg-white text-gray-600 hover:border-[#E9D5FF]"
-                                  }`}
-                                >
-                                  {date}
-                                </button>
-                              ))}
+                            <div className="mentoreo-datepicker">
+                              <DatePicker
+                                selected={selectedDate}
+                                onChange={(date: Date | null) => {
+                                  setSelectedDate(date);
+                                  setSelectedTime(null);
+                                }}
+                                minDate={new Date()}
+                                filterDate={isDateAvailable}
+                                placeholderText={availableDays.size > 0 ? "Select a date" : "No availability set"}
+                                className="w-full px-4 py-3 rounded-xl border-2 border-gray-100 focus:border-[#9758FF] focus:outline-none transition-all font-medium text-[#111827] bg-white"
+                                calendarClassName="mentoreo-datepicker__calendar"
+                                dayClassName={() => "mentoreo-datepicker__day"}
+                              />
                             </div>
                           </div>
 
                           <div>
                             <h3 className="text-sm font-bold text-[#6B21A8] uppercase tracking-wider mb-3 flex items-center gap-2">
                               <Clock className="w-4 h-4" />
-                              Available Times
+                              Available Slots
                             </h3>
-                            <div className="grid grid-cols-3 gap-2">
-                              {timeBlocks.map((time) => (
-                                <button
-                                  key={time}
-                                  onClick={() => setSelectedTime(time)}
-                                  className={`py-3 rounded-xl text-sm font-bold transition-all border-2 ${
-                                    selectedTime === time
-                                      ? "border-[#9758FF] bg-[#F8F5FF] text-[#9758FF]"
-                                      : "border-gray-100 bg-white text-gray-600 hover:border-[#E9D5FF]"
-                                  }`}
-                                >
-                                  {time}
-                                </button>
-                              ))}
-                            </div>
+                            {selectedDate ? (
+                              availableSlots.length > 0 ? (
+                                <div className="grid grid-cols-2 gap-2">
+                                  {availableSlots.map((slot) => (
+                                    <button
+                                      key={slot}
+                                      onClick={() => setSelectedTime(slot)}
+                                      className={`py-3 rounded-xl text-sm font-bold transition-all border-2 ${
+                                        selectedTime === slot
+                                          ? "border-[#9758FF] bg-[#F8F5FF] text-[#9758FF]"
+                                          : "border-gray-100 bg-white text-gray-600 hover:border-[#E9D5FF]"
+                                      }`}
+                                    >
+                                      {formatTime12(slot)}
+                                    </button>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="text-sm text-[#6B7280] bg-white border border-dashed border-gray-200 rounded-xl p-3">
+                                  No availability for this date.
+                                </div>
+                              )
+                            ) : (
+                              <div className="text-sm text-[#6B7280] bg-white border border-dashed border-gray-200 rounded-xl p-3">
+                                Select a date to view available slots.
+                              </div>
+                            )}
                           </div>
 
                           {selectedTime && (
@@ -385,20 +446,20 @@ export default function StudentHome() {
                     <div className="space-y-6">
                       <div className="bg-[#F8F5FF] p-4 rounded-2xl border border-[#E9D5FF]">
                         <h3 className="font-bold text-[#111827] mb-1">Session Info</h3>
-                        <p className="text-sm text-[#4B5563] font-medium">
-                          {bookingMode === "instant"
-                            ? "Instant Connection"
-                            : `${selectedDate ?? "Select date"} at ${selectedTime ?? "Select time"} ${preferredTime ? `(${preferredTime})` : "Slot"}`}
-                        </p>
+                      <p className="text-sm text-[#4B5563] font-medium">
+                        {bookingMode === "instant"
+                          ? "Instant Connection"
+                          : `${selectedDate ? selectedDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "Select date"} at ${selectedTime ? formatTime12(selectedTime) : "Select time"} ${preferredTime ? `(${preferredTime})` : "Slot"}`}
+                      </p>
                         <div className="mt-4 pt-3 border-t border-[#E9D5FF] flex justify-between items-center">
                           <span className="text-sm font-bold text-gray-500">Rate</span>
                           <span className="text-xl font-black text-[#9758FF]" style={{ fontFamily: "Fredoka, sans-serif" }}>
                             ₹{selectedMentor?.pricePerMin ?? 5}/min
                           </span>
                         </div>
-                        <p className="text-xs text-[#6B21A8] mt-3 bg-white p-2 rounded-lg border border-[#E9D5FF]">
-                          You will only be charged based on your session's duration. Minimum wallet balance required to connect: ₹100
-                        </p>
+                      <p className="text-xs text-[#6B21A8] mt-3 bg-white p-2 rounded-lg border border-[#E9D5FF]">
+                        Payment is collected after the session. No upfront charge required.
+                      </p>
                       </div>
 
                       <div className="space-y-2">
@@ -414,15 +475,15 @@ export default function StudentHome() {
                         />
                       </div>
 
-                      <div className="flex items-center gap-3 p-4 border-2 border-gray-100 rounded-2xl">
-                        <div className="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-gray-400">
-                          <CreditCard className="w-5 h-5" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-bold text-[#111827]">Wallet Balance</p>
-                          <p className="text-xs font-semibold text-green-600">₹1,500 Available</p>
-                        </div>
+                    <div className="flex items-center gap-3 p-4 border-2 border-gray-100 rounded-2xl">
+                      <div className="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-gray-400">
+                        <CreditCard className="w-5 h-5" />
                       </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-bold text-[#111827]">Payment</p>
+                        <p className="text-xs font-semibold text-gray-500">You’ll be charged after the session ends.</p>
+                      </div>
+                    </div>
                     </div>
                   )}
                 </div>
@@ -440,25 +501,15 @@ export default function StudentHome() {
                       }}
                       className="w-full py-4 bg-[#9758FF] hover:bg-[#8B5CF6] text-white rounded-2xl font-bold text-base disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md shadow-[#9758FF]/20 active:scale-[0.98]"
                     >
-                      Continue
+                      {bookingMode === "instant" ? "Connect Now" : "Continue"}
                     </button>
                   ) : (
-                    <div className="flex gap-2 sm:gap-3">
-                      <button
-                        onClick={ensureChatAndGo}
-                        className="flex-1 py-3 sm:py-4 bg-[#111827] hover:bg-black text-white rounded-2xl font-bold text-xs sm:text-sm transition-all shadow-md shadow-black/10 active:scale-[0.98] flex flex-col items-center justify-center gap-1.5"
-                      >
-                        <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6" />
-                        <span>Chat</span>
-                      </button>
-                      <button
-                        onClick={ensureChatAndGo}
-                        className="flex-1 py-3 sm:py-4 bg-[#111827] hover:bg-black text-white rounded-2xl font-bold text-xs sm:text-sm transition-all shadow-md shadow-black/10 active:scale-[0.98] flex flex-col items-center justify-center gap-1.5"
-                      >
-                        <Phone className="w-5 h-5 sm:w-6 sm:h-6" />
-                        <span>Call</span>
-                      </button>
-                    </div>
+                    <button
+                      onClick={createBookingRequest}
+                      className="w-full py-4 bg-[#111827] hover:bg-black text-white rounded-2xl font-bold text-base transition-all shadow-md shadow-black/10 active:scale-[0.98]"
+                    >
+                      Request Session
+                    </button>
                   )}
                 </div>
               </motion.div>
@@ -565,11 +616,20 @@ export default function StudentHome() {
                       }}
                       className="w-full h-40 object-cover rounded-[16px] mb-3"
                     />
-                    {/* College Type Badge */}
-                    {mentor.collegeType && (
-                      <div className="absolute top-2 left-2 bg-black/50 backdrop-blur-md px-2.5 py-1 rounded-lg flex items-center gap-1.5 shadow-sm border border-white/10">
-                        <Building2 className="h-3 w-3 text-white" />
-                        <span className="text-[10px] font-bold text-white uppercase tracking-wider">{mentor.collegeType}</span>
+                    {(mentor.is_verified || mentor.collegeType) && (
+                      <div className="absolute top-2 left-2 flex flex-col gap-2">
+                        {mentor.is_verified && (
+                          <div className="bg-gradient-to-r from-[#E5E7EB] to-[#F3F4F6] text-gray-700 px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-sm border border-[#D1D5DB] text-[10px] font-bold">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#9CA3AF]" />
+                            Verified
+                          </div>
+                        )}
+                        {mentor.collegeType && (
+                          <div className="bg-black/50 backdrop-blur-md px-2.5 py-1 rounded-lg flex items-center gap-1.5 shadow-sm border border-white/10">
+                            <Building2 className="h-3 w-3 text-white" />
+                            <span className="text-[10px] font-bold text-white uppercase tracking-wider">{mentor.collegeType}</span>
+                          </div>
+                        )}
                       </div>
                     )}
                     {/* Rating Badge */}
@@ -579,12 +639,25 @@ export default function StudentHome() {
                         <span className="text-xs font-bold text-gray-900">{mentor.rating}</span>
                       </div>
                     )}
+                    {isMentorLive(mentor.id, mentor.is_available) && (
+                      <div className="absolute bottom-2 left-2 bg-green-500 text-white px-2 py-0.5 rounded-lg flex items-center gap-1 shadow-sm text-[10px] uppercase tracking-wider font-nunito">
+                        <span className="w-1.5 h-1.5 bg-white rounded-full"></span> Live
+                      </div>
+                    )}
                   </div>
                   
                   <div className="px-1 flex flex-col flex-1 min-h-[10rem]">
                     <div className="flex justify-between items-start mb-1">
                       <div>
-                        <h4 className="font-bold text-[#111827] text-lg leading-tight">{mentor.name}</h4>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-bold text-[#111827] text-lg leading-tight">{mentor.name}</h4>
+                          {mentor.is_verified && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#EDE4FF] text-[#6B21A8] text-[10px] font-bold">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#9758FF]" />
+                              Verified
+                            </span>
+                          )}
+                        </div>
                         <p className="text-sm text-[#6B7280] flex items-center gap-1.5 mt-1 font-medium">
                           <MapPin className="h-3.5 w-3.5" /> {mentor.college}
                         </p>

@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const body = await req.json();
   if (!body.mentor_email) return NextResponse.json({ error: "mentor_email required" }, { status: 400 });
+  if (!body.student_email) return NextResponse.json({ error: "student_email required" }, { status: 400 });
 
   const { data, error } = await supabaseServer
     .from("sessions")

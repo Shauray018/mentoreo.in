@@ -5,6 +5,8 @@ import { Badge } from "@/app/components/ui/badge";
 import { Button } from "@/app/components/ui/button";
 import { Card, CardContent } from "@/app/components/ui/card";
 import { Switch } from "@/app/components/ui/switch";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 import {
   BellRing,
   Calendar,
@@ -40,15 +42,29 @@ export interface LiveRequest {
   rate: number;
 }
 
+export interface TodaySession {
+  id: string;
+  studentEmail?: string | null;
+  studentName: string;
+  studentImage: string | null;
+  time: string;
+  topic: string;
+}
+
 interface HomeTabProps {
   isOnline: boolean;
   onToggleOnline: (value: boolean) => void;
   requests: SessionRequest[];
+  scheduleDate: Date;
+  onScheduleDateChange: (date: Date | null) => void;
+  scheduleForDate: TodaySession[];
   liveRequests: LiveRequest[];
   setLiveRequests: (next: LiveRequest[]) => void;
   onAcceptLiveRequest: (req: LiveRequest) => void;
   onAcceptRequest: (id: string) => void;
   onDeclineRequest: (id: string) => void;
+  onStartScheduledChat: (session: TodaySession) => void;
+  onCancelScheduled: (id: string) => void;
   onGoBoost: () => void;
 }
 
@@ -56,11 +72,16 @@ export default function HomeTab({
   isOnline,
   onToggleOnline,
   requests,
+  scheduleDate,
+  onScheduleDateChange,
+  scheduleForDate,
   liveRequests,
   setLiveRequests,
   onAcceptLiveRequest,
   onAcceptRequest,
   onDeclineRequest,
+  onStartScheduledChat,
+  onCancelScheduled,
   onGoBoost,
 }: HomeTabProps) {
   return (
@@ -157,6 +178,71 @@ export default function HomeTab({
         )}
       </AnimatePresence>
 
+      <Card className="border border-gray-100 shadow-sm bg-white">
+        <CardContent className="p-5">
+          <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <h3 className="text-lg font-bold flex items-center gap-2 text-gray-900">
+              <Calendar className="w-5 h-5 text-[#FF7A1F]" />
+              Schedule
+            </h3>
+            <div className="mentor-datepicker w-full sm:w-auto relative z-30">
+              <DatePicker
+                selected={scheduleDate}
+                onChange={onScheduleDateChange}
+                className="w-full sm:w-[180px] px-3 py-2 rounded-xl border border-gray-200 text-sm font-semibold text-[#111827] bg-white"
+                calendarClassName="mentor-datepicker__calendar"
+                dayClassName={() => "mentor-datepicker__day"}
+                popperClassName="mentor-datepicker__popper"
+              />
+            </div>
+          </div>
+          {scheduleForDate.length > 0 ? (
+            <div className="space-y-3">
+              {scheduleForDate.map((session) => (
+                <div key={session.id} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-2xl border border-orange-100 bg-orange-50/40">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <img
+                      src={session.studentImage ?? "/someGuy.png"}
+                      alt={session.studentName}
+                      className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-gray-900 truncate">{session.studentName}</p>
+                      <p className="text-xs text-gray-500 truncate">{session.topic}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="text-xs font-bold text-[#FF7A1F] bg-white px-2.5 py-1 rounded-full border border-orange-100">
+                      {session.time}
+                    </div>
+                    <Button
+                      size="sm"
+                      className="h-8 text-xs bg-[#111827] hover:bg-black text-white"
+                      onClick={() => onStartScheduledChat(session)}
+                      disabled={!session.studentEmail}
+                    >
+                      Continue to Chat
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs border-red-200 text-red-600 hover:bg-red-50"
+                      onClick={() => onCancelScheduled(session.id)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-sm text-gray-500 bg-gray-50 border border-dashed border-gray-200 rounded-2xl p-4">
+              No sessions scheduled for this date.
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {requests.length > 0 && (
         <div className="mb-6">
           <div className="mb-3 flex items-center justify-between">
@@ -228,7 +314,7 @@ export default function HomeTab({
             </p>
           </div>
           <Button
-            className="bg-[#FF7A1F] hover:bg-[#E66A15] text-white rounded-xl shadow-md whitespace-nowrap w-full sm:w-auto"
+            className="bg-[#FF7A1F] hover:bg-[#E66A15] text-white -z-10 rounded-xl shadow-md whitespace-nowrap w-full sm:w-auto"
             onClick={onGoBoost}
           >
             <Rocket className="w-4 h-4 mr-2" /> View Leaderboard

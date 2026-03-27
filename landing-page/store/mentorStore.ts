@@ -32,6 +32,9 @@ export interface MentorProfile {
   course: string | null;
   expertise_tags?: string[] | null;
   is_available: boolean;
+  is_verified?: boolean | null;
+  college_id_url?: string | null;
+  verification_requested_at?: string | null;
   avatar_url: string | null;
   availability: Record<string, boolean> | null;
   updated_at?: string | null;
@@ -40,6 +43,7 @@ export interface MentorProfile {
 export interface Session {
   id: string;
   mentor_email: string;
+  student_email?: string | null;
   student_name: string;
   student_image: string | null;
   topic: string;

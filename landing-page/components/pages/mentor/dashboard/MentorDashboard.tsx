@@ -11,7 +11,7 @@ import { useMentorData } from "@/hooks/useMentorData";
 import { Switch } from "@/app/components/ui/switch";
 
 import { TabId, TABS } from "./constants";
-import HomeTab, { LiveRequest, SessionRequest } from "./HomeTab";
+import HomeTab, { LiveRequest, SessionRequest, TodaySession } from "./HomeTab";
 import MessagesTab from "./MessagesTab";
 import { buildCometUid } from "@/lib/cometchat-uid";
 import BoostTab from "./BoostTab";
@@ -37,11 +37,27 @@ function formatDate(date?: string) {
   return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+function formatTime12(time?: string) {
+  if (!time) return "TBD";
+  const [h, m] = time.split(":").map(Number);
+  if (Number.isNaN(h)) return time;
+  const meridiem = h >= 12 ? "PM" : "AM";
+  const hour = h % 12 || 12;
+  return `${hour}:${String(m ?? 0).padStart(2, "0")} ${meridiem}`;
+}
+
 function formatRequestedAt(date?: string) {
   if (!date) return "Just now";
   const parsed = new Date(date);
   if (Number.isNaN(parsed.getTime())) return date;
   return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function toDateKey(date: Date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 function getInitials(name: string) {
@@ -73,6 +89,7 @@ export default function MentorDashboard() {
   const [isOnline, setIsOnline] = useState(true);
   const [isAvailable, setIsAvailable] = useState(true);
   const [completeProfileOpen, setCompleteProfileOpen] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState<Date>(new Date());
 
   useEffect(() => {
     if (status === "unauthenticated") router.replace("/mentor/login");
@@ -211,7 +228,7 @@ export default function MentorDashboard() {
         studentName: s.student_name,
         studentImage: s.student_image,
         date: formatDate(s.scheduled_date),
-        time: s.scheduled_time || "TBD",
+        time: formatTime12(s.scheduled_time),
         duration: `${s.duration_minutes} min`,
         earning: s.earning,
         topic: s.topic,
@@ -219,6 +236,49 @@ export default function MentorDashboard() {
       })),
     [sessions]
   );
+
+  const scheduleForDate: TodaySession[] = useMemo(() => {
+    const dateKey = toDateKey(scheduleDate);
+    return sessions
+      .filter((s) => s.status === "upcoming")
+      .filter((s) => {
+        if (!s.scheduled_date) return false;
+        const sessionKey = toDateKey(new Date(s.scheduled_date));
+        return sessionKey === dateKey;
+      })
+      .map((s) => ({
+        id: s.id,
+        studentEmail: s.student_email ?? null,
+        studentName: s.student_name,
+        studentImage: s.student_image,
+        time: formatTime12(s.scheduled_time),
+        topic: s.topic || "Mentoring",
+      }));
+  }, [sessions, scheduleDate]);
+
+  const handleStartScheduledChat = async (sessionItem: TodaySession) => {
+    if (!mentorEmail || !sessionItem.studentEmail) return;
+    fetch("/api/cometchat/user", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: sessionItem.studentEmail,
+        name: sessionItem.studentName,
+        avatar: sessionItem.studentImage ?? null,
+      }),
+    }).catch(() => null);
+    const chat = await createStudentChat({
+      student_email: sessionItem.studentEmail,
+      mentor_email: mentorEmail,
+      mentor_name: mentorName,
+      mentor_avatar: profile?.avatar_url ?? null,
+      chat_rate: 5,
+      call_rate: 5,
+    });
+    if (!chat) return;
+    setActiveTab("messages");
+    setActiveChatId(buildCometUid(sessionItem.studentEmail));
+  };
 
   const historySessions = useMemo(
     () => sessions
@@ -393,11 +453,16 @@ export default function MentorDashboard() {
                     isOnline={isOnline}
                     onToggleOnline={setIsOnline}
                     requests={requests}
+                    scheduleDate={scheduleDate}
+                    onScheduleDateChange={(date) => date && setScheduleDate(date)}
+                    scheduleForDate={scheduleForDate}
                     liveRequests={liveRequests}
                     setLiveRequests={setLiveRequests}
                     onAcceptLiveRequest={handleAcceptLiveRequest}
                     onAcceptRequest={acceptSession}
                     onDeclineRequest={declineSession}
+                    onStartScheduledChat={handleStartScheduledChat}
+                    onCancelScheduled={declineSession}
                     onGoBoost={() => setActiveTab("boost")}
                   />
                 )}

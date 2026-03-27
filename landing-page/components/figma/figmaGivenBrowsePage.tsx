@@ -10,8 +10,6 @@ import {
   Calendar,
   ChevronDown,
   Zap,
-  Phone,
-  MessageCircle,
   Clock,
   X,
   CreditCard,
@@ -22,10 +20,11 @@ import { useMentorBrowseStore } from "@/store/mentorBrowseStore";
 import { useOnlineMentors } from "@/hooks/useOnlineMentors";
 import { AnimatePresence, motion } from "motion/react";
 import { useSession } from "next-auth/react";
-import { useStudentStore } from "@/store/studentStore";
 import { buildCometUid } from "@/lib/cometchat-uid";
 import { sendLiveRequest, subscribeLiveResponses } from "@/services/liveRequests";
 import { toast } from "sonner";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 export default function BrowseMentors() {
   const router = useRouter();
@@ -35,11 +34,10 @@ export default function BrowseMentors() {
   const { mentors, loading, error, fetchMentors } = useMentorBrowseStore();
   const onlineMentors = useOnlineMentors();
   const { data: session } = useSession();
-  const { chats, fetchChats, createChat } = useStudentStore();
   const [bookingOpen, setBookingOpen] = useState(false);
   const [bookingMode, setBookingMode] = useState<"instant" | "schedule">("instant");
   const [bookingStep, setBookingStep] = useState<1 | 2>(1);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [preferredTime, setPreferredTime] = useState("");
   const [bookingNote, setBookingNote] = useState("");
@@ -99,42 +97,51 @@ export default function BrowseMentors() {
     setPreferredTime("");
   };
 
-  const upcomingDates = ["Today", "Tomorrow", "Wed, 18 Mar", "Thu, 19 Mar", "Fri, 20 Mar", "Sat, 21 Mar"];
-  const timeBlocks = ["Morning", "Afternoon", "Evening"];
-
-  const ensureChatAndGo = async () => {
-    const email = session?.user?.email;
-    if (!email || !selectedMentor) {
-      router.push("/student/login");
-      return;
-    }
-
-    if (chats.length === 0) await fetchChats(email);
-    const existing = chats.find((c) => c.mentor_email === selectedMentor.id);
-    if (existing) {
-      closeBooking();
-      router.push(`/student/chats/${buildCometUid(existing.mentor_email)}?mentor=${encodeURIComponent(existing.mentor_email)}&live=1`);
-      return;
-    }
-
-    const created = await createChat({
-      student_email: email,
-      mentor_email: selectedMentor.id,
-      mentor_name: selectedMentor.name,
-      mentor_avatar: selectedMentor.image ?? null,
-      chat_rate: selectedMentor.pricePerMin ?? 5,
-      call_rate: selectedMentor.pricePerMin ?? 5,
-    });
-
-    if (created) {
-      closeBooking();
-      const mentorEmail = created?.mentor_email || selectedMentor?.id || "";
-      if (mentorEmail) router.push(`/student/chats/${buildCometUid(mentorEmail)}?mentor=${encodeURIComponent(mentorEmail)}&live=1`);
-    }
+  const formatTime12 = (time24: string) => {
+    const [h, m] = time24.split(":").map(Number);
+    const meridiem = h >= 12 ? "PM" : "AM";
+    const hour = h % 12 || 12;
+    return `${hour}:${String(m).padStart(2, "0")} ${meridiem}`;
   };
 
-  const isMentorLive = (mentorId?: string | null, mentorAvailable?: boolean | null) =>
-    Boolean(mentorAvailable && mentorId && onlineMentors.has(mentorId));
+  const getSlotsForDate = (availability: Record<string, boolean> | null | undefined, date: Date | null) => {
+    if (!availability || !date) return [];
+    const day = date.toLocaleDateString("en-US", { weekday: "long" });
+    const availableDays = getAvailableDays(availability);
+    if (!availableDays.has(day)) return [];
+
+    const isToday = date.toDateString() === new Date().toDateString();
+    const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
+
+    const slots: string[] = [];
+    for (let minutes = 12 * 60; minutes < 19 * 60; minutes += 30) {
+      if (isToday && minutes <= nowMinutes) continue;
+      const h = Math.floor(minutes / 60);
+      const m = minutes % 60;
+      slots.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+    }
+    return slots;
+  };
+
+  const getAvailableDays = (availability: Record<string, boolean> | null | undefined) => {
+    if (!availability) return new Set<string>();
+    const days = new Set<string>();
+    Object.entries(availability).forEach(([key, value]) => {
+      if (!value) return;
+      const day = key.split("-")[0]?.trim();
+      if (day) days.add(day);
+    });
+    return days;
+  };
+
+  const availableDays = getAvailableDays(selectedMentor?.availability);
+  const availableSlots = getSlotsForDate(selectedMentor?.availability, selectedDate);
+  const isDateAvailable = (date: Date) => {
+    if (availableDays.size === 0) return false;
+    const day = date.toLocaleDateString("en-US", { weekday: "long" });
+    return availableDays.has(day);
+  };
+
 
   const handleInstantContinue = () => {
     if (!selectedMentor) return;
@@ -142,7 +149,8 @@ export default function BrowseMentors() {
       router.push("/student/login");
       return;
     }
-    if (!isMentorLive(selectedMentor.id, selectedMentor.is_available)) {
+    const isLive = Boolean(selectedMentor.is_available && onlineMentors.has(selectedMentor.id));
+    if (!isLive) {
       toast.error("Mentor is not live right now.");
       return;
     }
@@ -166,6 +174,43 @@ export default function BrowseMentors() {
       createdAt: Date.now(),
     });
     toast.success("Request sent to mentor");
+    closeBooking();
+  };
+
+  const createBookingRequest = async () => {
+    if (!selectedMentor || !selectedDate || !selectedTime) return;
+    if (!session?.user?.email) {
+      router.push("/student/login");
+      return;
+    }
+
+    const scheduledDate = selectedDate.toISOString().split("T")[0];
+    const topic = bookingNote.trim() || selectedMentor.course || "Mentoring";
+
+    const res = await fetch("/api/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mentor_email: selectedMentor.id,
+        student_email: session.user.email,
+        student_name: session?.user?.name ?? "Student",
+        student_image: session?.user?.image ?? null,
+        topic,
+        scheduled_date: scheduledDate,
+        scheduled_time: selectedTime,
+        duration_minutes: 0,
+        earning: 0,
+        status: "upcoming",
+        requested_at: new Date().toISOString(),
+      }),
+    });
+
+    if (!res.ok) {
+      toast.error("Failed to send booking request.");
+      return;
+    }
+
+    toast.success("Booking request sent!");
     closeBooking();
   };
 
@@ -297,10 +342,20 @@ export default function BrowseMentors() {
                       e.currentTarget.src = "/student-logo.png";
                     }}
                   />
-                  {mentor.collegeType && (
-                    <div className="absolute top-2 right-2 bg-white/95 backdrop-blur-sm px-2.5 py-1 rounded-md flex items-center gap-1 shadow-sm">
-                      <Building2 className="h-3 w-3 text-[#9758FF]" />
-                      <span className="text-[10px] font-extrabold text-[#374151] uppercase tracking-wider">{mentor.collegeType}</span>
+                  {(mentor.is_verified || mentor.collegeType) && (
+                    <div className="absolute top-2 right-2 flex flex-col gap-2 items-end">
+                      {mentor.is_verified && (
+                        <div className="bg-gradient-to-r from-[#E5E7EB] to-[#F3F4F6] text-gray-700 px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-sm border border-[#D1D5DB] text-[10px] font-bold">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#9CA3AF]" />
+                          Verified
+                        </div>
+                      )}
+                      {mentor.collegeType && (
+                        <div className="bg-white/95 backdrop-blur-sm px-2.5 py-1 rounded-md flex items-center gap-1 shadow-sm">
+                          <Building2 className="h-3 w-3 text-[#9758FF]" />
+                          <span className="text-[10px] font-extrabold text-[#374151] uppercase tracking-wider">{mentor.collegeType}</span>
+                        </div>
+                      )}
                     </div>
                   )}
                   <div className="absolute bottom-2 left-2 bg-[#111827]/80 backdrop-blur-sm text-white px-2 py-1 rounded-lg flex items-center gap-1">
@@ -386,7 +441,7 @@ export default function BrowseMentors() {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: "100%", opacity: 0 }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="relative w-full max-w-lg bg-white sm:rounded-[32px] rounded-t-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+              className="relative w-full max-w-2xl bg-white sm:rounded-[32px] rounded-t-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
             >
               <div className="p-5 sm:p-6 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0 z-10">
                 <div>
@@ -405,77 +460,89 @@ export default function BrowseMentors() {
                 </button>
               </div>
 
-              <div className="p-5 sm:p-6 overflow-y-auto">
+              <div className="p-5 sm:p-6 overflow-y-auto min-h-[440px]">
                 {bookingStep === 1 ? (
                   <div className="space-y-6">
-                    {isMentorLive(selectedMentor?.id, selectedMentor?.is_available) && (
-                      <div className="flex bg-gray-50 p-1 rounded-2xl">
-                        <button
-                          onClick={() => setBookingMode("instant")}
-                          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all ${
-                            bookingMode === "instant" ? "bg-white text-[#9758FF] shadow-sm" : "text-gray-500 hover:text-gray-700"
-                          }`}
-                        >
-                          <Zap className="w-4 h-4" />
-                          Connect Now
-                        </button>
-                        <button
-                          onClick={() => setBookingMode("schedule")}
-                          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all ${
-                            bookingMode === "schedule" ? "bg-white text-[#9758FF] shadow-sm" : "text-gray-500 hover:text-gray-700"
-                          }`}
-                        >
-                          <Calendar className="w-4 h-4" />
-                          Schedule Later
-                        </button>
-                      </div>
-                    )}
-
-                    {bookingMode === "schedule" ? (
-                      <>
-                        <div>
-                          <h3 className="text-sm font-bold text-[#6B21A8] uppercase tracking-wider mb-3 flex items-center gap-2">
+                      {Boolean(selectedMentor?.is_available && onlineMentors.has(selectedMentor?.id ?? "")) && (
+                        <div className="flex bg-gray-50 p-1 rounded-2xl">
+                          <button
+                            onClick={() => setBookingMode("instant")}
+                            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all ${
+                              bookingMode === "instant" ? "bg-white text-[#9758FF] shadow-sm" : "text-gray-500 hover:text-gray-700"
+                            }`}
+                          >
+                            <Zap className="w-4 h-4" />
+                            Connect Now
+                          </button>
+                          <button
+                            onClick={() => setBookingMode("schedule")}
+                            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all ${
+                              bookingMode === "schedule" ? "bg-white text-[#9758FF] shadow-sm" : "text-gray-500 hover:text-gray-700"
+                            }`}
+                          >
                             <Calendar className="w-4 h-4" />
-                            Select Date
-                          </h3>
-                          <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-2">
-                            {upcomingDates.map((date) => (
-                              <button
-                                key={date}
-                                onClick={() => setSelectedDate(date)}
-                                className={`px-5 py-3 rounded-2xl whitespace-nowrap text-sm font-bold transition-all border-2 ${
-                                  selectedDate === date
-                                    ? "border-[#9758FF] bg-[#F8F5FF] text-[#9758FF]"
-                                    : "border-gray-100 bg-white text-gray-600 hover:border-[#E9D5FF]"
-                                }`}
-                              >
-                                {date}
-                              </button>
-                            ))}
-                          </div>
+                            Schedule Later
+                          </button>
                         </div>
+                      )}
 
-                        <div>
-                          <h3 className="text-sm font-bold text-[#6B21A8] uppercase tracking-wider mb-3 flex items-center gap-2">
-                            <Clock className="w-4 h-4" />
-                            Available Times
-                          </h3>
-                          <div className="grid grid-cols-3 gap-2">
-                            {timeBlocks.map((time) => (
-                              <button
-                                key={time}
-                                onClick={() => setSelectedTime(time)}
-                                className={`py-3 rounded-xl text-sm font-bold transition-all border-2 ${
-                                  selectedTime === time
-                                    ? "border-[#9758FF] bg-[#F8F5FF] text-[#9758FF]"
-                                    : "border-gray-100 bg-white text-gray-600 hover:border-[#E9D5FF]"
-                                }`}
-                              >
-                                {time}
-                              </button>
-                            ))}
+                      {bookingMode === "schedule" ? (
+                        <>
+                          <div>
+                            <h3 className="text-sm font-bold text-[#6B21A8] uppercase tracking-wider mb-3 flex items-center gap-2">
+                              <Calendar className="w-4 h-4" />
+                              Select Date
+                            </h3>
+                            <div className="mentoreo-datepicker">
+                              <DatePicker
+                                selected={selectedDate}
+                                onChange={(date: Date | null) => {
+                                  setSelectedDate(date);
+                                  setSelectedTime(null);
+                                }}
+                                minDate={new Date()}
+                                filterDate={isDateAvailable}
+                                placeholderText={availableDays.size > 0 ? "Select a date" : "No availability set"}
+                                className="w-full px-4 py-3 rounded-xl border-2 border-gray-100 focus:border-[#9758FF] focus:outline-none transition-all font-medium text-[#111827] bg-white"
+                                calendarClassName="mentoreo-datepicker__calendar"
+                                dayClassName={() => "mentoreo-datepicker__day"}
+                              />
+                            </div>
                           </div>
-                        </div>
+
+                          <div>
+                            <h3 className="text-sm font-bold text-[#6B21A8] uppercase tracking-wider mb-3 flex items-center gap-2">
+                              <Clock className="w-4 h-4" />
+                              Available Slots
+                            </h3>
+                            {selectedDate ? (
+                              availableSlots.length > 0 ? (
+                                <div className="grid grid-cols-2 gap-2">
+                                  {availableSlots.map((slot) => (
+                                    <button
+                                      key={slot}
+                                      onClick={() => setSelectedTime(slot)}
+                                      className={`py-3 rounded-xl text-sm font-bold transition-all border-2 ${
+                                        selectedTime === slot
+                                          ? "border-[#9758FF] bg-[#F8F5FF] text-[#9758FF]"
+                                          : "border-gray-100 bg-white text-gray-600 hover:border-[#E9D5FF]"
+                                      }`}
+                                    >
+                                      {formatTime12(slot)}
+                                    </button>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="text-sm text-[#6B7280] bg-white border border-dashed border-gray-200 rounded-xl p-3">
+                                  No availability for this date.
+                                </div>
+                              )
+                            ) : (
+                              <div className="text-sm text-[#6B7280] bg-white border border-dashed border-gray-200 rounded-xl p-3">
+                                Select a date to view available slots.
+                              </div>
+                            )}
+                          </div>
 
                         {selectedTime && (
                           <div>
@@ -491,19 +558,19 @@ export default function BrowseMentors() {
                             />
                           </div>
                         )}
-                      </>
-                    ) : (
-                      <div className="py-8 text-center bg-[#F8F5FF] rounded-2xl border border-[#E9D5FF]">
-                        <div className="w-16 h-16 bg-[#9758FF]/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                          <Zap className="w-8 h-8 text-[#9758FF]" fill="#9758FF" />
+                        </>
+                      ) : (
+                        <div className="py-8 text-center bg-[#F8F5FF] rounded-2xl border border-[#E9D5FF]">
+                          <div className="w-16 h-16 bg-[#9758FF]/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Zap className="w-8 h-8 text-[#9758FF]" fill="#9758FF" />
+                          </div>
+                          <h3 className="text-lg font-bold text-[#111827] mb-2">Mentor is Live!</h3>
+                          <p className="text-[#4B5563] text-sm max-w-[250px] mx-auto">
+                            Start a chat instantly. You'll only be charged for the time you spend talking.
+                          </p>
                         </div>
-                        <h3 className="text-lg font-bold text-[#111827] mb-2">Mentor is Live!</h3>
-                        <p className="text-[#4B5563] text-sm max-w-[250px] mx-auto">
-                          Start a chat instantly. You'll only be charged for the time you spend talking.
-                        </p>
-                      </div>
-                    )}
-                  </div>
+                      )}
+                    </div>
                 ) : (
                   <div className="space-y-6">
                     <div className="bg-[#F8F5FF] p-4 rounded-2xl border border-[#E9D5FF]">
@@ -511,7 +578,7 @@ export default function BrowseMentors() {
                       <p className="text-sm text-[#4B5563] font-medium">
                         {bookingMode === "instant"
                           ? "Instant Connection"
-                          : `${selectedDate ?? "Select date"} at ${selectedTime ?? "Select time"} ${preferredTime ? `(${preferredTime})` : "Slot"}`}
+                          : `${selectedDate ? selectedDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "Select date"} at ${selectedTime ? formatTime12(selectedTime) : "Select time"} ${preferredTime ? `(${preferredTime})` : "Slot"}`}
                       </p>
                       <div className="mt-4 pt-3 border-t border-[#E9D5FF] flex justify-between items-center">
                         <span className="text-sm font-bold text-gray-500">Rate</span>
@@ -520,7 +587,7 @@ export default function BrowseMentors() {
                         </span>
                       </div>
                       <p className="text-xs text-[#6B21A8] mt-3 bg-white p-2 rounded-lg border border-[#E9D5FF]">
-                        You will only be charged based on your session's duration. Minimum wallet balance required to connect: ₹100
+                        Payment is collected after the session. No upfront charge required.
                       </p>
                     </div>
 
@@ -542,48 +609,38 @@ export default function BrowseMentors() {
                         <CreditCard className="w-5 h-5" />
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm font-bold text-[#111827]">Wallet Balance</p>
-                        <p className="text-xs font-semibold text-green-600">₹1,500 Available</p>
+                        <p className="text-sm font-bold text-[#111827]">Payment</p>
+                        <p className="text-xs font-semibold text-gray-500">You’ll be charged after the session ends.</p>
                       </div>
                     </div>
                   </div>
                 )}
               </div>
 
-              <div className="p-5 sm:p-6 border-t border-gray-100 bg-white sticky bottom-0 z-10">
+                <div className="p-5 sm:p-6 border-t border-gray-100 bg-white sticky bottom-0 z-10">
                 {bookingStep === 1 ? (
-                  <button
-                    disabled={bookingMode === "schedule" && (!selectedDate || !selectedTime)}
-                    onClick={() => {
-                      if (bookingMode === "instant") {
-                        handleInstantContinue();
-                        return;
-                      }
-                      setBookingStep(2);
-                    }}
-                    className="w-full py-4 bg-[#9758FF] hover:bg-[#8B5CF6] text-white rounded-2xl font-bold text-base disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md shadow-[#9758FF]/20 active:scale-[0.98]"
-                  >
-                    Continue
-                  </button>
-                ) : (
-                  <div className="flex gap-2 sm:gap-3">
                     <button
-                      onClick={ensureChatAndGo}
-                      className="flex-1 py-3 sm:py-4 bg-[#111827] hover:bg-black text-white rounded-2xl font-bold text-xs sm:text-sm transition-all shadow-md shadow-black/10 active:scale-[0.98] flex flex-col items-center justify-center gap-1.5"
+                      disabled={bookingMode === "schedule" && (!selectedDate || !selectedTime)}
+                      onClick={() => {
+                        if (bookingMode === "instant") {
+                          handleInstantContinue();
+                          return;
+                        }
+                        setBookingStep(2);
+                      }}
+                      className="w-full py-4 bg-[#9758FF] hover:bg-[#8B5CF6] text-white rounded-2xl font-bold text-base disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md shadow-[#9758FF]/20 active:scale-[0.98]"
                     >
-                      <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6" />
-                      <span>Chat</span>
+                      {bookingMode === "instant" ? "Connect Now" : "Continue"}
                     </button>
+                  ) : (
                     <button
-                      onClick={ensureChatAndGo}
-                      className="flex-1 py-3 sm:py-4 bg-[#111827] hover:bg-black text-white rounded-2xl font-bold text-xs sm:text-sm transition-all shadow-md shadow-black/10 active:scale-[0.98] flex flex-col items-center justify-center gap-1.5"
+                      onClick={createBookingRequest}
+                      className="w-full py-4 bg-[#111827] hover:bg-black text-white rounded-2xl font-bold text-base transition-all shadow-md shadow-black/10 active:scale-[0.98]"
                     >
-                      <Phone className="w-5 h-5 sm:w-6 sm:h-6" />
-                      <span>Call</span>
+                      Request Session
                     </button>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
             </motion.div>
           </div>
         )}

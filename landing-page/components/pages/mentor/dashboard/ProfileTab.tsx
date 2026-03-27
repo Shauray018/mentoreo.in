@@ -29,6 +29,7 @@ import {
   User,
   Award,
   Building2,
+  ShieldCheck,
   Shield,
   Video,
   Wallet,
@@ -80,6 +81,15 @@ function formatDate(date?: string) {
   return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+function formatTime12(time?: string) {
+  if (!time) return "TBD";
+  const [h, m] = time.split(":").map(Number);
+  if (Number.isNaN(h)) return time;
+  const meridiem = h >= 12 ? "PM" : "AM";
+  const hour = h % 12 || 12;
+  return `${hour}:${String(m ?? 0).padStart(2, "0")} ${meridiem}`;
+}
+
 interface ProfileTabProps {
   signupName: string;
   signupEmail: string;
@@ -110,6 +120,9 @@ export default function ProfileTab({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState("");
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const idInputRef = useRef<HTMLInputElement | null>(null);
+  const [idUploading, setIdUploading] = useState(false);
+  const [idUploadedUrl, setIdUploadedUrl] = useState("");
 
   const [bio, setBio] = useState("");
   const [approach, setApproach] = useState("");
@@ -134,6 +147,7 @@ export default function ProfileTab({
     setLinkedIn(profile?.linkedin ?? "");
     setSelectedExpertise(profile?.expertise_tags ?? []);
     setActiveSlots(profile?.availability ?? {});
+    setIdUploadedUrl(profile?.college_id_url ?? "");
   }, [profile, signupName, signupCollege, signupCourse]);
 
   const upcomingSessions = useMemo(
@@ -141,7 +155,7 @@ export default function ProfileTab({
       id: s.id,
       student: { name: s.student_name, image: s.student_image ?? "/someGuy.png" },
       date: formatDate(s.scheduled_date),
-      time: s.scheduled_time || "TBD",
+      time: formatTime12(s.scheduled_time),
       duration: `${s.duration_minutes} min`,
       earning: s.earning,
       topic: s.topic,
@@ -203,6 +217,7 @@ export default function ProfileTab({
     return `${url}${separator}v=${token}`;
   };
   const displayAvatarUrl = avatarPreviewUrl || (profileAvatarUrl ? withCacheBust(profileAvatarUrl, profileAvatarUpdatedAt) : "");
+  const isVerified = Boolean(profile?.is_verified);
 
   useEffect(() => {
     setTasks((prev) =>
@@ -278,6 +293,32 @@ export default function ProfileTab({
     } finally {
       setAvatarUploading(false);
       event.target.value = "";
+    }
+  };
+
+  const handleIdPick = () => {
+    idInputRef.current?.click();
+  };
+
+  const handleIdChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const email = profile?.email ?? signupEmail;
+    setIdUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("email", email);
+      const res = await fetch("/api/upload-college-id", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Upload failed");
+      setIdUploadedUrl(data.url);
+      await onSaveProfile({ college_id_url: data.url, verification_requested_at: new Date().toISOString() });
+      toast.success("College ID uploaded for verification");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setIdUploading(false);
     }
   };
 
@@ -784,6 +825,61 @@ export default function ProfileTab({
                 <div><Label className="text-[11px] text-gray-400 mb-1 block">Year</Label><Input value={year} onChange={(e) => setYear(e.target.value)} disabled={!isProfileEditing} className="h-9 text-sm disabled:bg-gray-50 disabled:border-transparent" /></div>
               </div>
               <div><Label className="text-[11px] text-gray-400 mb-1 block">LinkedIn (optional)</Label><Input value={linkedIn} onChange={(e) => setLinkedIn(e.target.value)} placeholder="https://linkedin.com/in/you" disabled={!isProfileEditing} className="h-9 text-sm disabled:bg-gray-50 disabled:border-transparent" /></div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-[#FF7A1F]" /> Verification
+                </div>
+                {isVerified ? (
+                  <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 text-[10px]">
+                    Verified
+                  </Badge>
+                ) : idUploadedUrl ? (
+                  <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 text-[10px]">
+                    Under Review
+                  </Badge>
+                ) : (
+                  <Badge className="bg-gray-100 text-gray-500 hover:bg-gray-100 text-[10px]">
+                    Not Verified
+                  </Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 pt-0">
+              <p className="text-xs text-gray-500">
+                Upload your college ID to request a verified badge. We'll review it manually.
+              </p>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleIdPick}
+                  disabled={!isProfileEditing || idUploading}
+                  className="px-4 py-2 rounded-xl text-xs font-bold border border-[#FF7A1F]/30 text-[#FF7A1F] hover:bg-[#FFF4ED] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {idUploading ? "Uploading..." : idUploadedUrl ? "Replace College ID" : "Upload College ID"}
+                </button>
+                {idUploadedUrl && (
+                  <a
+                    href={idUploadedUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs font-semibold text-gray-500 hover:text-gray-700"
+                  >
+                    View Uploaded ID
+                  </a>
+                )}
+              </div>
+              <input
+                ref={idInputRef}
+                type="file"
+                accept="image/*,application/pdf"
+                onChange={handleIdChange}
+                className="hidden"
+              />
             </CardContent>
           </Card>
 
