@@ -9,20 +9,30 @@ const CONV = [
   { from: 'user', text: "What about hostel life?" },
   { from: 'bot',  text: "Best part of IITB, no cap. The fests, the culture — nothing like it." },
 ];
-const DELAYS = [0, 1300, 2800, 4100, 5700, 7000];
+const DELAYS = [0, 1800, 3800, 5400, 7600, 9400];
 
 export function ChatBubbles() {
   const chatRef = useRef<HTMLDivElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
     const chat = chatRef.current;
-    if (!chat) return;
+    const wrap = wrapRef.current;
+    if (!chat || !wrap) return;
 
     function clearAll() {
       timersRef.current.forEach(clearTimeout);
       timersRef.current = [];
       chat!.innerHTML = '';
+      wrap!.classList.remove('tilt-user', 'tilt-bot');
+    }
+
+    function tilt(from: 'user' | 'bot') {
+      wrap!.classList.remove('tilt-user', 'tilt-bot');
+      // Force reflow so the transition re-triggers
+      void wrap!.offsetHeight;
+      wrap!.classList.add(from === 'user' ? 'tilt-user' : 'tilt-bot');
     }
 
     function addRow(from: 'user' | 'bot', content: string, isTyping = false) {
@@ -40,6 +50,8 @@ export function ChatBubbles() {
 
       row.appendChild(bubble);
       chat!.appendChild(row);
+
+      tilt(from);
 
       requestAnimationFrame(() => requestAnimationFrame(() => {
         row.classList.add('visible');
@@ -71,17 +83,14 @@ export function ChatBubbles() {
 
       CONV.forEach((m, i) => {
         const t = setTimeout(() => {
-          if (m.from === 'bot') {
-            const { bubble } = addRow('bot', '', true);
-            const t2 = setTimeout(() => {
-              bubble.innerHTML = '';
-              bubble.classList.remove('text-reveal');
-              revealText(bubble, m.text);
-            }, 850);
-            timersRef.current.push(t2);
-          } else {
-            addRow('user', m.text);
-          }
+          const from = m.from as 'user' | 'bot';
+          const { bubble } = addRow(from, '', true);
+          const t2 = setTimeout(() => {
+            bubble.innerHTML = '';
+            bubble.classList.remove('text-reveal');
+            revealText(bubble, m.text);
+          }, 1400);
+          timersRef.current.push(t2);
         }, DELAYS[i]);
         timersRef.current.push(t);
       });
@@ -108,6 +117,21 @@ export function ChatBubbles() {
   return (
     <>
       <style>{`
+        .chat-perspective {
+          perspective: 900px;
+        }
+        .chat-tilt {
+          transform-style: preserve-3d;
+          transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+          transform: rotateY(0deg) rotateX(0deg);
+        }
+        .chat-tilt.tilt-user {
+          transform: rotateY(-16deg) rotateX(8deg);
+        }
+        .chat-tilt.tilt-bot {
+          transform: rotateY(16deg) rotateX(8deg);
+        }
+
         .bubble-row {
           display: flex;
           opacity: 0;
@@ -125,21 +149,24 @@ export function ChatBubbles() {
 
         .bubble {
           max-width: 78%;
-          padding: 10px 15px;
-          font-size: 14px;
+          padding: 11px 16px;
+          font-size: 14.5px;
           line-height: 1.55;
-          border-radius: 18px;
+          border-radius: 20px;
+          font-weight: 500;
         }
         .bubble.user {
-          background: #FF8000;
+          background: linear-gradient(135deg, #FF8000 0%, #FF6B00 100%);
           color: #fff;
           border-bottom-right-radius: 5px;
+          box-shadow: 0 2px 12px rgba(255,128,0,0.3), 0 1px 3px rgba(255,128,0,0.2);
         }
         .bubble.bot {
           background: #ffffff;
-          border: 1px solid rgba(0,0,0,0.08);
+          border: 1px solid rgba(0,0,0,0.06);
           color: #1F2937;
           border-bottom-left-radius: 5px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
         }
 
         .typing-dot {
@@ -147,10 +174,16 @@ export function ChatBubbles() {
           width: 6px;
           height: 6px;
           border-radius: 50%;
-          background: #9CA3AF;
-          opacity: 0.5;
           margin: 0 2px;
           animation: tdot 0.8s ease-in-out infinite;
+        }
+        .bubble.bot .typing-dot {
+          background: #FF8000;
+          opacity: 0.6;
+        }
+        .bubble.user .typing-dot {
+          background: #ffffff;
+          opacity: 0.7;
         }
         .typing-dot:nth-child(2) { animation-delay: 0.15s; }
         .typing-dot:nth-child(3) { animation-delay: 0.30s; }
@@ -167,10 +200,14 @@ export function ChatBubbles() {
         .text-reveal span.shown { opacity: 1; }
       `}</style>
 
-      <div
-        ref={chatRef}
-        className="flex flex-col w-full max-w-md"
-      />
+      <div className="chat-perspective">
+        <div ref={wrapRef} className="chat-tilt">
+          <div
+            ref={chatRef}
+            className="flex flex-col w-full max-w-md"
+          />
+        </div>
+      </div>
     </>
   );
 }
