@@ -139,7 +139,7 @@ export default function WhyMentoreo() {
           {/* Card 1 */}
           <motion.div 
             {...motionProps({ initial: { opacity: 0, y: 20 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true } })}
-            className="bg-white/70 rounded-[32px] p-8 border border-[#1F2937]/5 shadow-[0_8px_30px_rgba(31,41,55,0.04)] hover:-translate-y-1 transition-transform"
+            className="bg-white/70 rounded-[32px] p-8 border border-[#1F2937]/5 shadow-[0_8px_30px_rgba(31,41,55,0.04)] md:hover:-translate-y-1 md:transition-transform"
           >
             <div className="w-14 h-14 bg-orange-100 text-[#FF8000] rounded-2xl flex items-center justify-center mb-6">
               <EyeOff className="w-7 h-7" />
@@ -153,7 +153,7 @@ export default function WhyMentoreo() {
           {/* Card 2 */}
           <motion.div 
             {...motionProps({ initial: { opacity: 0, y: 20 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true }, transition: { delay: 0.1 } })}
-            className="bg-white/75 rounded-[32px] p-8 border border-[#1F2937]/5 shadow-[0_8px_30px_rgba(31,41,55,0.04)] hover:-translate-y-1 transition-transform"
+            className="bg-white/75 rounded-[32px] p-8 border border-[#1F2937]/5 shadow-[0_8px_30px_rgba(31,41,55,0.04)] md:hover:-translate-y-1 md:transition-transform"
           >
             <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mb-6">
               <Ghost className="w-7 h-7" />
@@ -167,7 +167,7 @@ export default function WhyMentoreo() {
           {/* Card 3 */}
           <motion.div 
             {...motionProps({ initial: { opacity: 0, y: 20 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true }, transition: { delay: 0.2 } })}
-            className="bg-white/75 rounded-[32px] p-8 border border-[#1F2937]/5 shadow-[0_8px_30px_rgba(31,41,55,0.04)] hover:-translate-y-1 transition-transform"
+            className="bg-white/75 rounded-[32px] p-8 border border-[#1F2937]/5 shadow-[0_8px_30px_rgba(31,41,55,0.04)] md:hover:-translate-y-1 md:transition-transform"
           >
             <div className="w-14 h-14 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mb-6">
               <ShieldAlert className="w-7 h-7" />
@@ -211,9 +211,9 @@ export default function WhyMentoreo() {
             <motion.div
               key={index}
               {...motionProps({ initial: { opacity: 0, y: 20 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true }, transition: { delay: index * 0.1 } })}
-              className={`break-inside-avoid p-8 rounded-[32px] border ${item.color} relative group hover:scale-[1.02] transition-transform duration-300`}
+              className={`break-inside-avoid p-8 rounded-[32px] border ${item.color} relative group md:hover:scale-[1.02] md:transition-transform md:duration-300`}
             >
-              <MessageCircle className="absolute top-6 right-6 w-8 h-8 text-[#1F2937]/10 group-hover:text-[#1F2937]/20 transition-colors" />
+              <MessageCircle className="absolute top-6 right-6 w-8 h-8 text-[#1F2937]/10 md:group-hover:text-[#1F2937]/20 md:transition-colors" />
               <h4 className="text-xl font-bold text-[#1F2937] mb-4 pr-10 leading-snug">
                 "{item.title}"
               </h4>
@@ -244,12 +244,12 @@ export default function WhyMentoreo() {
           </h2>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <Link href="/student/signup">
-              <Button className="w-full sm:w-auto bg-[#FF8000] hover:bg-[#FF6A0F] text-white rounded-full px-10 py-6 text-lg font-bold shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all">
+              <Button className="w-full sm:w-auto bg-[#FF8000] md:hover:bg-[#FF6A0F] text-white rounded-full px-10 py-6 text-lg font-bold shadow-xl md:hover:shadow-2xl md:hover:-translate-y-1 md:transition-all">
                 Find a Mentor Now
               </Button>
             </Link>
             <Link href="/onboard">
-              <Button variant="outline" className="w-full sm:w-auto border-2 border-[#1F2937]/10 text-[#1F2937] hover:border-[#FF8000] hover:text-[#FF8000] bg-white rounded-full px-10 py-6 text-lg font-bold shadow-sm hover:shadow-md hover:-translate-y-1 transition-all">
+              <Button variant="outline" className="w-full sm:w-auto border-2 border-[#1F2937]/10 text-[#1F2937] md:hover:border-[#FF8000] md:hover:text-[#FF8000] bg-white rounded-full px-10 py-6 text-lg font-bold shadow-sm md:hover:shadow-md md:hover:-translate-y-1 md:transition-all">
                 Become a Mentor
               </Button>
             </Link>

@@ -79,7 +79,7 @@ export default function MentorPerks() {
         >
           {/* Large Card */}
           <motion.div variants={reduceMotion ? undefined : (itemVariants as any)} className="md:col-span-2 bg-white/80 border border-white rounded-[24px] sm:rounded-[32px] p-6 sm:p-8 md:p-12 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)] relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-48 h-48 sm:w-64 sm:h-64 bg-gradient-to-bl from-[#FF8000]/20 to-transparent rounded-full blur-2xl sm:blur-3xl -mr-10 -mt-10 sm:-mr-20 sm:-mt-20 group-hover:scale-110 transition-transform duration-700" />
+            <div className="absolute top-0 right-0 w-48 h-48 sm:w-64 sm:h-64 bg-gradient-to-bl from-[#FF8000]/20 to-transparent rounded-full blur-2xl sm:blur-3xl -mr-10 -mt-10 sm:-mr-20 sm:-mt-20 md:group-hover:scale-110 md:transition-transform md:duration-700" />
             <div className="relative z-10">
               <div className="w-12 h-12 sm:w-14 sm:h-14 bg-[#FF8000]/10 text-[#FF8000] rounded-xl sm:rounded-2xl flex items-center justify-center mb-6">
                 <Target className="w-6 h-6 sm:w-8 sm:h-8" />
@@ -207,7 +207,7 @@ export default function MentorPerks() {
                <motion.div 
                  animate={reduceMotion ? undefined : { y: [-6, 6, -6] }}
                  transition={reduceMotion ? undefined : { duration: 4, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-                 className="bg-gradient-to-br from-yellow-400 to-[#FF8000] p-6 sm:p-8 rounded-[24px] sm:rounded-[32px] shadow-[0_20px_40px_-15px_rgba(255,128,0,0.4)] border border-yellow-300 w-full lg:w-1/3 text-center relative z-10 transform hover:scale-[1.02] transition-transform flex flex-col h-full"
+                 className="bg-gradient-to-br from-yellow-400 to-[#FF8000] p-6 sm:p-8 rounded-[24px] sm:rounded-[32px] shadow-[0_20px_40px_-15px_rgba(255,128,0,0.4)] border border-yellow-300 w-full lg:w-1/3 text-center relative z-10 md:transform md:hover:scale-[1.02] md:transition-transform flex flex-col h-full"
                >
                   <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 rounded-[24px] sm:rounded-[32px]" />
                   <div className="w-14 h-14 sm:w-16 sm:h-16 bg-white/20 rounded-2xl mx-auto flex items-center justify-center mb-5 relative z-10">
@@ -254,7 +254,7 @@ export default function MentorPerks() {
               <div className="p-4 sm:p-8 space-y-4 sm:space-y-5 bg-gradient-to-b from-white to-[#FFF9F5]/50">
                 
                 {/* Rank 1 */}
-                <div className="p-4 sm:p-5 bg-yellow-50 border border-yellow-200 rounded-[16px] sm:rounded-2xl shadow-sm relative overflow-hidden group hover:scale-[1.01] transition-transform">
+                <div className="p-4 sm:p-5 bg-yellow-50 border border-yellow-200 rounded-[16px] sm:rounded-2xl shadow-sm relative overflow-hidden group md:hover:scale-[1.01] md:transition-transform">
                   <div className="absolute top-0 left-0 w-1.5 h-full bg-yellow-400" />
                   <div className="flex items-center justify-between mb-3 sm:mb-4 relative z-10 pl-2 sm:pl-3">
                     <div className="flex items-center gap-3 sm:gap-5">
@@ -280,7 +280,7 @@ export default function MentorPerks() {
                 </div>
 
                 {/* Rank 2 */}
-                <div className="p-4 sm:p-5 bg-gray-50 border border-gray-200 rounded-[16px] sm:rounded-2xl relative hover:bg-gray-100 transition-colors">
+                <div className="p-4 sm:p-5 bg-gray-50 border border-gray-200 rounded-[16px] sm:rounded-2xl relative md:hover:bg-gray-100 md:transition-colors">
                   <div className="absolute top-0 left-0 w-1.5 h-full bg-gray-300" />
                   <div className="flex items-center justify-between mb-3 sm:mb-4 pl-2 sm:pl-3">
                     <div className="flex items-center gap-3 sm:gap-5">
@@ -302,7 +302,7 @@ export default function MentorPerks() {
                 </div>
 
                 {/* Rank 3 */}
-                <div className="p-4 sm:p-5 bg-white border border-orange-100 rounded-[16px] sm:rounded-2xl relative hover:bg-orange-50/50 transition-colors">
+                <div className="p-4 sm:p-5 bg-white border border-orange-100 rounded-[16px] sm:rounded-2xl relative md:hover:bg-orange-50/50 md:transition-colors">
                   <div className="absolute top-0 left-0 w-1.5 h-full bg-[#FF8000]/30" />
                   <div className="flex items-center justify-between mb-3 sm:mb-4 pl-2 sm:pl-3">
                     <div className="flex items-center gap-3 sm:gap-5">
@@ -384,7 +384,7 @@ export default function MentorPerks() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/onboard" className="w-full sm:w-auto">
-                <Button className="bg-white text-[#FF8000] hover:bg-gray-50 px-6 sm:px-8 py-6 rounded-[20px] text-base sm:text-lg font-bold shadow-xl hover:-translate-y-1 transition-all w-full">
+                <Button className="bg-white text-[#FF8000] md:hover:bg-gray-50 px-6 sm:px-8 py-6 rounded-[20px] text-base sm:text-lg font-bold shadow-xl md:hover:-translate-y-1 md:transition-all w-full">
                   Apply as a Mentor
                 </Button>
               </Link>
