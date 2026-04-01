@@ -122,6 +122,103 @@ export function subscribeSessionStarts(
   return { channel, cleanup };
 }
 
+export interface SessionBookingPayload {
+  mentorEmail: string;
+}
+
+export function sendSessionBooking(mentorEmail: string) {
+  const channel = supabase.channel(`session-bookings:${mentorEmail}`);
+  channel.subscribe((status) => {
+    if (status === "SUBSCRIBED") {
+      channel.send({ type: "broadcast", event: "new-booking", payload: { mentorEmail } });
+      supabase.removeChannel(channel);
+    }
+  });
+}
+
+export function subscribeSessionBookings(
+  mentorEmail: string,
+  onBooking: () => void
+) {
+  const channel = supabase.channel(`session-bookings:${mentorEmail}`);
+  channel.on("broadcast", { event: "new-booking" }, () => {
+    onBooking();
+  });
+  channel.subscribe();
+
+  const cleanup = () => {
+    supabase.removeChannel(channel);
+  };
+
+  return { channel, cleanup };
+}
+
+// ── Student-facing session notifications ──
+
+export interface SessionStatusPayload {
+  sessionId: string;
+  status: "upcoming" | "declined";
+  mentorName: string;
+  topic: string;
+  scheduledDate: string;
+  scheduledTime: string;
+}
+
+/** Mentor calls this when accepting/declining a session request */
+export function sendSessionStatusUpdate(studentEmail: string, payload: SessionStatusPayload) {
+  const channel = supabase.channel(`session-updates:${studentEmail}`);
+  channel.subscribe((status) => {
+    if (status === "SUBSCRIBED") {
+      channel.send({ type: "broadcast", event: "status-update", payload });
+      supabase.removeChannel(channel);
+    }
+  });
+}
+
+/** Student subscribes to accept/decline notifications */
+export function subscribeSessionStatusUpdates(
+  studentEmail: string,
+  onUpdate: (payload: SessionStatusPayload) => void
+) {
+  const channel = supabase.channel(`session-updates:${studentEmail}`);
+  channel.on("broadcast", { event: "status-update" }, ({ payload }) => {
+    onUpdate(payload as SessionStatusPayload);
+  });
+  channel.subscribe();
+  return { channel, cleanup: () => supabase.removeChannel(channel) };
+}
+
+export interface SessionReadyPayload {
+  sessionId: string;
+  mentorEmail: string;
+  mentorName: string;
+  topic: string;
+}
+
+/** Mentor calls this when clicking "Continue to Chat" */
+export function sendSessionReady(studentEmail: string, payload: SessionReadyPayload) {
+  const channel = supabase.channel(`session-updates:${studentEmail}`);
+  channel.subscribe((status) => {
+    if (status === "SUBSCRIBED") {
+      channel.send({ type: "broadcast", event: "session-ready", payload });
+      supabase.removeChannel(channel);
+    }
+  });
+}
+
+/** Student subscribes to "mentor is ready" notifications */
+export function subscribeSessionReady(
+  studentEmail: string,
+  onReady: (payload: SessionReadyPayload) => void
+) {
+  const channel = supabase.channel(`session-updates:${studentEmail}`);
+  channel.on("broadcast", { event: "session-ready" }, ({ payload }) => {
+    onReady(payload as SessionReadyPayload);
+  });
+  channel.subscribe();
+  return { channel, cleanup: () => supabase.removeChannel(channel) };
+}
+
 export function sendSessionEnd(mentorEmail: string, payload: SessionEndPayload) {
   const channel = supabase.channel(`live-requests:${mentorEmail}`);
   channel.subscribe((status) => {

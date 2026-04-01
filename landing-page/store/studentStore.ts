@@ -9,6 +9,7 @@ import {
   fetchStudentChats,
   createStudentChat,
   fetchStudentMessages,
+  fetchStudentSessions,
 } from "@/services/studentApi";
 
 export interface StudentProfile {
@@ -59,11 +60,27 @@ export interface StudentMessage {
   created_at: string;
 }
 
+export interface StudentSession {
+  id: string;
+  mentor_email: string;
+  student_email: string;
+  student_name: string;
+  student_image: string | null;
+  topic: string;
+  scheduled_date: string;
+  scheduled_time: string;
+  duration_minutes: number;
+  earning: number;
+  status: "requested" | "upcoming" | "completed" | "declined";
+  requested_at: string;
+}
+
 interface StudentStore {
   profile: StudentProfile | null;
   wallet: StudentWallet | null;
   walletTxs: StudentWalletTx[];
   chats: StudentChat[];
+  sessions: StudentSession[];
   messagesByChat: Record<string, StudentMessage[]>;
   loading: boolean;
   profileLoading: boolean;
@@ -76,6 +93,7 @@ interface StudentStore {
   fetchWallet: (email: string) => Promise<void>;
   fetchWalletTxs: (email: string) => Promise<void>;
   refreshWallet: (email: string) => Promise<void>;
+  fetchSessions: (email: string) => Promise<void>;
   fetchChats: (email: string) => Promise<void>;
   createChat: (payload: {
     student_email: string;
@@ -95,6 +113,7 @@ export const useStudentStore = create<StudentStore>((set, get) => ({
   wallet: null,
   walletTxs: [],
   chats: [],
+  sessions: [],
   messagesByChat: {},
   loading: false,
   profileLoading: false,
@@ -147,6 +166,11 @@ export const useStudentStore = create<StudentStore>((set, get) => ({
     await Promise.all([get().fetchWallet(email), get().fetchWalletTxs(email)]);
   },
 
+  fetchSessions: async (email) => {
+    const sessions = await fetchStudentSessions(email);
+    set({ sessions });
+  },
+
   fetchChats: async (email) => {
     set({ chatsLoading: true });
     try {
@@ -188,6 +212,7 @@ export const useStudentStore = create<StudentStore>((set, get) => ({
     wallet: null,
     walletTxs: [],
     chats: [],
+    sessions: [],
     messagesByChat: {},
     profileLoading: false,
     walletLoading: false,

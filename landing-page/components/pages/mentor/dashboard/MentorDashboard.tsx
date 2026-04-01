@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { AnimatePresence, motion } from "motion/react";
-import { Users, History } from "lucide-react";
+import { History } from "lucide-react";
 
 import { useMentorStore } from "@/store/mentorStore";
 import { useMentorData } from "@/hooks/useMentorData";
@@ -17,9 +17,9 @@ import { buildCometUid } from "@/lib/cometchat-uid";
 import BoostTab from "./BoostTab";
 import ProfileTab from "./ProfileTab";
 import { MentorMobileNav, MentorSidebar } from "./MentorSidebar";
-import { MentorHistoryPanel, MentorRequestsPanel } from "./MentorPanels";
+import { MentorHistoryPanel } from "./MentorPanels";
 import { useMentorPresence } from "@/hooks/useMentorPresence";
-import { sendLiveResponse, subscribeLiveRequests, subscribeSessionStarts } from "@/services/liveRequests";
+import { sendLiveResponse, sendSessionReady, sendSessionStatusUpdate, subscribeLiveRequests, subscribeSessionBookings, subscribeSessionStarts } from "@/services/liveRequests";
 import { createStudentChat } from "@/services/studentApi";
 import { toast } from "sonner";
 import {
@@ -79,17 +79,16 @@ export default function MentorDashboard() {
     saveProfile,
     acceptSession,
     declineSession,
+    fetchSessions,
   } = useMentorStore();
 
   const [activeTab, setActiveTab] = useState<TabId>("home");
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
-  const [requestsPanelOpen, setRequestsPanelOpen] = useState(false);
   const [historyPanelOpen, setHistoryPanelOpen] = useState(false);
   const [liveRequests, setLiveRequests] = useState<LiveRequest[]>([]);
   const [isOnline, setIsOnline] = useState(true);
   const [isAvailable, setIsAvailable] = useState(true);
   const [completeProfileOpen, setCompleteProfileOpen] = useState(false);
-  const [scheduleDate, setScheduleDate] = useState<Date>(new Date());
 
   useEffect(() => {
     if (status === "unauthenticated") router.replace("/mentor/login");
@@ -128,7 +127,6 @@ export default function MentorDashboard() {
   }, [profile?.is_available]);
 
   useEffect(() => {
-    setRequestsPanelOpen(false);
     setHistoryPanelOpen(false);
   }, [activeTab]);
 
@@ -183,11 +181,15 @@ export default function MentorDashboard() {
         { duration: 5000 }
       );
     });
+    const { cleanup: cleanupBookings } = subscribeSessionBookings(mentorEmail, () => {
+      fetchSessions(mentorEmail);
+    });
     return () => {
       cleanup();
       cleanupSessions();
+      cleanupBookings();
     };
-  }, [mentorEmail]);
+  }, [mentorEmail, fetchSessions]);
 
   const handleAcceptLiveRequest = async (req: LiveRequest) => {
     if (!mentorEmail || !req.studentEmail) return;
@@ -237,24 +239,61 @@ export default function MentorDashboard() {
     [sessions]
   );
 
-  const scheduleForDate: TodaySession[] = useMemo(() => {
-    const dateKey = toDateKey(scheduleDate);
+  const upcomingSessions: TodaySession[] = useMemo(() => {
+    const todayKey = toDateKey(new Date());
+
     return sessions
       .filter((s) => s.status === "upcoming")
       .filter((s) => {
         if (!s.scheduled_date) return false;
         const sessionKey = toDateKey(new Date(s.scheduled_date));
-        return sessionKey === dateKey;
+        return sessionKey >= todayKey;
+      })
+      .sort((a, b) => {
+        const dateComp = (a.scheduled_date ?? "").localeCompare(b.scheduled_date ?? "");
+        if (dateComp !== 0) return dateComp;
+        return (a.scheduled_time ?? "").localeCompare(b.scheduled_time ?? "");
       })
       .map((s) => ({
         id: s.id,
         studentEmail: s.student_email ?? null,
         studentName: s.student_name,
         studentImage: s.student_image,
+        date: formatDate(s.scheduled_date),
         time: formatTime12(s.scheduled_time),
         topic: s.topic || "Mentoring",
       }));
-  }, [sessions, scheduleDate]);
+  }, [sessions]);
+
+  const handleAcceptSession = async (id: string) => {
+    const s = sessions.find((s) => s.id === id);
+    await acceptSession(id);
+    if (s?.student_email) {
+      sendSessionStatusUpdate(s.student_email, {
+        sessionId: id,
+        status: "upcoming",
+        mentorName,
+        topic: s.topic,
+        scheduledDate: s.scheduled_date,
+        scheduledTime: s.scheduled_time,
+      });
+    }
+  };
+
+  const handleDeclineSession = async (id: string) => {
+    const s = sessions.find((s) => s.id === id);
+    await declineSession(id);
+    if (s?.student_email) {
+      sendSessionStatusUpdate(s.student_email, {
+        sessionId: id,
+        status: "declined",
+        mentorName,
+        topic: s.topic,
+        scheduledDate: s.scheduled_date,
+        scheduledTime: s.scheduled_time,
+      });
+    }
+  };
 
   const handleStartScheduledChat = async (sessionItem: TodaySession) => {
     if (!mentorEmail || !sessionItem.studentEmail) return;
@@ -276,6 +315,12 @@ export default function MentorDashboard() {
       call_rate: 5,
     });
     if (!chat) return;
+    sendSessionReady(sessionItem.studentEmail, {
+      sessionId: sessionItem.id,
+      mentorEmail,
+      mentorName,
+      topic: sessionItem.topic,
+    });
     setActiveTab("messages");
     setActiveChatId(buildCometUid(sessionItem.studentEmail));
   };
@@ -374,7 +419,7 @@ export default function MentorDashboard() {
                   <span className="text-xs text-gray-500">Available</span>
                   <Switch checked={isAvailable} onCheckedChange={handleAvailabilityToggle} />
                 </div>
-                {activeTab === "profile" ? (
+                {activeTab === "profile" && (
                   <button
                     onClick={() => setHistoryPanelOpen(!historyPanelOpen)}
                     className={`relative flex items-center gap-2 px-3 py-1.5 rounded-xl border shadow-sm text-xs transition-all ${
@@ -387,52 +432,17 @@ export default function MentorDashboard() {
                     <History className="h-3.5 w-3.5" />
                     <span className="hidden sm:inline">Session History</span>
                   </button>
-                ) : (
-                  <button
-                    onClick={() => setRequestsPanelOpen(!requestsPanelOpen)}
-                    className={`relative flex items-center gap-2 px-3 py-1.5 rounded-xl border shadow-sm text-xs transition-all ${
-                      requestsPanelOpen
-                        ? "bg-[#FF7A1F] border-[#FF7A1F] text-white"
-                        : requests.length > 0
-                        ? "bg-orange-50 border-orange-200 text-[#FF7A1F] hover:bg-orange-100"
-                        : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
-                    }`}
-                    style={{ fontWeight: 600 }}
-                  >
-                    <Users className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">Requests</span>
-                    {requests.length > 0 && (
-                      <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] ${
-                        requestsPanelOpen ? "bg-white text-[#FF7A1F]" : "bg-[#FF7A1F] text-white"
-                      }`} style={{ fontWeight: 700 }}>
-                        {requests.length}
-                      </span>
-                    )}
-                    {requests.length > 0 && !requestsPanelOpen && (
-                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500 border-2 border-white animate-pulse" />
-                    )}
-                  </button>
                 )}
               </div>
             </div>
             )}
 
             {!isMessageDetail && (
-              <>
-                <MentorRequestsPanel
-                  open={requestsPanelOpen}
-                  onClose={() => setRequestsPanelOpen(false)}
-                  requests={requests}
-                  onAccept={acceptSession}
-                  onDecline={declineSession}
-                />
-
-                <MentorHistoryPanel
-                  open={historyPanelOpen}
-                  onClose={() => setHistoryPanelOpen(false)}
-                  sessions={historySessions}
-                />
-              </>
+              <MentorHistoryPanel
+                open={historyPanelOpen}
+                onClose={() => setHistoryPanelOpen(false)}
+                sessions={historySessions}
+              />
             )}
 
             <AnimatePresence mode="wait">
@@ -453,16 +463,14 @@ export default function MentorDashboard() {
                     isOnline={isOnline}
                     onToggleOnline={setIsOnline}
                     requests={requests}
-                    scheduleDate={scheduleDate}
-                    onScheduleDateChange={(date) => date && setScheduleDate(date)}
-                    scheduleForDate={scheduleForDate}
+                    upcomingSessions={upcomingSessions}
                     liveRequests={liveRequests}
                     setLiveRequests={setLiveRequests}
                     onAcceptLiveRequest={handleAcceptLiveRequest}
-                    onAcceptRequest={acceptSession}
-                    onDeclineRequest={declineSession}
+                    onAcceptRequest={handleAcceptSession}
+                    onDeclineRequest={handleDeclineSession}
                     onStartScheduledChat={handleStartScheduledChat}
-                    onCancelScheduled={declineSession}
+                    onCancelScheduled={handleDeclineSession}
                     onGoBoost={() => setActiveTab("boost")}
                   />
                 )}

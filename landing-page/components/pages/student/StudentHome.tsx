@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { 
   Search, Sparkles, GraduationCap, Building2, 
   MapPin, SlidersHorizontal, Star, Briefcase, 
@@ -12,7 +12,8 @@ import { motion, AnimatePresence } from "motion/react";
 import MentorCardSkeleton from "@/components/skeletons/MentorCardSkeleton";
 import { useMentorBrowseStore } from "@/store/mentorBrowseStore";
 import { useSession } from "next-auth/react";
-import { sendLiveRequest, subscribeLiveResponses } from "@/services/liveRequests";
+import { sendLiveRequest, sendSessionBooking, subscribeLiveResponses, subscribeSessionStatusUpdates, subscribeSessionReady } from "@/services/liveRequests";
+import { useStudentStore } from "@/store/studentStore";
 import { buildCometUid } from "@/lib/cometchat-uid";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -57,10 +58,73 @@ export default function StudentHome() {
   const { mentors, loading, error, fetchMentors } = useMentorBrowseStore();
   const { data: session } = useSession();
   const onlineMentors = useOnlineMentors();
+  const { sessions: studentSessions, fetchSessions: fetchStudentSessions } = useStudentStore();
+
+  const studentEmail = session?.user?.email ?? "";
 
   useEffect(() => {
     if (!mentors.length) fetchMentors();
   }, [mentors.length, fetchMentors]);
+
+  // Fetch student sessions on mount
+  useEffect(() => {
+    if (studentEmail) fetchStudentSessions(studentEmail);
+  }, [studentEmail, fetchStudentSessions]);
+
+  // Subscribe to accept/decline and session-ready notifications
+  useEffect(() => {
+    if (!studentEmail) return;
+    const { cleanup: cleanupStatus } = subscribeSessionStatusUpdates(studentEmail, (payload) => {
+      fetchStudentSessions(studentEmail);
+      if (payload.status === "upcoming") {
+        toast.success(`${payload.mentorName} accepted your session request!`, {
+          description: `${payload.topic} — ${payload.scheduledDate} at ${payload.scheduledTime}`,
+        });
+      } else if (payload.status === "declined") {
+        toast.error(`${payload.mentorName} declined your session request.`, {
+          description: payload.topic,
+        });
+      }
+    });
+    const { cleanup: cleanupReady } = subscribeSessionReady(studentEmail, (payload) => {
+      const chatUrl = `/student/chats/${buildCometUid(payload.mentorEmail)}`;
+      toast.success(`${payload.mentorName} is ready for your session!`, {
+        description: payload.topic,
+        duration: 10000,
+        action: {
+          label: "Join Chat",
+          onClick: () => router.push(chatUrl),
+        },
+      });
+    });
+    return () => {
+      cleanupStatus();
+      cleanupReady();
+    };
+  }, [studentEmail, fetchStudentSessions, router]);
+
+  // Upcoming sessions (future only, sorted)
+  const upcomingSessions = useMemo(() => {
+    const now = new Date();
+    const todayStr = now.toISOString().split("T")[0];
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+    return studentSessions
+      .filter((s) => s.status === "upcoming" || s.status === "requested")
+      .filter((s) => {
+        if (!s.scheduled_date) return false;
+        if (s.scheduled_date > todayStr) return true;
+        if (s.scheduled_date < todayStr) return false;
+        if (!s.scheduled_time) return true;
+        const [h, m] = s.scheduled_time.split(":").map(Number);
+        return h * 60 + (m ?? 0) >= nowMinutes;
+      })
+      .sort((a, b) => {
+        const dateComp = a.scheduled_date.localeCompare(b.scheduled_date);
+        if (dateComp !== 0) return dateComp;
+        return (a.scheduled_time ?? "").localeCompare(b.scheduled_time ?? "");
+      });
+  }, [studentSessions]);
 
   useEffect(() => {
     const mentorEmail = searchParams.get("bookMentor");
@@ -182,7 +246,7 @@ export default function StudentHome() {
         scheduled_time: selectedTime,
         duration_minutes: 0,
         earning: 0,
-        status: "upcoming",
+        status: "requested",
         requested_at: new Date().toISOString(),
       }),
     });
@@ -192,6 +256,8 @@ export default function StudentHome() {
       return;
     }
 
+    sendSessionBooking(selectedMentor.id);
+    if (studentEmail) fetchStudentSessions(studentEmail);
     toast.success("Booking request sent!");
     closeBooking();
   };
@@ -564,6 +630,56 @@ export default function StudentHome() {
               </div>
             </div>
           </motion.div>
+        )}
+
+        {/* UPCOMING SESSIONS */}
+        {upcomingSessions.length > 0 && (
+          <div className="mb-8">
+            <div className="flex justify-between items-end mb-4">
+              <h3 className="text-xl font-bold text-[#111827] flex items-center gap-2" style={{ fontFamily: 'Fredoka, sans-serif' }}>
+                <Calendar className="h-5 w-5 text-[#9758FF]" />
+                Your Sessions
+              </h3>
+            </div>
+            <div className="space-y-3">
+              {upcomingSessions.map((s) => {
+                const dateLabel = new Date(s.scheduled_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                const timeLabel = formatTime12(s.scheduled_time);
+                const isAccepted = s.status === "upcoming";
+                const chatUrl = `/student/chats/${buildCometUid(s.mentor_email)}`;
+
+                return (
+                  <div key={s.id} className="bg-white rounded-2xl border border-gray-100 p-4 flex flex-col sm:flex-row sm:items-center gap-3 shadow-sm">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="text-sm font-bold text-[#111827] truncate">{mentors.find((m) => m.id === s.mentor_email)?.name ?? s.mentor_email}</p>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          isAccepted
+                            ? "bg-green-100 text-green-700"
+                            : "bg-yellow-100 text-yellow-700"
+                        }`}>
+                          {isAccepted ? "Accepted" : "Pending"}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 truncate">{s.topic}</p>
+                      <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-500">
+                        <span className="flex items-center gap-1"><Calendar className="w-3 h-3 text-[#9758FF]" />{dateLabel}</span>
+                        <span className="flex items-center gap-1"><Clock className="w-3 h-3 text-[#9758FF]" />{timeLabel}</span>
+                      </div>
+                    </div>
+                    {isAccepted && (
+                      <button
+                        onClick={() => router.push(chatUrl)}
+                        className="px-4 py-2 rounded-xl bg-[#9758FF] text-white text-xs font-bold hover:bg-[#8B5CF6] transition-colors whitespace-nowrap"
+                      >
+                        Join Chat
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         )}
 
         {/* RECOMMENDED MENTORS */}

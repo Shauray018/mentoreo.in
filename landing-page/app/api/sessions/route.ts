@@ -1,16 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
 
-// GET /api/sessions?mentor_email=x
+// GET /api/sessions?mentor_email=x  OR  /api/sessions?student_email=x
 export async function GET(req: NextRequest) {
   const mentor_email = req.nextUrl.searchParams.get("mentor_email");
-  if (!mentor_email) return NextResponse.json({ error: "mentor_email required" }, { status: 400 });
+  const student_email = req.nextUrl.searchParams.get("student_email");
 
-  const { data, error } = await supabaseServer
-    .from("sessions")
-    .select("*")
-    .eq("mentor_email", mentor_email)
-    .order("created_at", { ascending: false });
+  if (!mentor_email && !student_email)
+    return NextResponse.json({ error: "mentor_email or student_email required" }, { status: 400 });
+
+  let query = supabaseServer.from("sessions").select("*");
+  if (mentor_email) query = query.eq("mentor_email", mentor_email);
+  if (student_email) query = query.eq("student_email", student_email);
+  query = query.order("created_at", { ascending: false });
+
+  const { data, error } = await query;
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data ?? []);

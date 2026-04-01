@@ -5,13 +5,10 @@ import { Badge } from "@/app/components/ui/badge";
 import { Button } from "@/app/components/ui/button";
 import { Card, CardContent } from "@/app/components/ui/card";
 import { Switch } from "@/app/components/ui/switch";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
 import {
   BellRing,
   Calendar,
   Clock,
-  IndianRupee,
   MessageSquare,
   Phone,
   Rocket,
@@ -47,6 +44,7 @@ export interface TodaySession {
   studentEmail?: string | null;
   studentName: string;
   studentImage: string | null;
+  date: string;
   time: string;
   topic: string;
 }
@@ -55,9 +53,7 @@ interface HomeTabProps {
   isOnline: boolean;
   onToggleOnline: (value: boolean) => void;
   requests: SessionRequest[];
-  scheduleDate: Date;
-  onScheduleDateChange: (date: Date | null) => void;
-  scheduleForDate: TodaySession[];
+  upcomingSessions: TodaySession[];
   liveRequests: LiveRequest[];
   setLiveRequests: (next: LiveRequest[]) => void;
   onAcceptLiveRequest: (req: LiveRequest) => void;
@@ -72,9 +68,7 @@ export default function HomeTab({
   isOnline,
   onToggleOnline,
   requests,
-  scheduleDate,
-  onScheduleDateChange,
-  scheduleForDate,
+  upcomingSessions,
   liveRequests,
   setLiveRequests,
   onAcceptLiveRequest,
@@ -86,7 +80,7 @@ export default function HomeTab({
 }: HomeTabProps) {
   return (
     <div className="space-y-6">
-      <Card className={`border-0 shadow-sm transition-all ${isOnline ? "bg-gradient-to-br from-green-50 to-emerald-100/50" : "bg-gray-50"}`}>
+      {/* <Card className={`border-0 shadow-sm transition-all ${isOnline ? "bg-gradient-to-br from-green-50 to-emerald-100/50" : "bg-gray-50"}`}>
         <CardContent className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="relative">
@@ -108,7 +102,7 @@ export default function HomeTab({
             className={isOnline ? "data-[state=checked]:bg-green-500" : ""}
           />
         </CardContent>
-      </Card>
+      </Card> */}
 
       <AnimatePresence>
         {isOnline && liveRequests.length > 0 && (
@@ -178,84 +172,21 @@ export default function HomeTab({
         )}
       </AnimatePresence>
 
-      <Card className="border border-gray-100 shadow-sm bg-white">
+      <Card className={`border shadow-sm bg-white ${requests.length > 0 ? "border-[#FF7A1F]/30 ring-1 ring-[#FF7A1F]/10" : "border-gray-100"}`}>
         <CardContent className="p-5">
-          <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <h3 className="text-lg font-bold flex items-center gap-2 text-gray-900">
-              <Calendar className="w-5 h-5 text-[#FF7A1F]" />
-              Schedule
-            </h3>
-            <div className="mentor-datepicker w-full sm:w-auto relative z-30">
-              <DatePicker
-                selected={scheduleDate}
-                onChange={onScheduleDateChange}
-                className="w-full sm:w-[180px] px-3 py-2 rounded-xl border border-gray-200 text-sm font-semibold text-[#111827] bg-white"
-                calendarClassName="mentor-datepicker__calendar"
-                dayClassName={() => "mentor-datepicker__day"}
-                popperClassName="mentor-datepicker__popper"
-              />
-            </div>
-          </div>
-          {scheduleForDate.length > 0 ? (
-            <div className="space-y-3">
-              {scheduleForDate.map((session) => (
-                <div key={session.id} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-2xl border border-orange-100 bg-orange-50/40">
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <img
-                      src={session.studentImage ?? "/someGuy.png"}
-                      alt={session.studentName}
-                      className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-gray-900 truncate">{session.studentName}</p>
-                      <p className="text-xs text-gray-500 truncate">{session.topic}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="text-xs font-bold text-[#FF7A1F] bg-white px-2.5 py-1 rounded-full border border-orange-100">
-                      {session.time}
-                    </div>
-                    <Button
-                      size="sm"
-                      className="h-8 text-xs bg-[#111827] hover:bg-black text-white"
-                      onClick={() => onStartScheduledChat(session)}
-                      disabled={!session.studentEmail}
-                    >
-                      Continue to Chat
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 text-xs border-red-200 text-red-600 hover:bg-red-50"
-                      onClick={() => onCancelScheduled(session.id)}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-sm text-gray-500 bg-gray-50 border border-dashed border-gray-200 rounded-2xl p-4">
-              No sessions scheduled for this date.
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {requests.length > 0 && (
-        <div className="mb-6">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-lg font-bold flex items-center gap-2 text-gray-900">
               <Users className="w-5 h-5 text-[#FF7A1F]" />
               Session Requests
-              <Badge className="bg-orange-100 text-[#FF7A1F] hover:bg-orange-100">{requests.length}</Badge>
+              {requests.length > 0 && (
+                <Badge className="bg-red-100 text-red-600 hover:bg-red-100 animate-pulse">{requests.length}</Badge>
+              )}
             </h3>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {requests.map((req) => (
-              <Card key={req.id} className="border border-orange-100 shadow-sm bg-white overflow-hidden">
-                <CardContent className="p-4">
+          {requests.length > 0 ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {requests.map((req) => (
+                <div key={req.id} className="p-4 rounded-2xl border border-orange-100 bg-gradient-to-br from-white to-orange-50/40">
                   <div className="flex items-start gap-3 mb-3">
                     <img src={req.studentImage ?? "/someGuy.png"} alt={req.studentName} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
                     <div className="flex-1 min-w-0">
@@ -272,10 +203,7 @@ export default function HomeTab({
                     <div className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-[#FF7A1F]" />{req.time}</div>
                   </div>
 
-                  <div className="flex items-center justify-between mt-1">
-                    <div className="text-sm font-bold text-gray-700 flex items-center">
-                      <IndianRupee className="w-3.5 h-3.5 mr-0.5 text-gray-500" />{req.earning}
-                    </div>
+                  <div className="flex items-center justify-end mt-1">
                     <div className="flex gap-2">
                       <Button
                         variant="outline"
@@ -294,12 +222,92 @@ export default function HomeTab({
                       </Button>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-sm text-gray-500 bg-gray-50 border border-dashed border-gray-200 rounded-2xl p-4">
+              No pending session requests. When a student books a session, it will appear here for you to accept.
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border border-gray-100 shadow-sm bg-white">
+        <CardContent className="p-5">
+          <div className="mb-3">
+            <h3 className="text-lg font-bold flex items-center gap-2 text-gray-900">
+              <Calendar className="w-5 h-5 text-[#FF7A1F]" />
+              Upcoming Schedule
+            </h3>
           </div>
-        </div>
-      )}
+          {(() => {
+            const grouped = upcomingSessions.reduce<Record<string, TodaySession[]>>((acc, s) => {
+              const key = s.date;
+              if (!acc[key]) acc[key] = [];
+              acc[key].push(s);
+              return acc;
+            }, {});
+            const dateKeys = Object.keys(grouped).sort();
+
+            if (dateKeys.length === 0) {
+              return (
+                <div className="text-sm text-gray-500 bg-gray-50 border border-dashed border-gray-200 rounded-2xl p-4">
+                  No upcoming sessions. Accepted requests will show up here.
+                </div>
+              );
+            }
+
+            return (
+              <div className="space-y-5">
+                {dateKeys.map((dateKey) => (
+                  <div key={dateKey}>
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">{dateKey}</p>
+                    <div className="space-y-3">
+                      {grouped[dateKey].map((session) => (
+                        <div key={session.id} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-2xl border border-orange-100 bg-orange-50/40">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <img
+                              src={session.studentImage ?? "/someGuy.png"}
+                              alt={session.studentName}
+                              className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold text-gray-900 truncate">{session.studentName}</p>
+                              <p className="text-xs text-gray-500 truncate">{session.topic}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="text-xs font-bold text-[#FF7A1F] bg-white px-2.5 py-1 rounded-full border border-orange-100">
+                              {session.time}
+                            </div>
+                            <Button
+                              size="sm"
+                              className="h-8 text-xs bg-[#111827] hover:bg-black text-white"
+                              onClick={() => onStartScheduledChat(session)}
+                              disabled={!session.studentEmail}
+                            >
+                              Continue to Chat
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 text-xs border-red-200 text-red-600 hover:bg-red-50"
+                              onClick={() => onCancelScheduled(session.id)}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+        </CardContent>
+      </Card>
 
       <Card className="border-0 shadow-sm bg-gradient-to-br from-[#FFF4ED] via-orange-50 to-orange-100 relative overflow-hidden">
         <div className="absolute right-0 top-0 w-32 h-32 bg-[#FF7A1F]/10 rounded-full blur-2xl transform translate-x-1/2 -translate-y-1/2"></div>

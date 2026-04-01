@@ -1,4 +1,4 @@
-import type { StudentProfile, StudentWallet, StudentWalletTx, StudentChat, StudentMessage } from "@/store/studentStore";
+import type { StudentProfile, StudentWallet, StudentWalletTx, StudentChat, StudentMessage, StudentSession } from "@/store/studentStore";
 
 export async function fetchStudentProfile(email: string): Promise<StudentProfile | null> {
   const res = await fetch(`/api/student-profiles?email=${encodeURIComponent(email)}`);
@@ -48,6 +48,11 @@ export async function fetchStudentWallet(email: string): Promise<StudentWallet |
 
 export async function fetchStudentWalletTxs(email: string): Promise<StudentWalletTx[]> {
   const res = await fetch(`/api/student-wallet/transactions?email=${encodeURIComponent(email)}`);
+  return res.ok ? res.json() : [];
+}
+
+export async function fetchStudentSessions(email: string): Promise<StudentSession[]> {
+  const res = await fetch(`/api/sessions?student_email=${encodeURIComponent(email)}`);
   return res.ok ? res.json() : [];
 }
 

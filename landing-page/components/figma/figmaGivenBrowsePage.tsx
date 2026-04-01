@@ -21,7 +21,7 @@ import { useOnlineMentors } from "@/hooks/useOnlineMentors";
 import { AnimatePresence, motion } from "motion/react";
 import { useSession } from "next-auth/react";
 import { buildCometUid } from "@/lib/cometchat-uid";
-import { sendLiveRequest, subscribeLiveResponses } from "@/services/liveRequests";
+import { sendLiveRequest, sendSessionBooking, subscribeLiveResponses } from "@/services/liveRequests";
 import { toast } from "sonner";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -200,7 +200,7 @@ export default function BrowseMentors() {
         scheduled_time: selectedTime,
         duration_minutes: 0,
         earning: 0,
-        status: "upcoming",
+        status: "requested",
         requested_at: new Date().toISOString(),
       }),
     });
@@ -210,6 +210,7 @@ export default function BrowseMentors() {
       return;
     }
 
+    sendSessionBooking(selectedMentor.id);
     toast.success("Booking request sent!");
     closeBooking();
   };
