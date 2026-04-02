@@ -22,6 +22,13 @@ export const metadata: Metadata = {
   description: "Clarity for the price of a snack",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
+
 export default function RootLayout({
   children,
 }: {
