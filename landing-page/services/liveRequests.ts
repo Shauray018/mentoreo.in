@@ -13,14 +13,57 @@ export interface LiveRequestPayload {
   createdAt: number;
 }
 
-export function sendLiveRequest(mentorEmail: string, payload: LiveRequestPayload) {
-  const channel = supabase.channel(`live-requests:${mentorEmail}`);
-  channel.subscribe((status) => {
-    if (status === "SUBSCRIBED") {
-      channel.send({ type: "broadcast", event: "request", payload });
+/**
+ * Reliably send a one-shot broadcast on a Supabase Realtime channel.
+ * Waits for SUBSCRIBED, sends the message, then tears down after a flush delay.
+ */
+async function broadcastOnce(
+  channelName: string,
+  event: string,
+  payload: unknown,
+  timeoutMs = 5000
+): Promise<void> {
+  // Supabase JS reuses channel instances by name. If a channel with this
+  // name already exists on this client (e.g. from a subscriber), we must
+  // use a different name for the ephemeral sender channel. We always add
+  // a unique suffix — broadcast delivery is based on the channel *topic*
+  // on the server, not the local JS name, so receivers still get it.
+  const senderName = `${channelName}:${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const channel = supabase.channel(senderName);
+
+  return new Promise<void>((resolve, reject) => {
+    let settled = false;
+
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
       supabase.removeChannel(channel);
-    }
+      reject(new Error("Broadcast timed out"));
+    }, timeoutMs);
+
+    channel.subscribe((status) => {
+      if (settled) return;
+
+      if (status === "SUBSCRIBED") {
+        settled = true;
+        channel.send({ type: "broadcast", event, payload });
+        clearTimeout(timer);
+        setTimeout(() => {
+          supabase.removeChannel(channel);
+          resolve();
+        }, 500);
+      } else if (status === "TIMED_OUT" || status === "CHANNEL_ERROR") {
+        settled = true;
+        clearTimeout(timer);
+        supabase.removeChannel(channel);
+        reject(new Error(`Channel ${status}`));
+      }
+    });
   });
+}
+
+export function sendLiveRequest(mentorEmail: string, payload: LiveRequestPayload) {
+  return broadcastOnce(`live-requests:${mentorEmail}`, "request", payload);
 }
 
 export function subscribeLiveRequests(
@@ -69,13 +112,7 @@ export interface SessionEndPayload {
 }
 
 export function sendLiveResponse(studentEmail: string, payload: LiveResponsePayload) {
-  const channel = supabase.channel(`live-response:${studentEmail}`);
-  channel.subscribe((status) => {
-    if (status === "SUBSCRIBED") {
-      channel.send({ type: "broadcast", event: "accept", payload });
-      supabase.removeChannel(channel);
-    }
-  });
+  return broadcastOnce(`live-response:${studentEmail}`, "accept", payload);
 }
 
 export function subscribeLiveResponses(
@@ -96,13 +133,7 @@ export function subscribeLiveResponses(
 }
 
 export function sendSessionStart(mentorEmail: string, payload: SessionStartPayload) {
-  const channel = supabase.channel(`live-requests:${mentorEmail}`);
-  channel.subscribe((status) => {
-    if (status === "SUBSCRIBED") {
-      channel.send({ type: "broadcast", event: "session-start", payload });
-      supabase.removeChannel(channel);
-    }
-  });
+  return broadcastOnce(`live-requests:${mentorEmail}`, "session-start", payload);
 }
 
 export function subscribeSessionStarts(
@@ -127,13 +158,7 @@ export interface SessionBookingPayload {
 }
 
 export function sendSessionBooking(mentorEmail: string) {
-  const channel = supabase.channel(`session-bookings:${mentorEmail}`);
-  channel.subscribe((status) => {
-    if (status === "SUBSCRIBED") {
-      channel.send({ type: "broadcast", event: "new-booking", payload: { mentorEmail } });
-      supabase.removeChannel(channel);
-    }
-  });
+  return broadcastOnce(`session-bookings:${mentorEmail}`, "new-booking", { mentorEmail });
 }
 
 export function subscribeSessionBookings(
@@ -166,13 +191,7 @@ export interface SessionStatusPayload {
 
 /** Mentor calls this when accepting/declining a session request */
 export function sendSessionStatusUpdate(studentEmail: string, payload: SessionStatusPayload) {
-  const channel = supabase.channel(`session-updates:${studentEmail}`);
-  channel.subscribe((status) => {
-    if (status === "SUBSCRIBED") {
-      channel.send({ type: "broadcast", event: "status-update", payload });
-      supabase.removeChannel(channel);
-    }
-  });
+  return broadcastOnce(`session-updates:${studentEmail}`, "status-update", payload);
 }
 
 /** Student subscribes to accept/decline notifications */
@@ -197,13 +216,7 @@ export interface SessionReadyPayload {
 
 /** Mentor calls this when clicking "Continue to Chat" */
 export function sendSessionReady(studentEmail: string, payload: SessionReadyPayload) {
-  const channel = supabase.channel(`session-updates:${studentEmail}`);
-  channel.subscribe((status) => {
-    if (status === "SUBSCRIBED") {
-      channel.send({ type: "broadcast", event: "session-ready", payload });
-      supabase.removeChannel(channel);
-    }
-  });
+  return broadcastOnce(`session-updates:${studentEmail}`, "session-ready", payload);
 }
 
 /** Student subscribes to "mentor is ready" notifications */
@@ -220,13 +233,7 @@ export function subscribeSessionReady(
 }
 
 export function sendSessionEnd(mentorEmail: string, payload: SessionEndPayload) {
-  const channel = supabase.channel(`live-requests:${mentorEmail}`);
-  channel.subscribe((status) => {
-    if (status === "SUBSCRIBED") {
-      channel.send({ type: "broadcast", event: "session-end", payload });
-      supabase.removeChannel(channel);
-    }
-  });
+  return broadcastOnce(`live-requests:${mentorEmail}`, "session-end", payload);
 }
 
 export function subscribeSessionEnds(

@@ -7,7 +7,8 @@ import { useStudentData } from "@/hooks/useStudentData";
 import { useStudentStore } from "@/store/studentStore";
 import { toast } from "sonner";
 import { useOnlineMentors } from "@/hooks/useOnlineMentors";
-import { sendLiveRequest, sendSessionEnd, sendSessionStart, subscribeLiveResponses } from "@/services/liveRequests";
+import { sendSessionEnd, sendSessionStart } from "@/services/liveRequests";
+import { createLiveRequest, subscribeLiveRequestStatus } from "@/services/liveRequestsDb";
 import { useEffect, useMemo, useState } from "react";
 
 export default function StudentChatDetail() {
@@ -42,19 +43,25 @@ export default function StudentChatDetail() {
     setSessionStartTrigger(Date.now());
   }, [liveParam]);
 
+  // Subscribe to live request status changes (mentor accepted/declined)
   useEffect(() => {
     const email = session?.user?.email;
     if (!email) return;
-    const { cleanup } = subscribeLiveResponses(email, (payload) => {
-      if (payload.mentorEmail !== mentorEmail) return;
-      setTalkNowState("accepted");
-      setSessionStartTrigger(Date.now());
-      toast.success(`${payload.mentorName} accepted your request`);
+    const { cleanup } = subscribeLiveRequestStatus(email, (row) => {
+      if (row.mentor_email !== mentorEmail) return;
+      if (row.status === "accepted") {
+        setTalkNowState("accepted");
+        setSessionStartTrigger(Date.now());
+        toast.success("Mentor accepted your request!");
+      } else if (row.status === "declined") {
+        setTalkNowState("idle");
+        toast.error("Mentor declined your request.");
+      }
     });
-    return () => cleanup();
+    return () => { cleanup(); };
   }, [session?.user?.email, mentorEmail]);
 
-  const handleTalkNowRequest = () => {
+  const handleTalkNowRequest = async () => {
     if (!mentorEmail || !session?.user?.email) return;
     if (!mentorIsOnline) {
       toast.error("Mentor is not live right now.");
@@ -62,18 +69,21 @@ export default function StudentChatDetail() {
       return;
     }
     if (talkNowState !== "idle") return;
-    sendLiveRequest(mentorEmail, {
-      id: `${mentorEmail}-${session.user.email}-${Date.now()}`,
-      studentEmail: session.user.email,
-      studentName: session.user.name ?? "Student",
-      studentImage: null,
-      type: "chat",
-      topic: activeChat?.last_message ?? "Chat",
-      rate: activeChat?.chat_rate ?? 5,
-      createdAt: Date.now(),
-    });
     setTalkNowState("requesting");
-    toast.success("Request sent to mentor");
+    try {
+      await createLiveRequest({
+        studentEmail: session.user.email,
+        studentName: session.user.name ?? "Student",
+        mentorEmail,
+        type: "chat",
+        topic: activeChat?.last_message ?? "Chat",
+        rate: activeChat?.chat_rate ?? 5,
+      });
+      toast.success("Request sent to mentor");
+    } catch {
+      setTalkNowState("idle");
+      toast.error("Failed to send request. Please try again.");
+    }
   };
 
   return (
@@ -107,7 +117,7 @@ export default function StudentChatDetail() {
                 studentImage: null,
                 mode: "chat",
                 createdAt: Date.now(),
-              });
+              }).catch(() => null);
             }}
             onSessionEnd={(payload) => {
               if (!mentorEmail || !session?.user?.email) return;
@@ -121,7 +131,7 @@ export default function StudentChatDetail() {
                 rate: payload.rate,
                 total: payload.total,
                 createdAt: Date.now(),
-              });
+              }).catch(() => null);
             }}
             statusOverride={mentorIsOnline ? "online" : "offline"}
             talkNowState={talkNowState}

@@ -55,8 +55,8 @@ interface HomeTabProps {
   requests: SessionRequest[];
   upcomingSessions: TodaySession[];
   liveRequests: LiveRequest[];
-  setLiveRequests: (next: LiveRequest[]) => void;
   onAcceptLiveRequest: (req: LiveRequest) => void;
+  onDeclineLiveRequest: (req: LiveRequest) => void;
   onAcceptRequest: (id: string) => void;
   onDeclineRequest: (id: string) => void;
   onStartScheduledChat: (session: TodaySession) => void;
@@ -70,8 +70,8 @@ export default function HomeTab({
   requests,
   upcomingSessions,
   liveRequests,
-  setLiveRequests,
   onAcceptLiveRequest,
+  onDeclineLiveRequest,
   onAcceptRequest,
   onDeclineRequest,
   onStartScheduledChat,
@@ -151,7 +151,7 @@ export default function HomeTab({
                           variant="outline"
                           size="sm"
                           className="rounded-xl border-gray-200 text-gray-600 hover:bg-gray-50"
-                          onClick={() => setLiveRequests(liveRequests.filter((r) => r.id !== req.id))}
+                          onClick={() => onDeclineLiveRequest(req)}
                         >
                           Decline
                         </Button>

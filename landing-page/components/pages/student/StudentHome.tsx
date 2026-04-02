@@ -12,11 +12,12 @@ import { motion, AnimatePresence } from "motion/react";
 import MentorCardSkeleton from "@/components/skeletons/MentorCardSkeleton";
 import { useMentorBrowseStore } from "@/store/mentorBrowseStore";
 import { useSession } from "next-auth/react";
-import { sendLiveRequest, sendSessionBooking, subscribeLiveResponses, subscribeSessionStatusUpdates, subscribeSessionReady } from "@/services/liveRequests";
+import { sendSessionBooking, subscribeSessionStatusUpdates, subscribeSessionReady } from "@/services/liveRequests";
 import { useStudentStore } from "@/store/studentStore";
 import { buildCometUid } from "@/lib/cometchat-uid";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useLiveSession } from "@/hooks/useLiveSession";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { useOnlineMentors } from "@/hooks/useOnlineMentors";
@@ -59,6 +60,7 @@ export default function StudentHome() {
   const { data: session } = useSession();
   const onlineMentors = useOnlineMentors();
   const { sessions: studentSessions, fetchSessions: fetchStudentSessions } = useStudentStore();
+  const { connectNow, sending, liveSessionReady, joinLiveSession, dismissLiveSession } = useLiveSession();
 
   const studentEmail = session?.user?.email ?? "";
 
@@ -263,56 +265,52 @@ export default function StudentHome() {
   };
 
 
-  const handleInstantContinue = () => {
+  const handleInstantContinue = async () => {
     if (!selectedMentor) return;
-    if (!session?.user?.email) {
-      router.push("/student/login");
-      return;
-    }
-    if (!isMentorLive(selectedMentor.id, selectedMentor.is_available)) {
-      toast.error("Mentor is not live right now.");
-      return;
-    }
-    fetch("/api/cometchat/user", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: selectedMentor.id,
-        name: selectedMentor.name,
-        avatar: selectedMentor.avatar_url ?? null,
-      }),
-    }).catch(() => null);
-    sendLiveRequest(selectedMentor.id, {
-      id: `${selectedMentor.id}-${Date.now()}`,
-      studentEmail: session.user.email,
-      studentName: session?.user?.name ?? "Student",
-      studentImage: null,
-      type: "chat",
-      topic: selectedMentor.course ?? "Mentoring",
-      rate: selectedMentor.pricePerMin ?? 5,
-      createdAt: Date.now(),
-    });
-    toast.success("Request sent to mentor");
+    const isLive = isMentorLive(selectedMentor.id, selectedMentor.is_available);
     closeBooking();
+    await connectNow(selectedMentor, isLive);
   };
 
-  useEffect(() => {
-    const email = session?.user?.email;
-    if (!email) return;
-    const { cleanup } = subscribeLiveResponses(email, (payload) => {
-      const chatUrl = `/student/chats/${buildCometUid(payload.mentorEmail)}?mentor=${encodeURIComponent(payload.mentorEmail)}&live=1`;
-      toast(`${payload.mentorName} joined the chat`, {
-        action: {
-          label: "Open",
-          onClick: () => router.push(chatUrl),
-        },
-      });
-    });
-    return () => cleanup();
-  }, [session?.user?.email, router]);
-
   return (
-    <div className="bg-[#F8F9FA] min-h-screen pb-24 font-nunito">
+    <div className={`bg-[#F8F9FA] min-h-screen pb-24 font-nunito ${liveSessionReady ? "pt-12" : ""}`}>
+      {/* LIVE SESSION READY BANNER */}
+      <AnimatePresence>
+        {liveSessionReady && (
+          <motion.div
+            initial={{ y: -80, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -80, opacity: 0 }}
+            className="fixed top-0 left-0 right-0 z-50 bg-linear-to-r from-[#9758FF] to-[#7C3AED] text-white px-4 py-3 shadow-lg"
+          >
+            <div className="max-w-md md:max-w-6xl mx-auto flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                  <Zap className="w-4 h-4" fill="white" />
+                </div>
+                <p className="text-sm font-bold truncate">
+                  {liveSessionReady.mentorName} is ready to chat!
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={joinLiveSession}
+                  className="px-4 py-2 bg-white text-[#9758FF] rounded-xl text-sm font-bold hover:bg-white/90 active:scale-95 transition-all"
+                >
+                  Join Now
+                </button>
+                <button
+                  onClick={dismissLiveSession}
+                  className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* HEADER SECTION */}
       <div className="bg-gradient-to-br from-[#F6F2FF] via-[#EFEAFF] to-[#E3DCFF] px-4 pt-10 pb-6 rounded-b-[2.5rem] shadow-sm relative overflow-hidden">
         {/* Decorative Background Elements */}
@@ -353,7 +351,7 @@ export default function StudentHome() {
             </div>
             <button 
               onClick={() => setShowFilters(!showFilters)}
-              className={`p-4 rounded-2xl shadow-sm transition-all flex-shrink-0 ${showFilters ? 'bg-[#9758FF] text-white' : 'bg-white text-[#9758FF] hover:bg-[#F8F5FF] active:scale-95'}`}
+              className={`p-4 rounded-2xl shadow-sm transition-all shrink-0 ${showFilters ? 'bg-[#9758FF] text-white' : 'bg-white text-[#9758FF] hover:bg-[#F8F5FF] active:scale-95'}`}
             >
               <SlidersHorizontal className="w-6 h-6" />
             </button>
@@ -557,7 +555,7 @@ export default function StudentHome() {
                 <div className="p-5 sm:p-6 border-t border-gray-100 bg-white sticky bottom-0 z-10">
                   {bookingStep === 1 ? (
                     <button
-                      disabled={bookingMode === "schedule" && (!selectedDate || !selectedTime)}
+                      disabled={sending || (bookingMode === "schedule" && (!selectedDate || !selectedTime))}
                       onClick={() => {
                         if (bookingMode === "instant") {
                           handleInstantContinue();
@@ -567,7 +565,7 @@ export default function StudentHome() {
                       }}
                       className="w-full py-4 bg-[#9758FF] hover:bg-[#8B5CF6] text-white rounded-2xl font-bold text-base disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md shadow-[#9758FF]/20 active:scale-[0.98]"
                     >
-                      {bookingMode === "instant" ? "Connect Now" : "Continue"}
+                      {sending ? "Connecting..." : bookingMode === "instant" ? "Connect Now" : "Continue"}
                     </button>
                   ) : (
                     <button

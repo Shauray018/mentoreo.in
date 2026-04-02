@@ -19,8 +19,10 @@ import ProfileTab from "./ProfileTab";
 import { MentorMobileNav, MentorSidebar } from "./MentorSidebar";
 import { MentorHistoryPanel } from "./MentorPanels";
 import { useMentorPresence } from "@/hooks/useMentorPresence";
-import { sendLiveResponse, sendSessionReady, sendSessionStatusUpdate, subscribeLiveRequests, subscribeSessionBookings, subscribeSessionStarts } from "@/services/liveRequests";
+import { sendSessionReady, sendSessionStatusUpdate, subscribeSessionBookings, subscribeSessionStarts } from "@/services/liveRequests";
+import { subscribeLiveRequests, fetchPendingLiveRequests, updateLiveRequestStatus, LiveRequestRow } from "@/services/liveRequestsDb";
 import { createStudentChat } from "@/services/studentApi";
+import { ensureCometChatUser } from "@/services/cometchatApi";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -136,24 +138,36 @@ export default function MentorDashboard() {
   const mentorCourse = signup?.course ?? "";
   useMentorPresence(mentorEmail || undefined, Boolean(isAvailable));
 
+  // Helper to convert a DB row into the UI LiveRequest shape
+  const rowToLiveRequest = (row: LiveRequestRow): LiveRequest => ({
+    id: row.id,
+    studentEmail: row.student_email,
+    studentName: row.student_name,
+    type: row.type as LiveRequest["type"],
+    topic: row.topic ?? "",
+    timeRequested: "Just now",
+    image: row.student_image ?? "https://images.unsplash.com/photo-1534528741775-53994a69daeb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+    rate: row.rate,
+  });
+
+  // Fetch pending requests on mount (survives page refreshes) + subscribe to new ones
   useEffect(() => {
     if (!mentorEmail) return;
-    const { cleanup } = subscribeLiveRequests(mentorEmail, (payload) => {
+
+    // Load existing pending requests from DB
+    fetchPendingLiveRequests(mentorEmail).then((rows) => {
       setLiveRequests((prev) => {
-        if (prev.some((r) => r.id === payload.id)) return prev;
-        return [
-          {
-            id: payload.id,
-            studentEmail: payload.studentEmail,
-            studentName: payload.studentName,
-            type: payload.type,
-            topic: payload.topic ?? "",
-            timeRequested: "Just now",
-            image: payload.studentImage ?? "https://images.unsplash.com/photo-1534528741775-53994a69daeb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-            rate: payload.rate,
-          },
-          ...prev,
-        ];
+        const existingIds = new Set(prev.map((r) => r.id));
+        const newOnes = rows.filter((r) => !existingIds.has(r.id)).map(rowToLiveRequest);
+        return newOnes.length ? [...newOnes, ...prev] : prev;
+      });
+    });
+
+    // Subscribe to new INSERTs via postgres_changes (real-time)
+    const { cleanup } = subscribeLiveRequests(mentorEmail, (row) => {
+      setLiveRequests((prev) => {
+        if (prev.some((r) => r.id === row.id)) return prev;
+        return [rowToLiveRequest(row), ...prev];
       });
     });
     const { cleanup: cleanupSessions } = subscribeSessionStarts(mentorEmail, (payload) => {
@@ -193,14 +207,10 @@ export default function MentorDashboard() {
 
   const handleAcceptLiveRequest = async (req: LiveRequest) => {
     if (!mentorEmail || !req.studentEmail) return;
-    fetch("/api/cometchat/user", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: req.studentEmail,
-        name: req.studentName,
-        avatar: req.image,
-      }),
+    ensureCometChatUser({
+      email: req.studentEmail,
+      name: req.studentName,
+      avatar: req.image,
     }).catch(() => null);
     const chat = await createStudentChat({
       student_email: req.studentEmail,
@@ -211,15 +221,16 @@ export default function MentorDashboard() {
       call_rate: req.rate,
     });
     if (!chat) return;
+    // Mark as accepted in DB — student gets notified via postgres_changes
+    await updateLiveRequestStatus(req.id, "accepted");
     setLiveRequests((prev) => prev.filter((r) => r.id !== req.id));
     setActiveTab("messages");
     setActiveChatId(buildCometUid(req.studentEmail));
-    sendLiveResponse(req.studentEmail, {
-      chatId: chat.id,
-      mentorEmail,
-      mentorName,
-      mode: req.type === "call" ? "call" : "chat",
-    });
+  };
+
+  const handleDeclineLiveRequest = async (req: LiveRequest) => {
+    await updateLiveRequestStatus(req.id, "declined");
+    setLiveRequests((prev) => prev.filter((r) => r.id !== req.id));
   };
 
   const requests: SessionRequest[] = useMemo(
@@ -465,8 +476,8 @@ export default function MentorDashboard() {
                     requests={requests}
                     upcomingSessions={upcomingSessions}
                     liveRequests={liveRequests}
-                    setLiveRequests={setLiveRequests}
                     onAcceptLiveRequest={handleAcceptLiveRequest}
+                    onDeclineLiveRequest={handleDeclineLiveRequest}
                     onAcceptRequest={handleAcceptSession}
                     onDeclineRequest={handleDeclineSession}
                     onStartScheduledChat={handleStartScheduledChat}
