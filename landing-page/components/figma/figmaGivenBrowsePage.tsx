@@ -20,9 +20,10 @@ import { useMentorBrowseStore } from "@/store/mentorBrowseStore";
 import { useOnlineMentors } from "@/hooks/useOnlineMentors";
 import { AnimatePresence, motion } from "motion/react";
 import { useSession } from "next-auth/react";
-import { buildCometUid } from "@/lib/cometchat-uid";
-import { sendLiveRequest, sendSessionBooking, subscribeLiveResponses } from "@/services/liveRequests";
-import { toast } from "sonner";
+import { sendSessionBooking } from "@/services/liveRequests";
+import { createLiveRequest } from "@/services/liveRequestsDb";
+import { ensureCometChatUser } from "@/services/cometchatApi";
+import { liveToast } from "@/store/liveToastStore";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
@@ -143,7 +144,7 @@ export default function BrowseMentors() {
   };
 
 
-  const handleInstantContinue = () => {
+  const handleInstantContinue = async () => {
     if (!selectedMentor) return;
     if (!session?.user?.email) {
       router.push("/student/login");
@@ -151,30 +152,28 @@ export default function BrowseMentors() {
     }
     const isLive = Boolean(selectedMentor.is_available && onlineMentors.has(selectedMentor.id));
     if (!isLive) {
-      toast.error("Mentor is not live right now.");
+      liveToast.error("Mentor Offline", "Mentor is not live right now.");
       return;
     }
-    fetch("/api/cometchat/user", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: selectedMentor.id,
-        name: selectedMentor.name,
-        avatar: selectedMentor.avatar_url ?? null,
-      }),
-    }).catch(() => null);
-    sendLiveRequest(selectedMentor.id, {
-      id: `${selectedMentor.id}-${Date.now()}`,
-      studentEmail: session.user.email,
-      studentName: session?.user?.name ?? "Student",
-      studentImage: null,
-      type: "chat",
-      topic: selectedMentor.course ?? "Mentoring",
-      rate: selectedMentor.pricePerMin ?? 5,
-      createdAt: Date.now(),
-    });
-    toast.success("Request sent to mentor");
     closeBooking();
+    ensureCometChatUser({
+      email: selectedMentor.id,
+      name: selectedMentor.name,
+      avatar: selectedMentor.avatar_url ?? null,
+    }).catch(() => null);
+    try {
+      await createLiveRequest({
+        studentEmail: session.user.email,
+        studentName: session.user.name ?? "Student",
+        mentorEmail: selectedMentor.id,
+        type: "chat",
+        topic: selectedMentor.course ?? "Mentoring",
+        rate: selectedMentor.pricePerMin ?? 5,
+      });
+      liveToast.success("Request Sent!", `Waiting for ${selectedMentor.name} to accept...`);
+    } catch {
+      liveToast.error("Request Failed", "Failed to send request. Please try again.");
+    }
   };
 
   const createBookingRequest = async () => {
@@ -206,29 +205,14 @@ export default function BrowseMentors() {
     });
 
     if (!res.ok) {
-      toast.error("Failed to send booking request.");
+      liveToast.error("Booking Failed", "Failed to send booking request.");
       return;
     }
 
     sendSessionBooking(selectedMentor.id);
-    toast.success("Booking request sent!");
+    liveToast.success("Booking Sent!", "Your session request has been sent to the mentor.");
     closeBooking();
   };
-
-  useEffect(() => {
-    const email = session?.user?.email;
-    if (!email) return;
-    const { cleanup } = subscribeLiveResponses(email, (payload) => {
-      const chatUrl = `/student/chats/${buildCometUid(payload.mentorEmail)}?mentor=${encodeURIComponent(payload.mentorEmail)}&live=1`;
-      toast(`${payload.mentorName} joined the chat`, {
-        action: {
-          label: "Open",
-          onClick: () => router.push(chatUrl),
-        },
-      });
-    });
-    return () => cleanup();
-  }, [session?.user?.email, router]);
 
   return (
     <div className="bg-[#F8F5FF] min-h-screen font-nunito flex justify-center">
