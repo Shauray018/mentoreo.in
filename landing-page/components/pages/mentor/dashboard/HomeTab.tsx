@@ -1,19 +1,13 @@
 "use client";
 
-import { AnimatePresence, motion } from "motion/react";
 import { Badge } from "@/app/components/ui/badge";
 import { Button } from "@/app/components/ui/button";
 import { Card, CardContent } from "@/app/components/ui/card";
-import { Switch } from "@/app/components/ui/switch";
 import {
-  BellRing,
   Calendar,
   Clock,
-  MessageSquare,
-  Phone,
   Rocket,
   Users,
-  Video,
 } from "lucide-react";
 
 export interface SessionRequest {
@@ -54,9 +48,6 @@ interface HomeTabProps {
   onToggleOnline: (value: boolean) => void;
   requests: SessionRequest[];
   upcomingSessions: TodaySession[];
-  liveRequests: LiveRequest[];
-  onAcceptLiveRequest: (req: LiveRequest) => void;
-  onDeclineLiveRequest: (req: LiveRequest) => void;
   onAcceptRequest: (id: string) => void;
   onDeclineRequest: (id: string) => void;
   onStartScheduledChat: (session: TodaySession) => void;
@@ -69,9 +60,6 @@ export default function HomeTab({
   onToggleOnline,
   requests,
   upcomingSessions,
-  liveRequests,
-  onAcceptLiveRequest,
-  onDeclineLiveRequest,
   onAcceptRequest,
   onDeclineRequest,
   onStartScheduledChat,
@@ -104,73 +92,7 @@ export default function HomeTab({
         </CardContent>
       </Card> */}
 
-      <AnimatePresence>
-        {isOnline && liveRequests.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden"
-          >
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-lg font-bold flex items-center gap-2 text-gray-900">
-                <BellRing className="w-5 h-5 text-[#FF7A1F]" />
-                Live Requests
-                <Badge className="bg-red-100 text-red-600 hover:bg-red-100 animate-pulse">{liveRequests.length}</Badge>
-              </h3>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {liveRequests.map((req) => (
-                <Card key={req.id} className="border-2 border-[#FF7A1F]/20 shadow-sm hover:border-[#FF7A1F]/50 transition-colors bg-white relative overflow-hidden">
-                  <div className="absolute top-0 left-0 w-1 h-full bg-[#FF7A1F]"></div>
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <img src={req.image} alt={req.studentName} className="w-12 h-12 rounded-full object-cover border-2 border-gray-100" />
-                        <div>
-                          <h4 className="font-bold text-gray-900">{req.studentName}</h4>
-                          {req.topic && (
-                            <p className="text-xs text-gray-500 font-medium bg-gray-100 px-2 py-0.5 rounded-md inline-block mt-0.5">{req.topic}</p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="flex items-center gap-1 bg-orange-50 text-[#FF7A1F] px-2 py-1 rounded-md text-xs font-bold">
-                          {req.type === "video" ? <Video className="w-3 h-3" /> : req.type === "call" ? <Phone className="w-3 h-3" /> : <MessageSquare className="w-3 h-3" />}
-                          <span className="capitalize">{req.type}</span>
-                        </div>
-                        <p className="text-[10px] text-gray-400 mt-1">{req.timeRequested}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
-                      <div className="text-sm font-bold text-gray-700">
-                        ₹{req.rate} <span className="text-xs text-gray-400 font-normal">/min</span>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="rounded-xl border-gray-200 text-gray-600 hover:bg-gray-50"
-                          onClick={() => onDeclineLiveRequest(req)}
-                        >
-                          Decline
-                        </Button>
-                        <Button
-                          size="sm"
-                          className="rounded-xl bg-[#FF7A1F] hover:bg-[#E66A15] text-white shadow-md shadow-orange-200"
-                          onClick={() => onAcceptLiveRequest(req)}
-                        >
-                          Accept & Join
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Live requests are now handled via the LiveToast dialog overlay */}
 
       <Card className={`border shadow-sm bg-white ${requests.length > 0 ? "border-[#FF7A1F]/30 ring-1 ring-[#FF7A1F]/10" : "border-gray-100"}`}>
         <CardContent className="p-5">

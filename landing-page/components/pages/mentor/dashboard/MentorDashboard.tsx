@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { AnimatePresence, motion } from "motion/react";
@@ -20,10 +20,10 @@ import { MentorMobileNav, MentorSidebar } from "./MentorSidebar";
 import { MentorHistoryPanel } from "./MentorPanels";
 import { useMentorPresence } from "@/hooks/useMentorPresence";
 import { sendSessionReady, sendSessionStatusUpdate, subscribeSessionBookings, subscribeSessionStarts } from "@/services/liveRequests";
-import { subscribeLiveRequests, fetchPendingLiveRequests, updateLiveRequestStatus, LiveRequestRow } from "@/services/liveRequestsDb";
+import { subscribeLiveRequests, fetchPendingLiveRequests, updateLiveRequestStatus, subscribeSessionEndDb, LiveRequestRow } from "@/services/liveRequestsDb";
 import { createStudentChat } from "@/services/studentApi";
 import { ensureCometChatUser } from "@/services/cometchatApi";
-import { toast } from "sonner";
+import { liveToast } from "@/store/liveToastStore";
 import {
   Dialog,
   DialogContent,
@@ -150,61 +150,6 @@ export default function MentorDashboard() {
     rate: row.rate,
   });
 
-  // Fetch pending requests on mount (survives page refreshes) + subscribe to new ones
-  useEffect(() => {
-    if (!mentorEmail) return;
-
-    // Load existing pending requests from DB
-    fetchPendingLiveRequests(mentorEmail).then((rows) => {
-      setLiveRequests((prev) => {
-        const existingIds = new Set(prev.map((r) => r.id));
-        const newOnes = rows.filter((r) => !existingIds.has(r.id)).map(rowToLiveRequest);
-        return newOnes.length ? [...newOnes, ...prev] : prev;
-      });
-    });
-
-    // Subscribe to new INSERTs via postgres_changes (real-time)
-    const { cleanup } = subscribeLiveRequests(mentorEmail, (row) => {
-      setLiveRequests((prev) => {
-        if (prev.some((r) => r.id === row.id)) return prev;
-        return [rowToLiveRequest(row), ...prev];
-      });
-    });
-    const { cleanup: cleanupSessions } = subscribeSessionStarts(mentorEmail, (payload) => {
-      toast.custom(
-        () => (
-          <div className="w-full max-w-sm bg-white border border-[#FFE3D1] shadow-xl rounded-2xl p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#FFF2E8] flex items-center justify-center text-[#FF7A1F] font-black">
-              S
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-bold text-[#111827]">{payload.studentName} started a chat</p>
-              <p className="text-xs text-[#6B7280]">Open Messages to respond.</p>
-            </div>
-            <button
-              onClick={() => {
-                setActiveTab("messages");
-                setActiveChatId(buildCometUid(payload.studentEmail));
-              }}
-              className="px-3 py-1.5 rounded-full bg-[#FF7A1F] text-white text-xs font-bold hover:bg-[#FF6A0F]"
-            >
-              Open
-            </button>
-          </div>
-        ),
-        { duration: 5000 }
-      );
-    });
-    const { cleanup: cleanupBookings } = subscribeSessionBookings(mentorEmail, () => {
-      fetchSessions(mentorEmail);
-    });
-    return () => {
-      cleanup();
-      cleanupSessions();
-      cleanupBookings();
-    };
-  }, [mentorEmail, fetchSessions]);
-
   const handleAcceptLiveRequest = async (req: LiveRequest) => {
     if (!mentorEmail || !req.studentEmail) return;
     ensureCometChatUser({
@@ -232,6 +177,98 @@ export default function MentorDashboard() {
     await updateLiveRequestStatus(req.id, "declined");
     setLiveRequests((prev) => prev.filter((r) => r.id !== req.id));
   };
+
+  // Queue of pending requests to show as dialogs, one at a time.
+  // Use refs to avoid stale closures — handlers change on every render.
+  const pendingQueueRef = useRef<LiveRequest[]>([]);
+  const showingRequestRef = useRef(false);
+  const acceptRef = useRef(handleAcceptLiveRequest);
+  const declineRef = useRef(handleDeclineLiveRequest);
+  acceptRef.current = handleAcceptLiveRequest;
+  declineRef.current = handleDeclineLiveRequest;
+
+  const showNextRequest = useCallback(() => {
+    if (showingRequestRef.current) return;
+    const next = pendingQueueRef.current.shift();
+    if (!next) return;
+    showingRequestRef.current = true;
+
+    liveToast.incoming({
+      title: `${next.studentName}`,
+      description: `Wants to chat about ${next.topic} — ₹${next.rate}/min`,
+      actions: [
+        {
+          label: "Decline",
+          onClick: () => {
+            showingRequestRef.current = false;
+            declineRef.current(next);
+            showNextRequest();
+          },
+        },
+        {
+          label: "Accept",
+          onClick: () => {
+            showingRequestRef.current = false;
+            acceptRef.current(next);
+          },
+        },
+      ],
+    });
+  }, []);
+
+  const enqueueRequest = useCallback((req: LiveRequest) => {
+    setLiveRequests((prev) => {
+      if (prev.some((r) => r.id === req.id)) return prev;
+      return [req, ...prev];
+    });
+    pendingQueueRef.current.push(req);
+    showNextRequest();
+  }, [showNextRequest]);
+
+  // Fetch pending requests on mount (survives page refreshes) + subscribe to new ones
+  useEffect(() => {
+    if (!mentorEmail) return;
+
+    // Load existing pending requests from DB
+    fetchPendingLiveRequests(mentorEmail).then((rows) => {
+      rows.forEach((row) => enqueueRequest(rowToLiveRequest(row)));
+    });
+
+    // Subscribe to new INSERTs via postgres_changes (real-time)
+    const { cleanup } = subscribeLiveRequests(mentorEmail, (row) => {
+      enqueueRequest(rowToLiveRequest(row));
+    });
+    const { cleanup: cleanupSessions } = subscribeSessionStarts(mentorEmail, (payload) => {
+      liveToast.incoming({
+        title: `${payload.studentName} started a chat`,
+        description: "Open Messages to respond.",
+        actions: [
+          {
+            label: "Open",
+            onClick: () => {
+              setActiveTab("messages");
+              setActiveChatId(buildCometUid(payload.studentEmail));
+            },
+          },
+        ],
+      });
+    });
+    const { cleanup: cleanupBookings } = subscribeSessionBookings(mentorEmail, () => {
+      fetchSessions(mentorEmail);
+    });
+    const { cleanup: cleanupEnds } = subscribeSessionEndDb(mentorEmail, (row) => {
+      liveToast.success(
+        "Session Ended",
+        `${row.student_name} ended the session — ${row.topic}`
+      );
+    });
+    return () => {
+      cleanup();
+      cleanupSessions();
+      cleanupBookings();
+      cleanupEnds();
+    };
+  }, [mentorEmail, fetchSessions]);
 
   const requests: SessionRequest[] = useMemo(
     () => sessions
@@ -475,9 +512,6 @@ export default function MentorDashboard() {
                     onToggleOnline={setIsOnline}
                     requests={requests}
                     upcomingSessions={upcomingSessions}
-                    liveRequests={liveRequests}
-                    onAcceptLiveRequest={handleAcceptLiveRequest}
-                    onDeclineLiveRequest={handleDeclineLiveRequest}
                     onAcceptRequest={handleAcceptSession}
                     onDeclineRequest={handleDeclineSession}
                     onStartScheduledChat={handleStartScheduledChat}

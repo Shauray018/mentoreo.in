@@ -7,7 +7,6 @@ import { motion } from "motion/react";
 import CometChatPanel from "@/components/cometchat/CometChatPanel";
 import { fetchMentorChats, type MentorChatRow } from "@/services/mentorChatsApi";
 import { buildCometUid } from "@/lib/cometchat-uid";
-import { subscribeSessionEnds } from "@/services/liveRequests";
 
 interface MessagesTabProps {
   activeChatId?: string | null;
@@ -17,37 +16,11 @@ interface MessagesTabProps {
 export default function MessagesTab({ activeChatId, onActiveChatChange }: MessagesTabProps) {
   const { data: session } = useSession();
   const [chats, setChats] = useState<MentorChatRow[]>([]);
-  const [summaryOverlay, setSummaryOverlay] = useState<{
-    show: boolean;
-    title: string;
-    lines: string[];
-  } | null>(null);
-
   useEffect(() => {
     const email = session?.user?.email;
     if (!email) return;
     fetchMentorChats(email).then(setChats).catch(() => setChats([]));
   }, [session?.user?.email]);
-
-  useEffect(() => {
-    const mentorEmail = session?.user?.email;
-    if (!mentorEmail) return;
-    const { cleanup } = subscribeSessionEnds(mentorEmail, (payload) => {
-      if (!activeChatId) return;
-      const targetUid = buildCometUid(payload.studentEmail);
-      if (targetUid !== activeChatId) return;
-      setSummaryOverlay({
-        show: true,
-        title: "Session ended",
-        lines: [
-          `Student: ${payload.studentName}`,
-          `Duration: ${payload.minutes} min`,
-          `You earned: ₹${payload.total}`,
-        ],
-      });
-    });
-    return () => cleanup();
-  }, [session?.user?.email, activeChatId]);
 
   const list = useMemo(() => {
     return chats.map((c) => ({
@@ -132,7 +105,6 @@ export default function MessagesTab({ activeChatId, onActiveChatChange }: Messag
             emptyTitle="Chat not found"
             emptyHint="Go back to messages and pick a conversation."
             billing={{ enabled: false, showTalkNow: false, ratePerMin: 0, minMinutes: 0 }}
-            summaryOverlay={summaryOverlay ? { ...summaryOverlay, onClose: () => setSummaryOverlay(null) } : undefined}
           />
         )}
       </div>

@@ -6,10 +6,11 @@ import CometChatPanel from "@/components/cometchat/CometChatPanel";
 import { useStudentData } from "@/hooks/useStudentData";
 import { useStudentStore } from "@/store/studentStore";
 import { toast } from "sonner";
+import { liveToast } from "@/store/liveToastStore";
 import { useOnlineMentors } from "@/hooks/useOnlineMentors";
-import { sendSessionEnd, sendSessionStart } from "@/services/liveRequests";
-import { createLiveRequest, subscribeLiveRequestStatus } from "@/services/liveRequestsDb";
-import { useEffect, useMemo, useState } from "react";
+import { sendSessionStart } from "@/services/liveRequests";
+import { createLiveRequest, createSessionEndNotification, updateLiveRequestStatus, subscribeLiveRequestStatus } from "@/services/liveRequestsDb";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 export default function StudentChatDetail() {
   const { id } = useParams();
@@ -27,6 +28,7 @@ export default function StudentChatDetail() {
   const isLoading = chatsLoading || walletLoading;
   const [talkNowState, setTalkNowState] = useState<"idle" | "requesting" | "accepted">("idle");
   const [sessionStartTrigger, setSessionStartTrigger] = useState(0);
+  const pendingRequestIdRef = useRef<string | null>(null);
 
   const activeChat = useMemo(
     () => chats.find((c) => c.mentor_email === mentorEmail),
@@ -35,6 +37,7 @@ export default function StudentChatDetail() {
 
   useEffect(() => {
     setTalkNowState("idle");
+    pendingRequestIdRef.current = null;
   }, [mentorEmail]);
 
   useEffect(() => {
@@ -50,28 +53,46 @@ export default function StudentChatDetail() {
     const { cleanup } = subscribeLiveRequestStatus(email, (row) => {
       if (row.mentor_email !== mentorEmail) return;
       if (row.status === "accepted") {
+        pendingRequestIdRef.current = null;
         setTalkNowState("accepted");
         setSessionStartTrigger(Date.now());
-        toast.success("Mentor accepted your request!");
+        liveToast.success("Mentor Accepted!", "Starting your session now...");
       } else if (row.status === "declined") {
+        pendingRequestIdRef.current = null;
         setTalkNowState("idle");
-        toast.error("Mentor declined your request.");
+        liveToast.error("Request Declined", "Mentor declined your request.");
       }
     });
     return () => { cleanup(); };
   }, [session?.user?.email, mentorEmail]);
 
+  const cancelPendingRequest = () => {
+    const reqId = pendingRequestIdRef.current;
+    if (reqId) {
+      updateLiveRequestStatus(reqId, "expired").catch(() => null);
+      pendingRequestIdRef.current = null;
+    }
+    setTalkNowState("idle");
+  };
+
+  const handleBack = () => {
+    if (talkNowState === "requesting") {
+      cancelPendingRequest();
+    }
+    router.push("/student/chats");
+  };
+
   const handleTalkNowRequest = async () => {
     if (!mentorEmail || !session?.user?.email) return;
     if (!mentorIsOnline) {
-      toast.error("Mentor is not live right now.");
+      liveToast.error("Mentor Offline", "Mentor is not live right now.");
       router.push(`/student/dashboard?bookMentor=${encodeURIComponent(mentorEmail)}&mode=schedule`);
       return;
     }
     if (talkNowState !== "idle") return;
     setTalkNowState("requesting");
     try {
-      await createLiveRequest({
+      const row = await createLiveRequest({
         studentEmail: session.user.email,
         studentName: session.user.name ?? "Student",
         mentorEmail,
@@ -79,10 +100,11 @@ export default function StudentChatDetail() {
         topic: activeChat?.last_message ?? "Chat",
         rate: activeChat?.chat_rate ?? 5,
       });
-      toast.success("Request sent to mentor");
+      pendingRequestIdRef.current = row.id;
+      liveToast.success("Request Sent!", "Waiting for mentor to accept...");
     } catch {
       setTalkNowState("idle");
-      toast.error("Failed to send request. Please try again.");
+      liveToast.error("Request Failed", "Failed to send request. Please try again.");
     }
   };
 
@@ -98,7 +120,7 @@ export default function StudentChatDetail() {
         ) : (
           <CometChatPanel
             activeUid={activeUid}
-            onBack={() => router.push("/student/chats")}
+            onBack={handleBack}
             className="w-full h-full"
             emptyTitle="Chat not found"
             emptyHint="Go back to your inbox to pick a conversation."
@@ -121,16 +143,13 @@ export default function StudentChatDetail() {
             }}
             onSessionEnd={(payload) => {
               if (!mentorEmail || !session?.user?.email) return;
-              sendSessionEnd(mentorEmail, {
-                id: `session-end-${mentorEmail}-${session.user.email}-${Date.now()}`,
+              createSessionEndNotification({
                 studentEmail: session.user.email,
                 studentName: session.user.name ?? "Student",
-                studentImage: null,
                 mentorEmail,
                 minutes: payload.minutes,
                 rate: payload.rate,
                 total: payload.total,
-                createdAt: Date.now(),
               }).catch(() => null);
             }}
             statusOverride={mentorIsOnline ? "online" : "offline"}

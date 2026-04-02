@@ -3,6 +3,7 @@ import { Fredoka, Nunito } from "next/font/google";
 import "./globals.css";
 import Providers from "@/app/providers";
 import { Toaster } from "@/app/components/ui/sonner";
+import LiveToast from "@/components/ui/LiveToast";
 
 const fredoka = Fredoka({
   subsets: ["latin"],
@@ -32,6 +33,7 @@ export default function RootLayout({
         <Providers>
           {children}
           <Toaster richColors position="top-right" />
+          <LiveToast />
         </Providers>
       </body>
     </html>

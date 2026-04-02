@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
       type: body.type ?? "chat",
       topic: body.topic ?? "Mentoring",
       rate: body.rate ?? 5,
-      status: "pending",
+      status: body.status ?? "pending",
     }])
     .select()
     .single();

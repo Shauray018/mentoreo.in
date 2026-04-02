@@ -91,6 +91,7 @@ export default function CometChatPanel({
   const [tick, setTick] = useState(0);
   const [debitedMinutes, setDebitedMinutes] = useState(0);
   const [showSummary, setShowSummary] = useState(false);
+  const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
   const sessionNotifiedRef = useRef(false);
   const sessionEndNotifiedRef = useRef(false);
@@ -410,7 +411,13 @@ export default function CometChatPanel({
           <div className="flex items-center gap-3">
             {onBack && (
               <button
-                onClick={onBack}
+                onClick={() => {
+                  if (billingEnabled && sessionStartedAt && !showSummary) {
+                    setShowEndConfirm(true);
+                  } else {
+                    onBack();
+                  }
+                }}
                 className="w-10 h-10 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-50 transition-colors"
               >
                 <ArrowLeft className="w-5 h-5" />
@@ -432,17 +439,17 @@ export default function CometChatPanel({
             </div>
           </div>
 
-          {billingEnabled && (
+          {billingEnabled && sessionStartedAt && (
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-2 bg-[#F8F5FF] border border-[#E1D4FF] rounded-full px-3 py-1.5">
                 <Timer className="w-4 h-4 text-[#9758FF]" />
                 <span className="text-xs font-bold text-[#6B21A8]">₹{ratePerMin}/min</span>
                 <span className="text-xs font-bold text-[#111827]">
-                  {sessionStartedAt ? formatSeconds(remainingSeconds) : "00:00"}
+                  {formatSeconds(remainingSeconds)}
                 </span>
               </div>
               <button
-                onClick={() => setShowSummary(true)}
+                onClick={() => setShowEndConfirm(true)}
                 className="text-xs font-bold px-3 py-1.5 rounded-full border border-[#FED7AA] bg-[#FFF7ED] text-[#C2410C] hover:bg-[#FFEDD5]"
               >
                 End
@@ -573,6 +580,37 @@ export default function CometChatPanel({
             )}
           </div>
         </div>
+
+        {showEndConfirm && (
+          <div className="absolute inset-0 z-10 bg-black/40 backdrop-blur-sm flex items-center justify-center p-6">
+            <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm text-center">
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <Timer className="w-5 h-5 text-red-500" />
+              </div>
+              <h3 className="text-lg font-bold text-[#111827]">End Session?</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                This will end the current chat session. You&apos;ll be charged for the time used.
+              </p>
+              <div className="mt-5 flex gap-3">
+                <button
+                  onClick={() => setShowEndConfirm(false)}
+                  className="flex-1 border border-gray-200 text-gray-700 font-semibold py-2.5 rounded-xl hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowEndConfirm(false);
+                    setShowSummary(true);
+                  }}
+                  className="flex-1 bg-red-500 text-white font-semibold py-2.5 rounded-xl hover:bg-red-600"
+                >
+                  End Session
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {(summaryOverlay?.show || (showSummary && billingEnabled)) && (
           <div className="absolute inset-0 bg-black/40 flex items-center justify-center p-6">

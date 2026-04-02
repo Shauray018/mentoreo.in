@@ -15,7 +15,7 @@ import { useSession } from "next-auth/react";
 import { sendSessionBooking, subscribeSessionStatusUpdates, subscribeSessionReady } from "@/services/liveRequests";
 import { useStudentStore } from "@/store/studentStore";
 import { buildCometUid } from "@/lib/cometchat-uid";
-import { toast } from "sonner";
+import { liveToast } from "@/store/liveToastStore";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLiveSession } from "@/hooks/useLiveSession";
 import DatePicker from "react-datepicker";
@@ -60,7 +60,7 @@ export default function StudentHome() {
   const { data: session } = useSession();
   const onlineMentors = useOnlineMentors();
   const { sessions: studentSessions, fetchSessions: fetchStudentSessions } = useStudentStore();
-  const { connectNow, sending, liveSessionReady, joinLiveSession, dismissLiveSession } = useLiveSession();
+  const { connectNow, sending } = useLiveSession();
 
   const studentEmail = session?.user?.email ?? "";
 
@@ -79,24 +79,19 @@ export default function StudentHome() {
     const { cleanup: cleanupStatus } = subscribeSessionStatusUpdates(studentEmail, (payload) => {
       fetchStudentSessions(studentEmail);
       if (payload.status === "upcoming") {
-        toast.success(`${payload.mentorName} accepted your session request!`, {
-          description: `${payload.topic} — ${payload.scheduledDate} at ${payload.scheduledTime}`,
-        });
+        liveToast.success("Session Accepted!", `${payload.mentorName} accepted — ${payload.topic} on ${payload.scheduledDate} at ${payload.scheduledTime}`);
       } else if (payload.status === "declined") {
-        toast.error(`${payload.mentorName} declined your session request.`, {
-          description: payload.topic,
-        });
+        liveToast.error("Session Declined", `${payload.mentorName} declined your request for ${payload.topic}.`);
       }
     });
     const { cleanup: cleanupReady } = subscribeSessionReady(studentEmail, (payload) => {
       const chatUrl = `/student/chats/${buildCometUid(payload.mentorEmail)}`;
-      toast.success(`${payload.mentorName} is ready for your session!`, {
+      liveToast.incoming({
+        title: `${payload.mentorName} is Ready!`,
         description: payload.topic,
-        duration: 10000,
-        action: {
-          label: "Join Chat",
-          onClick: () => router.push(chatUrl),
-        },
+        actions: [
+          { label: "Join Chat", onClick: () => router.push(chatUrl) },
+        ],
       });
     });
     return () => {
@@ -254,13 +249,13 @@ export default function StudentHome() {
     });
 
     if (!res.ok) {
-      toast.error("Failed to send booking request.");
+      liveToast.error("Booking Failed", "Failed to send booking request.");
       return;
     }
 
     sendSessionBooking(selectedMentor.id);
     if (studentEmail) fetchStudentSessions(studentEmail);
-    toast.success("Booking request sent!");
+    liveToast.success("Booking Sent!", "Your session request has been sent to the mentor.");
     closeBooking();
   };
 
@@ -273,44 +268,7 @@ export default function StudentHome() {
   };
 
   return (
-    <div className={`bg-[#F8F9FA] min-h-screen pb-24 font-nunito ${liveSessionReady ? "pt-12" : ""}`}>
-      {/* LIVE SESSION READY BANNER */}
-      <AnimatePresence>
-        {liveSessionReady && (
-          <motion.div
-            initial={{ y: -80, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -80, opacity: 0 }}
-            className="fixed top-0 left-0 right-0 z-50 bg-linear-to-r from-[#9758FF] to-[#7C3AED] text-white px-4 py-3 shadow-lg"
-          >
-            <div className="max-w-md md:max-w-6xl mx-auto flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0">
-                  <Zap className="w-4 h-4" fill="white" />
-                </div>
-                <p className="text-sm font-bold truncate">
-                  {liveSessionReady.mentorName} is ready to chat!
-                </p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={joinLiveSession}
-                  className="px-4 py-2 bg-white text-[#9758FF] rounded-xl text-sm font-bold hover:bg-white/90 active:scale-95 transition-all"
-                >
-                  Join Now
-                </button>
-                <button
-                  onClick={dismissLiveSession}
-                  className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
+    <div className="bg-[#F8F9FA] min-h-screen pb-24 font-nunito">
       {/* HEADER SECTION */}
       <div className="bg-gradient-to-br from-[#F6F2FF] via-[#EFEAFF] to-[#E3DCFF] px-4 pt-10 pb-6 rounded-b-[2.5rem] shadow-sm relative overflow-hidden">
         {/* Decorative Background Elements */}

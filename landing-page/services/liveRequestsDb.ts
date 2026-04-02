@@ -9,7 +9,7 @@
 
 import { supabase } from "@/lib/supabase";
 
-export type LiveRequestType = "chat" | "call";
+export type LiveRequestType = "chat" | "call" | "session-end";
 
 export interface LiveRequestRow {
   id: string;
@@ -75,7 +75,7 @@ export async function fetchPendingLiveRequests(mentorEmail: string): Promise<Liv
 }
 
 /** Mentor accepts or declines a live request */
-export async function updateLiveRequestStatus(id: string, status: "accepted" | "declined"): Promise<LiveRequestRow | null> {
+export async function updateLiveRequestStatus(id: string, status: "accepted" | "declined" | "expired"): Promise<LiveRequestRow | null> {
   const res = await fetch(`/api/live-requests?id=${encodeURIComponent(id)}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -107,7 +107,7 @@ export function subscribeLiveRequests(
       },
       (payload) => {
         const row = payload.new as LiveRequestRow;
-        if (row.status === "pending") onNew(row);
+        if (row.status === "pending" && row.type !== "session-end") onNew(row);
       }
     )
     .subscribe();
@@ -135,6 +135,57 @@ export function subscribeLiveRequestStatus(
       },
       (payload) => {
         onUpdate(payload.new as LiveRequestRow);
+      }
+    )
+    .subscribe();
+
+  return { channel, cleanup: () => { supabase.removeChannel(channel); } };
+}
+
+// ── Session end notifications (DB-backed, replaces broadcast) ──
+
+/** Student notifies mentor that session ended by inserting a row with type='session-end' */
+export async function createSessionEndNotification(params: {
+  studentEmail: string;
+  studentName: string;
+  mentorEmail: string;
+  minutes: number;
+  rate: number;
+  total: number;
+}): Promise<void> {
+  await fetch("/api/live-requests", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      student_email: params.studentEmail,
+      student_name: params.studentName,
+      mentor_email: params.mentorEmail,
+      type: "session-end",
+      topic: `${params.minutes} min — ₹${params.total}`,
+      rate: params.rate,
+      status: "session-end",
+    }),
+  });
+}
+
+/** Mentor subscribes to session-end notifications */
+export function subscribeSessionEndDb(
+  mentorEmail: string,
+  onEnd: (row: LiveRequestRow) => void
+) {
+  const channel = supabase
+    .channel(`db-session-ends:${mentorEmail}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "live_requests",
+        filter: `mentor_email=eq.${mentorEmail}`,
+      },
+      (payload) => {
+        const row = payload.new as LiveRequestRow;
+        if (row.type === "session-end") onEnd(row);
       }
     )
     .subscribe();
