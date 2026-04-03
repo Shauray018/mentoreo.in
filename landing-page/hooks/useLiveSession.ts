@@ -1,43 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import {
-  createLiveRequest,
-  subscribeLiveRequestStatus,
-  LiveRequestRow,
-} from "@/services/liveRequestsDb";
+import { createLiveRequest } from "@/services/liveRequestsDb";
 import { ensureCometChatUser } from "@/services/cometchatApi";
-import { buildCometUid } from "@/lib/cometchat-uid";
 import { liveToast } from "@/store/liveToastStore";
 
+/**
+ * Hook for sending live connect requests.
+ * The accept/decline subscription is handled globally in studentLayout.tsx
+ * so it works across all student pages.
+ */
 export function useLiveSession() {
   const router = useRouter();
   const { data: session } = useSession();
-  const studentEmail = session?.user?.email ?? "";
 
   const [sending, setSending] = useState(false);
-
-  // Subscribe to status changes on our live requests (mentor accepted/declined)
-  useEffect(() => {
-    if (!studentEmail) return;
-    const { cleanup } = subscribeLiveRequestStatus(studentEmail, (row: LiveRequestRow) => {
-      if (row.status === "accepted") {
-        const chatUrl = `/student/chats/${buildCometUid(row.mentor_email)}?mentor=${encodeURIComponent(row.mentor_email)}&live=1`;
-        liveToast.incoming({
-          title: "Mentor Accepted!",
-          description: "Your mentor is ready to chat.",
-          actions: [
-            { label: "Join Now", onClick: () => router.push(chatUrl) },
-          ],
-        });
-      } else if (row.status === "declined") {
-        liveToast.error("Request Declined", "Mentor declined your request.");
-      }
-    });
-    return () => cleanup();
-  }, [studentEmail, router]);
 
   const connectNow = useCallback(
     async (mentor: {

@@ -10,6 +10,8 @@ import { useStudentData } from "@/hooks/useStudentData";
 import { useOnlineMentors } from "@/hooks/useOnlineMentors";
 import { buildCometUid } from "@/lib/cometchat-uid";
 import { toast } from "sonner";
+import { subscribeLiveRequestStatus } from "@/services/liveRequestsDb";
+import { liveToast } from "@/store/liveToastStore";
 
 export default function StudentAppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -21,6 +23,27 @@ export default function StudentAppLayout({ children }: { children: React.ReactNo
   const notifiedRef = useRef<Set<string>>(new Set());
 
   useStudentData(session?.user?.email ?? undefined);
+
+  // Global subscription: mentor accepted/declined live requests — shows dialog on any student page
+  useEffect(() => {
+    const email = session?.user?.email;
+    if (!email) return;
+    const { cleanup } = subscribeLiveRequestStatus(email, (row) => {
+      if (row.status === "accepted") {
+        const chatUrl = `/student/chats/${buildCometUid(row.mentor_email)}?mentor=${encodeURIComponent(row.mentor_email)}&live=1`;
+        liveToast.incoming({
+          title: "Mentor Accepted!",
+          description: "Your mentor is ready to chat.",
+          actions: [
+            { label: "Join Now", onClick: () => router.push(chatUrl) },
+          ],
+        });
+      } else if (row.status === "declined") {
+        liveToast.error("Request Declined", "Mentor declined your request.");
+      }
+    });
+    return () => { cleanup(); };
+  }, [session?.user?.email, router]);
 
   const unreadCount = useMemo(
     () => chats.reduce((sum, c) => sum + (c.unread_count ?? 0), 0),

@@ -46,7 +46,8 @@ export default function StudentChatDetail() {
     setSessionStartTrigger(Date.now());
   }, [liveParam]);
 
-  // Subscribe to live request status changes (mentor accepted/declined)
+  // Subscribe to live request status changes to update local chat UI state.
+  // The liveToast dialog is handled globally in studentLayout.tsx.
   useEffect(() => {
     const email = session?.user?.email;
     if (!email) return;
@@ -56,11 +57,9 @@ export default function StudentChatDetail() {
         pendingRequestIdRef.current = null;
         setTalkNowState("accepted");
         setSessionStartTrigger(Date.now());
-        liveToast.success("Mentor Accepted!", "Starting your session now...");
       } else if (row.status === "declined") {
         pendingRequestIdRef.current = null;
         setTalkNowState("idle");
-        liveToast.error("Request Declined", "Mentor declined your request.");
       }
     });
     return () => { cleanup(); };
