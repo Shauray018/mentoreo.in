@@ -51,17 +51,21 @@ export default function StudentChatDetail() {
   useEffect(() => {
     const email = session?.user?.email;
     if (!email) return;
-    const { cleanup } = subscribeLiveRequestStatus(email, (row) => {
-      if (row.mentor_email !== mentorEmail) return;
-      if (row.status === "accepted") {
-        pendingRequestIdRef.current = null;
-        setTalkNowState("accepted");
-        setSessionStartTrigger(Date.now());
-      } else if (row.status === "declined") {
-        pendingRequestIdRef.current = null;
-        setTalkNowState("idle");
-      }
-    });
+    const { cleanup } = subscribeLiveRequestStatus(
+      email,
+      (row) => {
+        if (row.mentor_email !== mentorEmail) return;
+        if (row.status === "accepted") {
+          pendingRequestIdRef.current = null;
+          setTalkNowState("accepted");
+          setSessionStartTrigger(Date.now());
+        } else if (row.status === "declined") {
+          pendingRequestIdRef.current = null;
+          setTalkNowState("idle");
+        }
+      },
+      "chat-detail"
+    );
     return () => { cleanup(); };
   }, [session?.user?.email, mentorEmail]);
 

@@ -121,10 +121,13 @@ export function subscribeLiveRequests(
  */
 export function subscribeLiveRequestStatus(
   studentEmail: string,
-  onUpdate: (row: LiveRequestRow) => void
+  onUpdate: (row: LiveRequestRow) => void,
+  /** Unique suffix to avoid channel name collisions when multiple components subscribe */
+  channelSuffix?: string
 ) {
+  const suffix = channelSuffix ?? Math.random().toString(36).slice(2, 6);
   const channel = supabase
-    .channel(`db-live-request-status:${studentEmail}`)
+    .channel(`db-live-request-status:${studentEmail}:${suffix}`)
     .on(
       "postgres_changes",
       {

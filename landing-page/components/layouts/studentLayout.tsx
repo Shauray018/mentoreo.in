@@ -28,20 +28,24 @@ export default function StudentAppLayout({ children }: { children: React.ReactNo
   useEffect(() => {
     const email = session?.user?.email;
     if (!email) return;
-    const { cleanup } = subscribeLiveRequestStatus(email, (row) => {
-      if (row.status === "accepted") {
-        const chatUrl = `/student/chats/${buildCometUid(row.mentor_email)}?mentor=${encodeURIComponent(row.mentor_email)}&live=1`;
-        liveToast.incoming({
-          title: "Mentor Accepted!",
-          description: "Your mentor is ready to chat.",
-          actions: [
-            { label: "Join Now", onClick: () => router.push(chatUrl) },
-          ],
-        });
-      } else if (row.status === "declined") {
-        liveToast.error("Request Declined", "Mentor declined your request.");
-      }
-    });
+    const { cleanup } = subscribeLiveRequestStatus(
+      email,
+      (row) => {
+        if (row.status === "accepted") {
+          const chatUrl = `/student/chats/${buildCometUid(row.mentor_email)}?mentor=${encodeURIComponent(row.mentor_email)}&live=1`;
+          liveToast.incoming({
+            title: "Mentor Accepted!",
+            description: "Your mentor is ready to chat.",
+            actions: [
+              { label: "Join Now", onClick: () => router.push(chatUrl) },
+            ],
+          });
+        } else if (row.status === "declined") {
+          liveToast.error("Request Declined", "Mentor declined your request.");
+        }
+      },
+      "layout"
+    );
     return () => { cleanup(); };
   }, [session?.user?.email, router]);
 
