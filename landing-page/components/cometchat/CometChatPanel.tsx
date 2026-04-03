@@ -508,8 +508,8 @@ export default function CometChatPanel({
           )}
         </div>
 
-        <div className="bg-white border-t border-gray-100 pb-safe">
-          <div className="p-3 md:p-4">
+        <div className="bg-white border-t border-gray-100">
+          <div className="px-3 py-2 md:p-4">
             {!sessionStartedAt && showTalkNow ? (
               <div className="flex flex-col items-center gap-2">
                 <button
