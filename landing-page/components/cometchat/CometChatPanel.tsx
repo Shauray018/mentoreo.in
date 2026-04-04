@@ -96,24 +96,6 @@ export default function CometChatPanel({
   const sessionNotifiedRef = useRef(false);
   const sessionEndNotifiedRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-
-  // Handle mobile virtual keyboard — resize container to visualViewport height
-  useEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return;
-    const update = () => {
-      if (containerRef.current) {
-        containerRef.current.style.height = `${vv.height}px`;
-      }
-    };
-    vv.addEventListener("resize", update);
-    vv.addEventListener("scroll", update);
-    return () => {
-      vv.removeEventListener("resize", update);
-      vv.removeEventListener("scroll", update);
-    };
-  }, []);
 
   const [currentBalancePaise, setCurrentBalancePaise] = useState(billing?.balancePaise ?? 0);
   const lastStartTriggerRef = useRef<number | null>(null);
@@ -423,7 +405,7 @@ export default function CometChatPanel({
   }
 
   return (
-    <div ref={containerRef} className={className ?? "w-full h-full"}>
+    <div className={className ?? "w-full h-full"}>
       <div className="flex flex-col h-full min-h-0">
         <div className="bg-white px-4 py-3 flex items-center justify-between shadow-sm border-b border-gray-100">
           <div className="flex items-center gap-3">
