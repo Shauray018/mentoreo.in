@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Fredoka, Nunito } from "next/font/google";
+import { Fredoka, Nunito, Inter } from "next/font/google";
 import "./globals.css";
 import Providers from "@/app/providers";
 import { Toaster } from "@/app/components/ui/sonner";
@@ -15,6 +15,11 @@ const nunito = Nunito({
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700", "800", "900"],
   variable: "--font-nunito",
+});
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800", "900"],
+  variable: "--font-inter",
 });
 
 export const metadata: Metadata = {
@@ -36,7 +41,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${fredoka.variable} ${nunito.variable} font-sans antialiased`}>
+      <body className={`${fredoka.variable} ${nunito.variable} ${inter.variable} font-sans antialiased`}>
         <Providers>
           {children}
           <Toaster richColors position="top-right" />

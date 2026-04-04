@@ -112,8 +112,8 @@ export default function StudentChatDetail() {
   };
 
   return (
-    <div className="bg-[#F8F9FA] h-[100dvh] overflow-hidden font-nunito px-0 pt-0 pb-0 md:p-0">
-      <div className="w-full h-[100dvh] md:h-[100vh] max-w-none mx-auto bg-white overflow-hidden">
+    <div className="bg-[#F8F9FA] h-[100dvh] overflow-hidden font-nunito md:p-0">
+      <div className="w-full h-full max-w-none mx-auto bg-white overflow-hidden">
         {isLoading ? (
           <div className="w-full h-full p-4 sm:p-6 animate-pulse flex flex-col gap-4">
             <div className="h-12 rounded-2xl bg-[#F3E8FF]" />
