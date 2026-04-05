@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { Home, MessageSquare, Wallet, User, LogOut } from "lucide-react";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useStudentStore } from "@/store/studentStore";
 import { useStudentData } from "@/hooks/useStudentData";
 import { useOnlineMentors } from "@/hooks/useOnlineMentors";
@@ -21,8 +21,21 @@ export default function StudentAppLayout({ children }: { children: React.ReactNo
   const { chats } = useStudentStore();
   const onlineMentors = useOnlineMentors();
   const notifiedRef = useRef<Set<string>>(new Set());
+  const [navHidden, setNavHidden] = useState(false);
+  const lastScrollY = useRef(0);
 
   useStudentData(session?.user?.email ?? undefined);
+
+  // Hide bottom nav on scroll down, show on scroll up
+  useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY;
+      setNavHidden(y > lastScrollY.current && y > 50);
+      lastScrollY.current = y;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   // Global subscription: mentor accepted/declined live requests — shows dialog on any student page
   useEffect(() => {
@@ -188,7 +201,7 @@ export default function StudentAppLayout({ children }: { children: React.ReactNo
 
       {/* Mobile Floating Bottom Nav */}
       {!isChatDetail && (
-      <div className="md:hidden fixed bottom-4 left-4 right-4 z-50">
+      <div className={`md:hidden fixed left-4 right-4 z-50 transition-all duration-300 ${navHidden ? "-bottom-24" : "bottom-4"}`}>
         <div className="bg-white/90 backdrop-blur-md rounded-2xl shadow-lg border border-[#E1D4FF] p-2 flex justify-between items-center max-w-md mx-auto">
           {navItems.map((item) => (
             <Link

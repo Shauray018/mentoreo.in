@@ -205,9 +205,14 @@ export default function MentorPerks() {
               If your campus is in the top 3, <strong className="text-white font-bold">every mentor</strong> from your college wins big.
             </p>
             <div className="mt-auto bg-white/10 rounded-[14px] p-4 border border-white/20 text-left relative z-10">
-              <span className="text-[10px] font-black text-[#FFF085] uppercase tracking-widest mb-1.5 flex items-center gap-1">
-                <Banknote className="w-3 h-3" /> HIGHER Payout Unlocked
+            <div className="flex flex-row justify-center items-start">
+              <span className="text-2xl px-2 mt-1 mr-3 font-black text-[#FFF085] uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                <Banknote className="w-3 h-3" />
               </span>
+              <span className="text-2xl  font-black text-[#FFF085] uppercase tracking-tight flex items-center ">
+                 HIGHER Payout Unlocked
+              </span>
+            </div>
             </div>
           </div>
         </div>
