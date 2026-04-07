@@ -2,7 +2,7 @@
 
 import { memo, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 
-function getInitials(input: string) {
+export function getInitials(input: string) {
   return input
     .split(/\s+/)
     .filter(Boolean)

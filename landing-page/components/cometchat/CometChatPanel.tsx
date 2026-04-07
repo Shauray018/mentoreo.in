@@ -6,6 +6,7 @@ import { ArrowLeft, Paperclip, Send, Timer } from "lucide-react";
 import { motion } from "motion/react";
 import { useCometChatAuth } from "@/hooks/useCometChatAuth";
 import { getCometChatSDK } from "@/lib/cometchat-sdk";
+import { getInitials } from "../onboard/CollegeDropdown";
 
 interface BillingConfig {
   enabled?: boolean;
@@ -132,10 +133,11 @@ export default function CometChatPanel({
 
   const header = useMemo(() => {
     const name = targetUser?.getName?.() ?? targetUser?.name ?? "Mentor";
+    const initial = getInitials(name);
     const avatar = targetUser?.getAvatar?.() ?? targetUser?.avatar ?? fallbackAvatar;
     const statusRaw = targetUser?.getStatus?.() ?? targetUser?.status ?? "offline";
     const status = statusOverride ?? (statusRaw === "online" ? "online" : "offline");
-    return { name, avatar, status };
+    return { name, avatar, status, initial };
   }, [targetUser, statusOverride]);
   const billingEnabled = Boolean(billing?.enabled);
   const showTalkNow = (billing?.showTalkNow ?? billingEnabled) && talkNowState !== "accepted";
@@ -425,7 +427,7 @@ export default function CometChatPanel({
   return (
     <div className={className ?? "w-full h-full"}>
       <div className="flex flex-col h-full min-h-0">
-        <div className="bg-white fixed px-4 py-3 w-full flex items-center justify-between shadow-sm border-b border-gray-100  top-0 z-20 md:static">
+        <div className="bg-white fixed  px-4 py-3 w-full flex items-center justify-between shadow-sm border-b border-gray-100  top-0 z-20 md:static">
           <div className="flex items-center gap-3">
             {onBack && (
               <button
@@ -443,7 +445,8 @@ export default function CometChatPanel({
             )}
             <div className="flex items-center gap-3">
               <div className="relative">
-                <img src={header.avatar} alt={header.name} className="w-10 h-10 rounded-full object-cover" />
+                {/* <img src={header.avatar} alt={header.name} className="w-10 h-10 rounded-full object-cover" /> */}
+                <div className="flex justify-center items-center border-2 border-black w-10 h-10 rounded-full object-cover " > {header.initial} </div>
                 {header.status === "online" && (
                   <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
                 )}
@@ -494,7 +497,7 @@ export default function CometChatPanel({
           </div>
         )}
 
-        <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col pb-28 md:pb-6 space-y-4 bg-[#F8F9FA]">
+        <div ref={scrollRef} className="flex-1 min-h-0 md:mt-0  mt-14 overflow-y-auto p-4 flex flex-col pb-28 md:pb-6 space-y-4 bg-gray-100">
           {messages.map((msg) => {
             const isMe = msg.isMe;
             return (
