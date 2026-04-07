@@ -22,10 +22,20 @@ export default function MessagesTab({ activeChatId, onActiveChatChange }: Messag
     fetchMentorChats(email).then(setChats).catch(() => setChats([]));
   }, [session?.user?.email]);
 
+  function getInitials(name: String) { 
+    let initial = ""; 
+    let arr = name.split(" "); 
+    for (let n of arr) { 
+      initial = initial + n[0]; 
+    }
+    return initial.toUpperCase();
+  }
+
   const list = useMemo(() => {
     return chats.map((c) => ({
       id: c.id,
       name: c.student_name || "Student",
+      initials: getInitials(c.student_name || "Student") ,
       email: c.student_email,
       image:
         c.student_avatar ||
@@ -42,10 +52,10 @@ export default function MessagesTab({ activeChatId, onActiveChatChange }: Messag
   const showList = !activeChatId;
 
   return (
-    <div className="bg-[#FFF8F3] md:rounded-[24px] md:border border-[#FFE8D9] p-0 md:p-6 h-full flex flex-col overflow-hidden">
-      <div className="w-full flex-1 bg-white md:rounded-[24px] md:border border-[#F3E8FF] overflow-hidden">
+    <div className="bg-[#FFF8F3] md:rounded-[24px] md:border border-[#FFE8D9] p-0 md:p-6 h-full flex flex-col min-h-0 overflow-hidden">
+      <div className="w-full flex-1 min-h-0 bg-white md:rounded-[24px] md:border border-[#F3E8FF] overflow-hidden">
         {showList ? (
-          <div className="h-full overflow-y-auto p-6">
+          <div className="h-full overflow-y-auto py-6">
             <div className="space-y-3">
               {list.map((chat, i) => (
                 <motion.button
@@ -57,7 +67,10 @@ export default function MessagesTab({ activeChatId, onActiveChatChange }: Messag
                   className="w-full bg-white p-4 rounded-[20px] flex items-center gap-4 shadow-sm border border-[#F3E8FF] hover:border-[#FF7A1F]/50 hover:shadow-md transition-all text-left"
                 >
                   <div className="relative">
-                    <img src={chat.image} alt={chat.name} className="w-12 h-12 rounded-full object-cover border-2 border-[#F3E8FF]" />
+                    {/* <img src={chat.image} alt={chat.name} className="w-12 h-12 rounded-full object-cover border-2 border-[#F3E8FF]" /> */}
+                      <div className="flex justify-center items-center w-12 h-12 rounded-full object-cover border-2 border-[#F3E8FF]">
+                        {chat.initials}
+                      </div>
                   </div>
 
                   <div className="flex-1 min-w-0">
@@ -69,7 +82,7 @@ export default function MessagesTab({ activeChatId, onActiveChatChange }: Messag
                         <span className="text-[10px] font-bold">Call: ₹{chat.callRate}/min</span>
                       </div>
                     </div>
-                    <p className="text-[11px] text-[#6B7280] font-bold mb-1 truncate">{chat.email}</p>
+                    {/* <p className="text-[11px] text-[#6B7280] font-bold mb-1 truncate">{chat.email}</p> */}
                     <div className="flex items-center justify-between">
                       <p className={`text-sm truncate ${chat.unread > 0 ? "text-[#111827] font-bold" : "text-[#6B7280] font-medium"}`}>
                         {chat.lastMessage}
@@ -100,6 +113,7 @@ export default function MessagesTab({ activeChatId, onActiveChatChange }: Messag
         ) : (
           <CometChatPanel
             activeUid={activeChatId ?? undefined}
+            chatId={list.find((chat) => chat.cometUid === activeChatId)?.id}
             className="w-full h-full"
             onBack={() => onActiveChatChange?.(null)}
             emptyTitle="Chat not found"

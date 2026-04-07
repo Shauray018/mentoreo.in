@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { ArrowLeft, Paperclip, Send, Timer } from "lucide-react";
 import { motion } from "motion/react";
@@ -20,6 +20,7 @@ interface BillingConfig {
 interface CometChatPanelProps {
   activeUid?: string;
   className?: string;
+  chatId?: string;
   onBack?: () => void;
   emptyTitle?: string;
   emptyHint?: string;
@@ -59,6 +60,7 @@ function formatSeconds(total: number) {
 export default function CometChatPanel({
   activeUid,
   className,
+  chatId,
   onBack,
   emptyTitle = "Select a chat",
   emptyHint = "Pick a conversation to start messaging.",
@@ -99,6 +101,20 @@ export default function CometChatPanel({
 
   const [currentBalancePaise, setCurrentBalancePaise] = useState(billing?.balancePaise ?? 0);
   const lastStartTriggerRef = useRef<number | null>(null);
+
+  const updateChatPreview = useCallback(async (text: string) => {
+    if (!chatId) return;
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    await fetch(`/api/student-chats?id=${encodeURIComponent(chatId)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        last_message: trimmed,
+        updated_at: new Date().toISOString(),
+      }),
+    }).catch(() => {});
+  }, [chatId]);
 
   useEffect(() => {
     if (billing?.balancePaise != null) setCurrentBalancePaise(billing.balancePaise);
@@ -255,6 +271,7 @@ export default function CometChatPanel({
           const formatted = formatMessage(msg, currentUid);
           if (!formatted) return;
           if (formatted.senderUid !== activeUid && !formatted.isMe) return;
+          updateChatPreview(formatted.text);
           startTimerIfNeeded();
           setMessages((prev) => {
             if (prev.some((m) => m.id === formatted.id)) return prev;
@@ -360,6 +377,7 @@ export default function CometChatPanel({
     };
     setMessages((prev) => [...prev, optimistic]);
     startTimerIfNeeded();
+    updateChatPreview(text);
 
     const message = new CometChat.TextMessage(
       activeUid,
@@ -546,9 +564,6 @@ export default function CometChatPanel({
               </div>
             ) : (
               <div className="flex items-end gap-2">
-                <button className="w-10 h-10 rounded-full flex items-center justify-center text-gray-400 hover:text-[#9758FF] hover:bg-[#F8F5FF] transition-colors flex-shrink-0">
-                  <Paperclip className="w-5 h-5" />
-                </button>
                 <div className="flex-1 bg-[#F8F9FA] rounded-2xl border border-gray-200 flex items-center pr-2 pl-4 py-1">
                   <textarea
                     value={inputText}

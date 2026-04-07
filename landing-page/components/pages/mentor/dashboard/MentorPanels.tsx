@@ -124,7 +124,7 @@ export function MentorHistoryPanel({ open, onClose, sessions }: HistoryPanelProp
           transition={{ duration: 0.25, ease: "easeInOut" }}
           className="overflow-hidden mb-6"
         >
-          <div className="p-4 rounded-2xl border-2 border-gray-200 bg-gray-50/50">
+          <div className="p-4 rounded-2xl border-2 border-gray-200 bg-gray-900">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-gray-200 flex items-center justify-center">
@@ -141,7 +141,7 @@ export function MentorHistoryPanel({ open, onClose, sessions }: HistoryPanelProp
             </div>
 
             <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-              {sessions.map((session) => (
+              {/* {sessions.map((session) => (
                 <div key={session.id} className="p-3.5 rounded-xl bg-white border border-gray-200 shadow-sm">
                   <div className="flex items-start gap-3">
                     <img src={session.studentImage ?? "/someGuy.png"} alt={session.studentName} className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
@@ -161,7 +161,7 @@ export function MentorHistoryPanel({ open, onClose, sessions }: HistoryPanelProp
                     </div>
                   </div>
                 </div>
-              ))}
+              ))} */}
             </div>
           </div>
         </motion.div>

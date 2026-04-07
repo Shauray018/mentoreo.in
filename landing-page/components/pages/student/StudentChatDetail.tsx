@@ -112,8 +112,8 @@ export default function StudentChatDetail() {
   };
 
   return (
-    <div className="fixed inset-0 bg-[#F8F9FA] overflow-hidden font-nunito md:relative md:h-dvh">
-      <div className="w-full h-full max-w-none mx-auto bg-white overflow-hidden">
+    <div className="fixed inset-0 h-[100dvh] bg-[#F8F9FA] overflow-hidden font-nunito md:relative md:h-[100dvh]">
+      <div className="w-full h-full max-w-none mx-auto bg-white overflow-hidden min-h-0">
         {isLoading ? (
           <div className="w-full h-full p-4 sm:p-6 animate-pulse flex flex-col gap-4">
             <div className="h-12 rounded-2xl bg-[#F3E8FF]" />
@@ -123,6 +123,7 @@ export default function StudentChatDetail() {
         ) : (
           <CometChatPanel
             activeUid={activeUid}
+            chatId={activeChat?.id}
             onBack={handleBack}
             className="w-full h-full"
             emptyTitle="Chat not found"
