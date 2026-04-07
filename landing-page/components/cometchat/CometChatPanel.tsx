@@ -425,7 +425,7 @@ export default function CometChatPanel({
   return (
     <div className={className ?? "w-full h-full"}>
       <div className="flex flex-col h-full min-h-0">
-        <div className="bg-white px-4 py-3 flex items-center justify-between shadow-sm border-b border-gray-100">
+        <div className="bg-white px-4 py-3 flex items-center justify-between shadow-sm border-b border-gray-100 sticky top-0 z-20 md:static">
           <div className="flex items-center gap-3">
             {onBack && (
               <button

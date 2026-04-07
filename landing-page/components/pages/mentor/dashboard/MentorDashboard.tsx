@@ -111,9 +111,31 @@ export default function MentorDashboard() {
 
   useEffect(() => {
     const tab = (searchParams.get("tab") as TabId | null) ?? null;
-    if (!tab) return;
-    if (TABS.some((t) => t.id === tab)) setActiveTab(tab);
+    if (tab && TABS.some((t) => t.id === tab)) setActiveTab(tab);
+    const chat = searchParams.get("chat");
+    if (chat) {
+      setActiveTab("messages");
+      setActiveChatId(chat);
+    } else {
+      setActiveChatId(null);
+    }
   }, [searchParams]);
+
+  const updateChatRoute = (id: string | null, mode: "push" | "replace") => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", "messages");
+    if (id) {
+      params.set("chat", id);
+    } else {
+      params.delete("chat");
+    }
+    const url = `/mentor/dashboard?${params.toString()}`;
+    if (mode === "push") {
+      router.push(url);
+    } else {
+      router.replace(url);
+    }
+  };
 
   useEffect(() => {
     const shouldOpen = searchParams.get("completeProfile") === "1";
@@ -183,7 +205,7 @@ export default function MentorDashboard() {
     await updateLiveRequestStatus(req.id, "accepted");
     setLiveRequests((prev) => prev.filter((r) => r.id !== req.id));
     setActiveTab("messages");
-    setActiveChatId(buildCometUid(req.studentEmail));
+    updateChatRoute(buildCometUid(req.studentEmail), "push");
   };
 
   const handleDeclineLiveRequest = async (req: LiveRequest) => {
@@ -262,7 +284,7 @@ export default function MentorDashboard() {
             label: "Open",
             onClick: () => {
               setActiveTab("messages");
-              setActiveChatId(buildCometUid(payload.studentEmail));
+              updateChatRoute(buildCometUid(payload.studentEmail), "push");
             },
           },
         ],
@@ -385,7 +407,7 @@ export default function MentorDashboard() {
       topic: sessionItem.topic,
     });
     setActiveTab("messages");
-    setActiveChatId(buildCometUid(sessionItem.studentEmail));
+    updateChatRoute(buildCometUid(sessionItem.studentEmail), "push");
   };
 
   const historySessions = useMemo(
@@ -420,6 +442,10 @@ export default function MentorDashboard() {
   }
 
   const isMessageDetail = activeTab === "messages" && Boolean(activeChatId);
+  const handleActiveChatChange = (id: string | null) => {
+    setActiveChatId(id);
+    updateChatRoute(id, id ? "push" : "replace");
+  };
 
   return (
     <div className={`min-h-screen bg-[#FFF9F5] md:bg-[#FFF9F5] ${isMessageDetail ? "pb-0" : "pb-24"} md:pb-0 font-nunito relative flex ${activeTab === "messages" ? "h-[100dvh] overflow-hidden" : ""}`}>
@@ -534,7 +560,7 @@ export default function MentorDashboard() {
                     onGoBoost={() => setActiveTab("boost")}
                   />
                 )}
-                {activeTab === "messages" && <MessagesTab activeChatId={activeChatId} onActiveChatChange={setActiveChatId} />}
+                {activeTab === "messages" && <MessagesTab activeChatId={activeChatId} onActiveChatChange={handleActiveChatChange} />}
                 {activeTab === "boost" && <BoostTab />}
                 {activeTab === "profile" && (
                   <ProfileTab
