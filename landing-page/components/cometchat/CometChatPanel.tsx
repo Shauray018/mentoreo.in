@@ -494,7 +494,7 @@ export default function CometChatPanel({
           </div>
         )}
 
-        <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col pb-6 md:pb-6 space-y-4 bg-[#F8F9FA]">
+        <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col pb-28 md:pb-6 space-y-4 bg-[#F8F9FA]">
           {messages.map((msg) => {
             const isMe = msg.isMe;
             return (
@@ -526,8 +526,8 @@ export default function CometChatPanel({
           )}
         </div>
 
-        <div className="bg-white border-t border-gray-100">
-          <div className="px-3 py-2 md:p-4">
+        <div className="bg-white border-t border-gray-100 fixed inset-x-0 bottom-0 z-20 md:static md:inset-auto md:z-auto">
+          <div className="px-3 py-2 md:p-4 pb-[env(safe-area-inset-bottom)]">
             {!sessionStartedAt && showTalkNow ? (
               <div className="flex flex-col items-center gap-2">
                 <button
