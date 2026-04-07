@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
   let query = supabaseServer.from("live_requests").select("*");
 
   if (mentorEmail) {
-    query = query.eq("mentor_email", mentorEmail).eq("status", "pending");
+    query = query.eq("mentor_email", mentorEmail).eq("status", "pending").neq("type", "session-end");
   } else if (studentEmail && id) {
     query = query.eq("student_email", studentEmail).eq("id", id);
   } else if (studentEmail) {

@@ -68,11 +68,12 @@ interface MentorMobileNavProps {
   activeTab: TabId;
   onTabChange: (tab: TabId) => void;
   messagesBadge?: number;
+  hidden?: boolean;
 }
 
-export function MentorMobileNav({ activeTab, onTabChange, messagesBadge = 0 }: MentorMobileNavProps) {
+export function MentorMobileNav({ activeTab, onTabChange, messagesBadge = 0, hidden = false }: MentorMobileNavProps) {
   return (
-    <div className="md:hidden fixed bottom-4 left-4 right-4 z-50">
+    <div className={`md:hidden fixed left-4 right-4 z-50 transition-all duration-300 ${hidden ? "-bottom-24" : "bottom-4"}`}>
       <div className="bg-white/90 backdrop-blur-md rounded-2xl shadow-lg border border-gray-200 p-2 flex justify-around items-center max-w-md mx-auto overflow-x-auto scrollbar-hide">
         {TABS.map((tab) => {
           const Icon = tab.icon;

@@ -91,6 +91,19 @@ export default function MentorDashboard() {
   const [isOnline, setIsOnline] = useState(true);
   const [isAvailable, setIsAvailable] = useState(true);
   const [completeProfileOpen, setCompleteProfileOpen] = useState(false);
+  const [navHidden, setNavHidden] = useState(false);
+  const lastScrollY = useRef(0);
+
+  // Hide bottom nav on scroll down, show on scroll up
+  useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY;
+      setNavHidden(y > lastScrollY.current && y > 50);
+      lastScrollY.current = y;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   useEffect(() => {
     if (status === "unauthenticated") router.replace("/mentor/login");
@@ -231,7 +244,9 @@ export default function MentorDashboard() {
 
     // Load existing pending requests from DB
     fetchPendingLiveRequests(mentorEmail).then((rows) => {
-      rows.forEach((row) => enqueueRequest(rowToLiveRequest(row)));
+      rows
+        .filter((r) => r.type !== "session-end")
+        .forEach((row) => enqueueRequest(rowToLiveRequest(row)));
     });
 
     // Subscribe to new INSERTs via postgres_changes (real-time)
@@ -407,7 +422,7 @@ export default function MentorDashboard() {
   const isMessageDetail = activeTab === "messages" && Boolean(activeChatId);
 
   return (
-    <div className="min-h-screen bg-[#FFF9F5] md:bg-[#FFF9F5] pb-24 md:pb-0 font-nunito relative flex">
+    <div className={`min-h-screen bg-[#FFF9F5] md:bg-[#FFF9F5] ${isMessageDetail ? "pb-0" : "pb-24"} md:pb-0 font-nunito relative flex`}>
       <Dialog open={completeProfileOpen} onOpenChange={(open) => (open ? setCompleteProfileOpen(true) : closeCompleteProfile())}>
         <DialogContent className="max-w-3xl w-[calc(100%-2rem)] p-0 bg-white border border-orange-100 shadow-[0_20px_70px_rgba(0,0,0,0.12)]">
 
@@ -446,7 +461,7 @@ export default function MentorDashboard() {
         messagesBadge={liveRequests.length}
       />
 
-      <main className={`flex-1 md:ml-64 w-full max-w-full overflow-x-hidden ${activeTab === "messages" ? "h-[100dvh] md:h-screen flex flex-col" : ""}`}>
+      <main className={`flex-1 md:ml-64 w-full max-w-full overflow-x-hidden ${activeTab === "messages" ? "h-screen flex flex-col" : ""}`}>
         <div className={`${activeTab === "messages" ? "h-full flex flex-col flex-1 md:p-0 md:max-w-none md:mx-0" : "md:p-8 md:max-w-6xl md:mx-auto min-h-screen"}`}>
           <div className={`${activeTab === "messages" ? "flex flex-col h-full" : "bg-white md:rounded-[32px] md:shadow-sm md:border border-orange-100 min-h-screen md:min-h-[calc(100vh-4rem)] p-4 sm:p-6 lg:p-8"}`}>
             {!isMessageDetail && (
@@ -541,7 +556,7 @@ export default function MentorDashboard() {
       </main>
 
       {!isMessageDetail && (
-        <MentorMobileNav activeTab={activeTab} onTabChange={setActiveTab} messagesBadge={liveRequests.length} />
+        <MentorMobileNav activeTab={activeTab} onTabChange={setActiveTab} messagesBadge={liveRequests.length} hidden={navHidden} />
       )}
     </div>
   );

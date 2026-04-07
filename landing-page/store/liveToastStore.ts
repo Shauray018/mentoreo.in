@@ -31,7 +31,7 @@ export const useLiveToastStore = create<LiveToastStore>((set) => ({
   autoDismissMs: null,
   meta: undefined,
 
-  show: (toast) => set({ ...toast, visible: true }),
+  show: (toast) => set({ actions: undefined, meta: undefined, autoDismissMs: null, description: undefined, ...toast, visible: true }),
   dismiss: () => set({ visible: false }),
 }));
 
