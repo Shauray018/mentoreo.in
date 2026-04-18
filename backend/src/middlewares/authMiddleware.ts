@@ -1,7 +1,7 @@
 // ─── MIDDLEWARE ────────────────────────────────────────────────────────────────
 // Simple JWT auth middleware — validates the token from signin
 import jwt from "jsonwebtoken";
-import { Router, Request, Response } from "express";
+import { Request, Response } from "express";
 
 export function authMiddleware(req: Request, res: Response, next: Function) {
   const token = req.headers.authorization?.split(" ")[1]; // Bearer <token>

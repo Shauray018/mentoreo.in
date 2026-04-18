@@ -1,62 +1,85 @@
 import { Router, Request, Response } from "express";
+import jwt from "jsonwebtoken";
 import { supabase } from "../lib/supabase";
 import {
   createSessionChannel,
   deleteSessionChannel,
   sendPushToUser,
 } from "../lib/sendbird";
-import { authMiddleware } from "../middlewares/authMiddleware";
 
 const router = Router();
 
+function authMiddleware(req: Request, res: Response, next: Function) {
+  const token = req.headers.authorization?.split(" ")[1];
+  if (!token) { res.status(401).json({ error: "No token provided" }); return; }
+  try {
+    (req as any).user = jwt.verify(token, process.env.JWT_SECRET!);
+    next();
+  } catch {
+    res.status(401).json({ error: "Invalid token" });
+  }
+}
 
+// Helper — get signups.id (Sendbird user ID) from mentor email
+async function getMentorSendbirdId(mentorEmail: string): Promise<string | null> {
+  const { data } = await supabase
+    .from("signups")
+    .select("id")
+    .eq("email", mentorEmail)
+    .single();
+  return data?.id ?? null;
+}
+
+// Helper — format paise to rupees string for display
+function toRupees(paise: number): string {
+  return (paise / 100).toFixed(2);
+}
 
 // ─── POST /sessions/request ────────────────────────────────────────────────────
-// Student requests a session with a specific mentor
 router.post("/request", authMiddleware, async (req: Request, res: Response) => {
-  const studentId = (req as any).user.id;
-  const { mentorId } = req.body;
+  const { id: studentId, email: studentEmail } = (req as any).user;
+  const { mentorEmail } = req.body;
 
-  if (!mentorId) {
-    res.status(400).json({ error: "mentorId is required" });
+  if (!mentorEmail) {
+    res.status(400).json({ error: "mentorEmail is required" });
     return;
   }
 
-  // 1. Get mentor profile for rate
-  const { data: mentorProfile, error: mentorError } = await supabase
+  // 1. Get mentor profile
+  const { data: mentor, error: mentorError } = await supabase
     .from("mentor_profiles")
-    .select("id, tier, rate_per_minute, is_available, signups(id, name)")
-    .eq("id", mentorId)
+    .select("email, display_name, tier, rate_per_minute, is_available")
+    .eq("email", mentorEmail)
     .single();
 
-  if (mentorError || !mentorProfile) {
+  if (mentorError || !mentor) {
     res.status(404).json({ error: "Mentor not found" });
     return;
   }
 
-  if (!mentorProfile.is_available) {
+  if (!mentor.is_available) {
     res.status(400).json({ error: "Mentor is not available right now" });
     return;
   }
 
-  // 2. Check if student already has a pending/active session
+  // 2. Check student has no active/pending session already
   const { data: existingSession } = await supabase
     .from("sessions")
     .select("id")
     .eq("student_id", studentId)
     .in("status", ["pending", "active"])
-    .single();
+    .maybeSingle();
 
   if (existingSession) {
     res.status(400).json({ error: "You already have an active or pending session" });
     return;
   }
 
-  // 3. Check student wallet balance — must have enough for 5 minutes minimum
+  // 3. Check wallet balance — minimum 5 minutes in paise
   const { data: wallet, error: walletError } = await supabase
     .from("student_wallets")
-    .select("balance")
-    .eq("student_id", studentId)
+    .select("balance_paise")
+    .eq("student_email", studentEmail)
     .single();
 
   if (walletError || !wallet) {
@@ -64,57 +87,61 @@ router.post("/request", authMiddleware, async (req: Request, res: Response) => {
     return;
   }
 
-  const minimumRequired = mentorProfile.rate_per_minute * 5;
-  if (wallet.balance < minimumRequired) {
+  const ratePerMinutePaise = Math.round(mentor.rate_per_minute * 100);
+  const minimumPaise = ratePerMinutePaise * 5; // 5 min minimum
+
+  if (wallet.balance_paise < minimumPaise) {
     res.status(400).json({
-      error: `Insufficient balance. You need at least ₹${minimumRequired.toFixed(2)} for a session with this mentor`,
-      required: minimumRequired,
-      current: wallet.balance,
+      error: `Insufficient balance. You need at least ₹${toRupees(minimumPaise)} for a session with this mentor`,
+      requiredPaise: minimumPaise,
+      currentPaise: wallet.balance_paise,
     });
     return;
   }
 
   // 4. Create session row
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-
   const { data: session, error: sessionError } = await supabase
     .from("sessions")
     .insert({
       student_id: studentId,
-      mentor_id: mentorId,
-      rate_per_minute: mentorProfile.rate_per_minute,
-      mentor_tier: mentorProfile.tier,
+      student_email: studentEmail,
+      mentor_email: mentorEmail,
+      rate_per_minute_paise: ratePerMinutePaise,
+      mentor_tier: mentor.tier,
       status: "pending",
-      expires_at: expiresAt.toISOString(),
     })
     .select()
     .single();
 
   if (sessionError || !session) {
+    console.error(sessionError);
     res.status(500).json({ error: "Failed to create session" });
     return;
   }
 
-  // 5. Get student name for notification
+  // 5. Get student name
   const { data: student } = await supabase
     .from("student_signups")
     .select("name")
     .eq("id", studentId)
     .single();
 
-  // 6. Push notification to mentor
-  const mentorSendbirdId = (mentorProfile.signups as any).id;
-  await sendPushToUser(
-    mentorSendbirdId,
-    studentId,
-    `${student?.name ?? "A student"} is requesting a session with you! You have 10 minutes to accept.`,
-    {
-      type: "session_request",
-      sessionId: session.id,
+  // 6. Push to mentor
+  const mentorSendbirdId = await getMentorSendbirdId(mentorEmail);
+  if (mentorSendbirdId) {
+    await sendPushToUser(
+      mentorSendbirdId,
       studentId,
-      studentName: student?.name ?? "",
-    }
-  );
+      `${student?.name ?? "A student"} is requesting a session! You have 10 minutes to accept.`,
+      {
+        type: "session_request",
+        sessionId: session.id,
+        studentId,
+        studentName: student?.name ?? "",
+        studentEmail,
+      }
+    );
+  }
 
   res.status(201).json({
     message: "Session request sent",
@@ -122,15 +149,15 @@ router.post("/request", authMiddleware, async (req: Request, res: Response) => {
       id: session.id,
       status: session.status,
       expiresAt: session.expires_at,
-      ratePerMinute: session.rate_per_minute,
+      ratePerMinutePaise,
+      ratePerMinuteRupees: mentor.rate_per_minute,
     },
   });
 });
 
 // ─── POST /sessions/accept ─────────────────────────────────────────────────────
-// Mentor accepts a session request
 router.post("/accept", authMiddleware, async (req: Request, res: Response) => {
-  const mentorId = (req as any).user.id;
+  const { email: mentorEmail, id: mentorSignupId } = (req as any).user;
   const { sessionId } = req.body;
 
   if (!sessionId) {
@@ -138,35 +165,31 @@ router.post("/accept", authMiddleware, async (req: Request, res: Response) => {
     return;
   }
 
-  // 1. Get session and validate
-  const { data: session, error: sessionError } = await supabase
+  // 1. Get session
+  const { data: session, error } = await supabase
     .from("sessions")
     .select("*")
     .eq("id", sessionId)
-    .eq("mentor_id", mentorId)
+    .eq("mentor_email", mentorEmail)
     .eq("status", "pending")
     .single();
 
-  if (sessionError || !session) {
+  if (error || !session) {
     res.status(404).json({ error: "Session not found or already handled" });
     return;
   }
 
   // 2. Check not expired
   if (new Date(session.expires_at) < new Date()) {
-    await supabase
-      .from("sessions")
-      .update({ status: "expired" })
-      .eq("id", sessionId);
-
+    await supabase.from("sessions").update({ status: "expired" }).eq("id", sessionId);
     res.status(400).json({ error: "Session request has expired" });
     return;
   }
 
-  // 3. Create Sendbird 1:1 channel
+  // 3. Create Sendbird channel
   const channelUrl = await createSessionChannel(
-    session.student_id,
-    mentorId,
+    session.student_id,  // student UUID = their Sendbird ID
+    mentorSignupId,      // mentor signups.id = their Sendbird ID
     sessionId
   );
 
@@ -178,38 +201,35 @@ router.post("/accept", authMiddleware, async (req: Request, res: Response) => {
   const now = new Date().toISOString();
 
   // 4. Update session to active
-  const { error: updateError } = await supabase
+  await supabase
     .from("sessions")
     .update({
       status: "active",
       accepted_at: now,
-      started_at: now,           // billing starts now
+      started_at: now,
       sendbird_channel_url: channelUrl,
     })
     .eq("id", sessionId);
 
-  if (updateError) {
-    res.status(500).json({ error: "Failed to update session" });
-    return;
-  }
-
-  // 5. Get mentor name for notification
-  const { data: mentor } = await supabase
-    .from("signups")
-    .select("name")
-    .eq("id", mentorId)
+  // 5. Get mentor display name
+  const { data: mentorProfile } = await supabase
+    .from("mentor_profiles")
+    .select("display_name")
+    .eq("email", mentorEmail)
     .single();
 
-  // 6. Push notification to student
+  const mentorName = mentorProfile?.display_name ?? mentorEmail;
+
+  // 6. Push to student
   await sendPushToUser(
-    session.student_id,
-    mentorId,
-    `${mentor?.name ?? "Your mentor"} has accepted your session request! Tap to start chatting.`,
+    session.student_id,  // student UUID = Sendbird ID
+    mentorSignupId,
+    `${mentorName} accepted your session request! Tap to start chatting.`,
     {
       type: "session_accepted",
       sessionId,
-      mentorId,
-      mentorName: mentor?.name ?? "",
+      mentorEmail,
+      mentorName,
       channelUrl,
     }
   );
@@ -221,22 +241,21 @@ router.post("/accept", authMiddleware, async (req: Request, res: Response) => {
       status: "active",
       channelUrl,
       startedAt: now,
-      ratePerMinute: session.rate_per_minute,
+      ratePerMinutePaise: session.rate_per_minute_paise,
     },
   });
 });
 
 // ─── POST /sessions/decline ────────────────────────────────────────────────────
-// Mentor declines a session request
 router.post("/decline", authMiddleware, async (req: Request, res: Response) => {
-  const mentorId = (req as any).user.id;
+  const { email: mentorEmail, id: mentorSignupId } = (req as any).user;
   const { sessionId } = req.body;
 
   const { data: session, error } = await supabase
     .from("sessions")
     .select("*")
     .eq("id", sessionId)
-    .eq("mentor_id", mentorId)
+    .eq("mentor_email", mentorEmail)
     .eq("status", "pending")
     .single();
 
@@ -245,21 +264,18 @@ router.post("/decline", authMiddleware, async (req: Request, res: Response) => {
     return;
   }
 
-  await supabase
-    .from("sessions")
-    .update({ status: "declined" })
-    .eq("id", sessionId);
+  await supabase.from("sessions").update({ status: "declined" }).eq("id", sessionId);
 
-  const { data: mentor } = await supabase
-    .from("signups")
-    .select("name")
-    .eq("id", mentorId)
+  const { data: mentorProfile } = await supabase
+    .from("mentor_profiles")
+    .select("display_name")
+    .eq("email", mentorEmail)
     .single();
 
   await sendPushToUser(
     session.student_id,
-    mentorId,
-    `${mentor?.name ?? "Your mentor"} is unavailable right now. Try another mentor.`,
+    mentorSignupId,
+    `${mentorProfile?.display_name ?? "Your mentor"} is unavailable right now. Try another mentor.`,
     { type: "session_declined", sessionId }
   );
 
@@ -267,9 +283,8 @@ router.post("/decline", authMiddleware, async (req: Request, res: Response) => {
 });
 
 // ─── POST /sessions/cancel ─────────────────────────────────────────────────────
-// Student cancels before mentor accepts
 router.post("/cancel", authMiddleware, async (req: Request, res: Response) => {
-  const studentId = (req as any).user.id;
+  const { id: studentId } = (req as any).user;
   const { sessionId } = req.body;
 
   const { data: session, error } = await supabase
@@ -285,29 +300,26 @@ router.post("/cancel", authMiddleware, async (req: Request, res: Response) => {
     return;
   }
 
-  await supabase
-    .from("sessions")
-    .update({ status: "cancelled" })
-    .eq("id", sessionId);
+  await supabase.from("sessions").update({ status: "cancelled" }).eq("id", sessionId);
 
-  // Notify mentor the request was cancelled
-  await sendPushToUser(
-    session.mentor_id,
-    studentId,
-    "A session request was cancelled by the student.",
-    { type: "session_cancelled", sessionId }
-  );
+  const mentorSendbirdId = await getMentorSendbirdId(session.mentor_email);
+  if (mentorSendbirdId) {
+    await sendPushToUser(
+      mentorSendbirdId,
+      studentId,
+      "A session request was cancelled by the student.",
+      { type: "session_cancelled", sessionId }
+    );
+  }
 
   res.json({ message: "Session cancelled" });
 });
 
 // ─── POST /sessions/end ────────────────────────────────────────────────────────
-// Either party ends the session — triggers billing
 router.post("/end", authMiddleware, async (req: Request, res: Response) => {
-  const userId = (req as any).user.id;
+  const { id: userId, email: userEmail } = (req as any).user;
   const { sessionId } = req.body;
 
-  // 1. Get session
   const { data: session, error } = await supabase
     .from("sessions")
     .select("*")
@@ -320,31 +332,24 @@ router.post("/end", authMiddleware, async (req: Request, res: Response) => {
     return;
   }
 
-  // 2. Verify caller is part of this session
+  // Verify caller is part of this session
   const isStudent = session.student_id === userId;
-  const isMentor = session.mentor_id === userId;
+  const isMentor = session.mentor_email === userEmail;
 
   if (!isStudent && !isMentor) {
     res.status(403).json({ error: "Not authorized to end this session" });
     return;
   }
 
-  // 3. Calculate billing
+  // Calculate billing in paise
   const endedAt = new Date();
   const startedAt = new Date(session.started_at);
-  const durationSeconds = Math.floor(
-    (endedAt.getTime() - startedAt.getTime()) / 1000
-  );
-
-  // Round up to nearest minute, minimum 1 minute charge
+  const durationSeconds = Math.floor((endedAt.getTime() - startedAt.getTime()) / 1000);
   const durationMinutes = Math.max(1, Math.ceil(durationSeconds / 60));
-  const totalAmount = parseFloat(
-    (durationMinutes * session.rate_per_minute).toFixed(2)
-  );
-
+  const totalAmountPaise = durationMinutes * session.rate_per_minute_paise;
   const endedBy = isStudent ? "student" : "mentor";
 
-  // 4. Update session
+  // Update session
   await supabase
     .from("sessions")
     .update({
@@ -352,51 +357,49 @@ router.post("/end", authMiddleware, async (req: Request, res: Response) => {
       ended_at: endedAt.toISOString(),
       ended_by: endedBy,
       duration_seconds: durationSeconds,
-      total_amount: totalAmount,
+      total_amount_paise: totalAmountPaise,
     })
     .eq("id", sessionId);
 
-  // 5. Debit student wallet (with safety check on student_debited flag)
+  // Debit student wallet (safety: check student_debited flag)
   if (!session.student_debited) {
     const { data: wallet } = await supabase
       .from("student_wallets")
-      .select("balance")
-      .eq("student_id", session.student_id)
+      .select("balance_paise")
+      .eq("student_email", session.student_email)
       .single();
 
-    const currentBalance = wallet?.balance ?? 0;
-    const newBalance = Math.max(0, currentBalance - totalAmount);
+    const currentBalance = wallet?.balance_paise ?? 0;
+    const newBalance = Math.max(0, currentBalance - totalAmountPaise);
 
     await supabase
       .from("student_wallets")
-      .update({ balance: newBalance })
-      .eq("student_id", session.student_id);
+      .update({ balance_paise: newBalance })
+      .eq("student_email", session.student_email);
 
-    // Log the transaction
     await supabase.from("student_wallet_transactions").insert({
-      student_id: session.student_id,
-      amount: -totalAmount,
+      student_email: session.student_email,
+      amount_paise: -totalAmountPaise,
       type: "session_debit",
       reference_id: sessionId,
-      description: `Session with mentor — ${durationMinutes} min @ ₹${session.rate_per_minute}/min`,
-      balance_after: newBalance,
+      description: `Session with mentor — ${durationMinutes} min @ ₹${toRupees(session.rate_per_minute_paise)}/min`,
+      balance_after_paise: newBalance,
     });
 
-    // Mark debited
     await supabase
       .from("sessions")
       .update({ student_debited: true })
       .eq("id", sessionId);
   }
 
-  // 6. Credit mentor earnings (with safety check)
+  // Credit mentor earnings (80% cut)
   if (!session.mentor_credited) {
-    const mentorShare = parseFloat((totalAmount * 0.8).toFixed(2)); // 80% to mentor
+    const mentorSharePaise = Math.floor(totalAmountPaise * 0.8);
 
     await supabase.from("earnings").insert({
-      mentor_id: session.mentor_id,
+      mentor_email: session.mentor_email,
       session_id: sessionId,
-      amount: mentorShare,
+      amount_paise: mentorSharePaise,
       status: "pending_payout",
     });
 
@@ -406,91 +409,65 @@ router.post("/end", authMiddleware, async (req: Request, res: Response) => {
       .eq("id", sessionId);
   }
 
-  // 7. Delete Sendbird channel
+  // Delete Sendbird channel
   if (session.sendbird_channel_url) {
     await deleteSessionChannel(session.sendbird_channel_url);
   }
 
-  // 8. Notify the other party
-  const otherUserId = isStudent ? session.mentor_id : session.student_id;
-  await sendPushToUser(
-    otherUserId,
-    userId,
-    `The session has ended. Duration: ${durationMinutes} min. Total: ₹${totalAmount}`,
-    {
-      type: "session_ended",
-      sessionId,
-      durationMinutes: String(durationMinutes),
-      totalAmount: String(totalAmount),
-    }
-  );
+  // Notify other party
+  const mentorSendbirdId = await getMentorSendbirdId(session.mentor_email);
+  if (isStudent && mentorSendbirdId) {
+    await sendPushToUser(
+      mentorSendbirdId,
+      userId,
+      `Session ended by student. Duration: ${durationMinutes} min. Earned: ₹${toRupees(Math.floor(totalAmountPaise * 0.8))}`,
+      { type: "session_ended", sessionId, durationMinutes: String(durationMinutes) }
+    );
+  } else if (isMentor) {
+    await sendPushToUser(
+      session.student_id,
+      userId,
+      `Session ended. Duration: ${durationMinutes} min. Charged: ₹${toRupees(totalAmountPaise)}`,
+      { type: "session_ended", sessionId, durationMinutes: String(durationMinutes) }
+    );
+  }
 
   res.json({
     message: "Session ended",
     summary: {
       durationSeconds,
       durationMinutes,
-      totalAmount,
+      totalAmountPaise,
+      totalAmountRupees: toRupees(totalAmountPaise),
       endedBy,
     },
   });
 });
 
-// ─── POST /sessions/expire ─────────────────────────────────────────────────────
-// Called by a cron job (or manually) to expire timed-out pending sessions
-// In production: call this every minute via a cron or Supabase scheduled function
-router.post("/expire", async (_req: Request, res: Response) => {
-  const { data: expiredSessions, error } = await supabase
-    .from("sessions")
-    .update({ status: "expired" })
-    .eq("status", "pending")
-    .lt("expires_at", new Date().toISOString())
-    .select("id, student_id, mentor_id");
-
-  if (error) {
-    res.status(500).json({ error: "Failed to expire sessions" });
-    return;
-  }
-
-  // Notify students their request expired
-  for (const session of expiredSessions ?? []) {
-    await sendPushToUser(
-      session.student_id,
-      "system",
-      "Your session request expired — the mentor didn't respond in time. Try again or choose another mentor.",
-      { type: "session_expired", sessionId: session.id }
-    );
-  }
-
-  res.json({ expired: expiredSessions?.length ?? 0 });
-});
-
 // ─── GET /sessions/active ──────────────────────────────────────────────────────
-// Get the current user's active or pending session
 router.get("/active", authMiddleware, async (req: Request, res: Response) => {
-  const userId = (req as any).user.id;
+  const { id: userId, email: userEmail } = (req as any).user;
 
   const { data, error } = await supabase
     .from("sessions")
     .select("*")
-    .or(`student_id.eq.${userId},mentor_id.eq.${userId}`)
+    .or(`student_id.eq.${userId},mentor_email.eq.${userEmail}`)
     .in("status", ["pending", "active"])
     .order("created_at", { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   if (error) {
-    res.json({ session: null });
+    res.status(500).json({ error: "Failed to fetch active session" });
     return;
   }
 
-  res.json({ session: data });
+  res.json({ session: data ?? null });
 });
 
 // ─── GET /sessions/history ─────────────────────────────────────────────────────
-// Past completed sessions for either a student or mentor
 router.get("/history", authMiddleware, async (req: Request, res: Response) => {
-  const userId = (req as any).user.id;
+  const { id: userId, email: userEmail } = (req as any).user;
   const page = parseInt((req.query.page as string) ?? "1");
   const limit = 20;
   const offset = (page - 1) * limit;
@@ -498,7 +475,7 @@ router.get("/history", authMiddleware, async (req: Request, res: Response) => {
   const { data, error, count } = await supabase
     .from("sessions")
     .select("*", { count: "exact" })
-    .or(`student_id.eq.${userId},mentor_id.eq.${userId}`)
+    .or(`student_id.eq.${userId},mentor_email.eq.${userEmail}`)
     .eq("status", "completed")
     .order("ended_at", { ascending: false })
     .range(offset, offset + limit - 1);

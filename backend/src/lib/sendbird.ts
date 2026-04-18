@@ -25,8 +25,15 @@ export async function sendPushToUser(
   });
 
   if (!res.ok) {
-    const err = await res.json();
-    console.error("Sendbird push error:", err);
+    const text = await res.text(); // ← use text() not json()
+    if (text) {
+      try {
+        const err = JSON.parse(text);
+        console.error("Sendbird push error:", err);
+      } catch {
+        console.error("Sendbird push error (raw):", text);
+      }
+    }
   }
 }
 

@@ -17,12 +17,12 @@ function authMiddleware(req: Request, res: Response, next: Function) {
 
 // GET /wallet/balance
 router.get("/balance", authMiddleware, async (req: Request, res: Response) => {
-  const studentId = (req as any).user.id;
+  const { email } = (req as any).user; 
 
   const { data, error } = await supabase
     .from("student_wallets")
-    .select("balance")
-    .eq("student_id", studentId)
+    .select("balance_paise")
+    .eq("student_email", email) 
     .single();
 
   if (error || !data) {
@@ -30,12 +30,12 @@ router.get("/balance", authMiddleware, async (req: Request, res: Response) => {
     return;
   }
 
-  res.json({ balance: data.balance });
+  res.json({ balance: data.balance_paise, balanceRupees: (data.balance_paise / 100).toFixed(2) });
 });
 
 // GET /wallet/transactions
 router.get("/transactions", authMiddleware, async (req: Request, res: Response) => {
-  const studentId = (req as any).user.id;
+  const { email } = (req as any).user; 
   const page = parseInt((req.query.page as string) ?? "1");
   const limit = 20;
   const offset = (page - 1) * limit;
@@ -43,7 +43,7 @@ router.get("/transactions", authMiddleware, async (req: Request, res: Response) 
   const { data, error, count } = await supabase
     .from("student_wallet_transactions")
     .select("*", { count: "exact" })
-    .eq("student_id", studentId)
+    .eq("student_email", email)
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 

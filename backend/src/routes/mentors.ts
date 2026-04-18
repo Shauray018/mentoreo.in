@@ -3,21 +3,26 @@ import { supabase } from "../lib/supabase";
 
 const router = Router();
 
-// GET /mentors — browse all available mentors with their profile + rate
+// GET /mentors
 router.get("/", async (_req: Request, res: Response) => {
   const { data, error } = await supabase
     .from("mentor_profiles")
     .select(`
-      id,
+      email,
+      display_name,
+      bio,
+      approach,
       tier,
       rate_per_minute,
       is_available,
-      signups (
+      expertise_tags,
+      college,
+      course,
+      year,
+      avatar_url,
+      signups!inner (
         id,
-        name,
-        email,
-        college,
-        branch
+        name
       )
     `)
     .eq("is_available", true)
@@ -28,43 +33,91 @@ router.get("/", async (_req: Request, res: Response) => {
     return;
   }
 
-  res.json({ mentors: data });
+  // Flatten for easier consumption on the app side
+  const mentors = (data ?? []).map((m: any) => ({
+    email: m.email,
+    sendbirdUserId: m.signups.id,  // signups UUID = Sendbird user ID
+    name: m.signups.name,
+    displayName: m.display_name,
+    bio: m.bio,
+    approach: m.approach,
+    tier: m.tier,
+    ratePerMinutePaise: m.rate_per_minute * 100, // convert to paise for consistency
+    ratePerMinuteRupees: m.rate_per_minute,
+    isAvailable: m.is_available,
+    expertiseTags: m.expertise_tags,
+    college: m.college,
+    course: m.course,
+    year: m.year,
+    avatarUrl: m.avatar_url,
+  }));
+
+  res.json({ mentors });
 });
 
-// GET /mentors/:mentorId — single mentor detail
-router.get("/:mentorId", async (req: Request, res: Response) => {
-  const { mentorId } = req.params;
+// GET /mentors/:email — use encodeURIComponent on client side
+router.get("/:email", async (req: Request, res: Response) => {
+  const email = decodeURIComponent(req.params.email as string);
 
+  // Main mentor query without reviews
   const { data, error } = await supabase
     .from("mentor_profiles")
     .select(`
-      id,
+      email,
+      display_name,
+      bio,
+      approach,
       tier,
       rate_per_minute,
       is_available,
-      signups (
+      expertise_tags,
+      college,
+      course,
+      year,
+      avatar_url,
+      linkedin,
+      signups!inner (
         id,
-        name,
-        email,
-        college,
-        branch
-      ),
-      reviews (
-        id,
-        rating,
-        comment,
-        created_at
+        name
       )
     `)
-    .eq("id", mentorId)
+    .eq("email", email)
     .single();
 
   if (error || !data) {
+    console.error("Mentor fetch error:", error);
     res.status(404).json({ error: "Mentor not found" });
     return;
   }
 
-  res.json({ mentor: data });
+  // Fetch reviews separately via signups.email FK
+  const { data: reviews } = await supabase
+    .from("reviews")
+    .select("id, rating, comment, created_at")
+    .eq("mentor_email", email)
+    .order("created_at", { ascending: false });
+
+  const mentor = {
+    email: data.email,
+    sendbirdUserId: (data.signups as any).id,
+    name: (data.signups as any).name,
+    displayName: data.display_name,
+    bio: data.bio,
+    approach: data.approach,
+    tier: data.tier,
+    ratePerMinutePaise: data.rate_per_minute * 100,
+    ratePerMinuteRupees: data.rate_per_minute,
+    isAvailable: data.is_available,
+    expertiseTags: data.expertise_tags,
+    college: data.college,
+    course: data.course,
+    year: data.year,
+    avatarUrl: data.avatar_url,
+    linkedin: data.linkedin,
+    reviews: reviews ?? [],
+  };
+
+  res.json({ mentor });
 });
 
 export default router;
