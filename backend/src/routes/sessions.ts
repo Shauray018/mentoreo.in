@@ -3,8 +3,9 @@ import jwt from "jsonwebtoken";
 import { supabase } from "../lib/supabase";
 import {
   createSessionChannel,
-  deleteSessionChannel,
+  freezeSessionChannel,
   sendPushToUser,
+  updateSessionChannelState,
 } from "../lib/sendbird";
 
 const router = Router();
@@ -187,10 +188,17 @@ router.post("/accept", authMiddleware, async (req: Request, res: Response) => {
   }
 
   // 3. Create Sendbird channel
+  console.log("Creating Sendbird session channel:", {
+    studentId: session.student_id,
+    mentorId: mentorSignupId,
+    sessionId,
+  });
+
   const channelUrl = await createSessionChannel(
     session.student_id,  // student UUID = their Sendbird ID
     mentorSignupId,      // mentor signups.id = their Sendbird ID
-    sessionId
+    sessionId,
+    mentorEmail
   );
 
   if (!channelUrl) {
@@ -409,9 +417,35 @@ router.post("/end", authMiddleware, async (req: Request, res: Response) => {
       .eq("id", sessionId);
   }
 
-  // Delete Sendbird channel
+  // Freeze and mark Sendbird channel as ended (best effort)
   if (session.sendbird_channel_url) {
-    await deleteSessionChannel(session.sendbird_channel_url);
+    try {
+      const freezeOk = await freezeSessionChannel(session.sendbird_channel_url);
+      console.log("Sendbird channel freeze result:", {
+        channelUrl: session.sendbird_channel_url,
+        success: freezeOk,
+      });
+    } catch (freezeError) {
+      console.error("Failed to freeze Sendbird channel:", {
+        channelUrl: session.sendbird_channel_url,
+        error: freezeError,
+      });
+    }
+
+    try {
+      const stateOk = await updateSessionChannelState(session.sendbird_channel_url, "ended");
+      console.log("Sendbird channel state update result:", {
+        channelUrl: session.sendbird_channel_url,
+        state: "ended",
+        success: stateOk,
+      });
+    } catch (stateError) {
+      console.error("Failed to update Sendbird channel state:", {
+        channelUrl: session.sendbird_channel_url,
+        state: "ended",
+        error: stateError,
+      });
+    }
   }
 
   // Notify other party

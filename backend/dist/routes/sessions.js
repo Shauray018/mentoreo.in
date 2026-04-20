@@ -161,9 +161,14 @@ router.post("/accept", authMiddleware, async (req, res) => {
         return;
     }
     // 3. Create Sendbird channel
+    console.log("Creating Sendbird session channel:", {
+        studentId: session.student_id,
+        mentorId: mentorSignupId,
+        sessionId,
+    });
     const channelUrl = await (0, sendbird_1.createSessionChannel)(session.student_id, // student UUID = their Sendbird ID
     mentorSignupId, // mentor signups.id = their Sendbird ID
-    sessionId);
+    sessionId, mentorEmail);
     if (!channelUrl) {
         res.status(500).json({ error: "Failed to create chat channel" });
         return;
@@ -331,9 +336,36 @@ router.post("/end", authMiddleware, async (req, res) => {
             .update({ mentor_credited: true })
             .eq("id", sessionId);
     }
-    // Delete Sendbird channel
+    // Freeze and mark Sendbird channel as ended (best effort)
     if (session.sendbird_channel_url) {
-        await (0, sendbird_1.deleteSessionChannel)(session.sendbird_channel_url);
+        try {
+            const freezeOk = await (0, sendbird_1.freezeSessionChannel)(session.sendbird_channel_url);
+            console.log("Sendbird channel freeze result:", {
+                channelUrl: session.sendbird_channel_url,
+                success: freezeOk,
+            });
+        }
+        catch (freezeError) {
+            console.error("Failed to freeze Sendbird channel:", {
+                channelUrl: session.sendbird_channel_url,
+                error: freezeError,
+            });
+        }
+        try {
+            const stateOk = await (0, sendbird_1.updateSessionChannelState)(session.sendbird_channel_url, "ended");
+            console.log("Sendbird channel state update result:", {
+                channelUrl: session.sendbird_channel_url,
+                state: "ended",
+                success: stateOk,
+            });
+        }
+        catch (stateError) {
+            console.error("Failed to update Sendbird channel state:", {
+                channelUrl: session.sendbird_channel_url,
+                state: "ended",
+                error: stateError,
+            });
+        }
     }
     // Notify other party
     const mentorSendbirdId = await getMentorSendbirdId(session.mentor_email);

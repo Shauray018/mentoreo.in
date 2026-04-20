@@ -41,8 +41,17 @@ export async function sendPushToUser(
 export async function createSessionChannel(
   studentId: string,
   mentorId: string,
-  sessionId: string
+  sessionId: string,
+  mentorEmail: string
 ): Promise<string | null> {
+  const channelData = {
+    sessionId,
+    studentId,
+    mentorId,
+    mentorEmail,
+    state: "active",
+  };
+
   const res = await fetch(`${SENDBIRD_BASE}/group_channels`, {
     method: "POST",
     headers: SB_HEADERS,
@@ -52,7 +61,7 @@ export async function createSessionChannel(
       user_ids: [studentId, mentorId],
       is_distinct: false,                   // new channel every session
       custom_type: "mentoreo_session",
-      data: JSON.stringify({ sessionId }),
+      data: JSON.stringify(channelData),
     }),
   });
 
@@ -66,10 +75,70 @@ export async function createSessionChannel(
   return data.channel_url as string;
 }
 
-// Delete a channel when session ends
-export async function deleteSessionChannel(channelUrl: string) {
-  await fetch(`${SENDBIRD_BASE}/group_channels/${channelUrl}`, {
-    method: "DELETE",
+export async function freezeSessionChannel(channelUrl: string): Promise<boolean> {
+  const safeChannelUrl = encodeURIComponent(channelUrl);
+  const res = await fetch(`${SENDBIRD_BASE}/group_channels/${safeChannelUrl}`, {
+    method: "PUT",
+    headers: SB_HEADERS,
+    body: JSON.stringify({ freeze: true }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error("Sendbird channel freeze error:", channelUrl, text);
+    return false;
+  }
+
+  return true;
+}
+
+export async function updateSessionChannelState(
+  channelUrl: string,
+  state: "ended" | "active"
+): Promise<boolean> {
+  const safeChannelUrl = encodeURIComponent(channelUrl);
+
+  let existingData: Record<string, unknown> = {};
+  const getRes = await fetch(`${SENDBIRD_BASE}/group_channels/${safeChannelUrl}`, {
+    method: "GET",
     headers: SB_HEADERS,
   });
+
+  if (getRes.ok) {
+    const channel = await getRes.json();
+    if (typeof channel?.data === "string" && channel.data.length > 0) {
+      try {
+        const parsed = JSON.parse(channel.data);
+        if (parsed && typeof parsed === "object") {
+          existingData = parsed as Record<string, unknown>;
+        }
+      } catch {
+        console.error("Sendbird channel data parse error:", channelUrl, channel.data);
+      }
+    }
+  } else {
+    const getText = await getRes.text();
+    console.error("Sendbird channel fetch error before state update:", channelUrl, getText);
+  }
+
+  const updatedData = {
+    ...existingData,
+    state,
+  };
+
+  const putRes = await fetch(`${SENDBIRD_BASE}/group_channels/${safeChannelUrl}`, {
+    method: "PUT",
+    headers: SB_HEADERS,
+    body: JSON.stringify({
+      data: JSON.stringify(updatedData),
+    }),
+  });
+
+  if (!putRes.ok) {
+    const text = await putRes.text();
+    console.error("Sendbird channel state update error:", channelUrl, state, text);
+    return false;
+  }
+
+  return true;
 }
