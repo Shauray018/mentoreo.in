@@ -37,7 +37,7 @@ router.post("/send-otp", async (req, res) => {
     otpStore.set(email, { otp, expiresAt });
     // Send OTP via Resend
     const { error: emailError } = await resend_1.resend.emails.send({
-        from: "Mentoreo <onboarding@resend.dev>",
+        from: "Mentoreo <support@mentoreo.in>",
         to: email,
         subject: "Your Mentoreo login code",
         html: `
