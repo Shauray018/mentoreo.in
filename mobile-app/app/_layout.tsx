@@ -1,121 +1,3 @@
-// import { useColorScheme } from "@/hooks/use-color-scheme";
-// import { platformServices } from "@/services/platformServices";
-// import AsyncStorage from "@react-native-async-storage/async-storage";
-// import {
-//   DarkTheme,
-//   DefaultTheme,
-//   ThemeProvider,
-// } from "@react-navigation/native";
-// import {
-//   SendbirdUIKitContainer,
-//   useSendbirdChat,
-// } from "@sendbird/uikit-react-native";
-// import { Redirect, Stack } from "expo-router";
-// import { StatusBar } from "expo-status-bar";
-// import { Platform } from "react-native";
-// import "react-native-reanimated";
-
-// export const unstable_settings = {
-//   anchor: "signin",
-// };
-
-// function AppNavigator() {
-//   const { currentUser } = useSendbirdChat();
-//   const colorScheme = useColorScheme();
-
-//   return (
-//     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-//       {!currentUser ? <Redirect href="/signin" /> : <Redirect href="/(tabs)" />}
-
-//       <Stack screenOptions={{ headerShown: false }}>
-//         <Stack.Screen name="signin" />
-//         <Stack.Screen name="(tabs)" />
-//         <Stack.Screen name="group-channel/[channelUrl]" />
-//         <Stack.Screen name="group-channel-create" />
-//       </Stack>
-
-//       <StatusBar style="auto" />
-//     </ThemeProvider>
-//   );
-// }
-
-// export default function RootLayout() {
-//   if (Platform.OS === "web") {
-//     return <AppNavigator />;
-//   }
-
-//   return (
-//     <SendbirdUIKitContainer
-//       appId={"46534DCE-0862-4A51-8AD5-5461C2551E2D"}
-//       chatOptions={{ localCacheStorage: AsyncStorage }}
-//       platformServices={platformServices!}
-//     >
-//       <AppNavigator />
-//     </SendbirdUIKitContainer>
-//   );
-// }
-// import { AuthProvider, useAuth } from "@/context/AuthContext";
-// import { platformServices } from "@/services/platformServices";
-// import AsyncStorage from "@react-native-async-storage/async-storage";
-// import { Redirect, Stack } from "expo-router";
-// import { Platform, View } from "react-native";
-// import "react-native-reanimated";
-
-// import { Colors } from "@/constants/theme";
-// import { SendbirdUIKitContainer } from "@sendbird/uikit-react-native";
-
-// export const unstable_settings = {
-//   anchor: "signin",
-// };
-
-// function AppNavigator() {
-//   const { user, isLoading } = useAuth();
-
-//   if (isLoading) {
-//     return <View style={{ flex: 1, backgroundColor: Colors.bg }} />;
-//   }
-
-//   return (
-//     <>
-//       {!user ? <Redirect href="/signin" /> : <Redirect href="/(tabs)" />}
-
-//       <Stack
-//         screenOptions={{
-//           headerShown: false,
-//           contentStyle: { backgroundColor: Colors.bg },
-//         }}
-//       >
-//         <Stack.Screen name="signin" />
-//         <Stack.Screen name="(tabs)" />
-//         <Stack.Screen name="mentor/[email]" />
-//         <Stack.Screen name="session/active" />
-//         <Stack.Screen name="group-channel/[channelUrl]" />
-//       </Stack>
-//     </>
-//   );
-// }
-// function SendbirdWrapper({ children }: { children: React.ReactNode }) {
-//   if (Platform.OS === "web") return <>{children}</>;
-//   return (
-//     <SendbirdUIKitContainer
-//       appId={"46534DCE-0862-4A51-8AD5-5461C2551E2D"}
-//       chatOptions={{ localCacheStorage: AsyncStorage }}
-//       platformServices={platformServices!}
-//     >
-//       {children}
-//     </SendbirdUIKitContainer>
-//   );
-// }
-
-// export default function RootLayout() {
-//   return (
-//     <AuthProvider>
-//       <SendbirdWrapper>
-//         <AppNavigator />
-//       </SendbirdWrapper>
-//     </AuthProvider>
-//   );
-// }
 import { Colors } from "@/constants/theme";
 import { platformServices } from "@/services/platformServices";
 import { useAuthStore } from "@/stores/authStore";
@@ -125,10 +7,14 @@ import {
   SendbirdUIKitContainer,
   useSendbirdChat,
 } from "@sendbird/uikit-react-native";
+import {
+  DarkUIKitTheme,
+  LightUIKitTheme,
+} from "@sendbird/uikit-react-native-foundation";
 import { Redirect, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
-import { Platform, View } from "react-native";
+import { Platform, View, useColorScheme } from "react-native";
 import "react-native-reanimated";
 
 export const unstable_settings = {
@@ -185,9 +71,12 @@ function AppNavigator() {
 }
 
 function SendbirdWrapper({ children }: { children: React.ReactNode }) {
+  const colorScheme = useColorScheme();
+  const theme = colorScheme === "light" ? LightUIKitTheme : DarkUIKitTheme;
   if (Platform.OS === "web") return <>{children}</>;
   return (
     <SendbirdUIKitContainer
+      styles={{ theme }}
       appId={"46534DCE-0862-4A51-8AD5-5461C2551E2D"}
       chatOptions={{ localCacheStorage: AsyncStorage }}
       platformServices={platformServices!}

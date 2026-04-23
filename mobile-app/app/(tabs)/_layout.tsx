@@ -1,33 +1,10 @@
 import { Colors, FontSize } from "@/constants/theme";
-import { useAuth } from "@/context/AuthContext";
+import { useAuthStore } from "@/stores/authStore";
 import { Tabs } from "expo-router";
 import { Platform, View } from "react-native";
 
-// Simple SVG-free icons using Unicode / text-based approach
-function TabIcon({ symbol, focused }: { symbol: string; focused: boolean }) {
-  return (
-    <View
-      style={{
-        alignItems: "center",
-        justifyContent: "center",
-        width: 32,
-        height: 32,
-        borderRadius: 10,
-        backgroundColor: focused ? Colors.accentDim : "transparent",
-      }}
-    >
-      <View>
-        {/* We use emoji as tab icons — clean and cross-platform */}
-        <View style={{ opacity: focused ? 1 : 0.5 }}>
-          {/* Placeholder — icons passed as children */}
-        </View>
-      </View>
-    </View>
-  );
-}
-
 export default function TabsLayout() {
-  const { user } = useAuth();
+  const { user } = useAuthStore();
   const isStudent = user?.role === "student";
 
   const tabBarStyle = {
@@ -103,15 +80,6 @@ export default function TabsLayout() {
           title: "Requests",
           tabBarIcon: ({ focused }) => (
             <TabIconEmoji emoji="📥" focused={focused} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="chat"
-        options={{
-          title: "Chats",
-          tabBarIcon: ({ focused }) => (
-            <TabIconEmoji emoji="💬" focused={focused} />
           ),
         }}
       />

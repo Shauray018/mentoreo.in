@@ -19,6 +19,7 @@
     "@react-navigation/native": "^7.1.8",
     "@sendbird/chat": "^4.22.0",
     "@sendbird/uikit-react-native": "^3.12.6",
+    "@sendbird/uikit-react-native-foundation": "^3.12.6",
     "@types/lodash": "^4.17.24",
     "date-fns": "^4.1.0",
     "expo": "~54.0.33",
