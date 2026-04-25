@@ -5,118 +5,90 @@ import { resend } from "../lib/resend";
 
 const router = Router();
 
-const otpStore = new Map<string, { otp: string; expiresAt: number }>();
-
-// POST /auth/send-otp
-router.post("/send-otp", async (req: Request, res: Response) => {
-  const { email, role } = req.body;
-
-  if (!email || !role) {
-    res.status(400).json({ error: "Email and role are required" });
-    return;
+/**
+ * OTP store
+ * key = email
+ */
+const otpStore = new Map<
+  string,
+  {
+    otp: string;
+    expiresAt: number;
+    purpose: "login" | "signup";
+    role: "student" | "mentor";
   }
+>();
 
-  if (!["student", "mentor"].includes(role)) {
-    res.status(400).json({ error: "Role must be student or mentor" });
-    return;
-  }
+/* -------------------------------------------------- */
+/* Helpers */
+/* -------------------------------------------------- */
 
-  // Check user exists in the correct table
-  const table = role === "student" ? "student_signups" : "signups";
-  const { data: user, error } = await supabase
-    .from(table)
-    .select("id, name, email")
-    .eq("email", email)
-    .single();
+function generateOtp() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
 
-  if (error || !user) {
-    res.status(404).json({ error: `No ${role} account found with this email` });
-    return;
-  }
+function setOtp(
+  email: string,
+  role: "student" | "mentor",
+  purpose: "login" | "signup"
+) {
+  const otp = generateOtp();
 
-  // Generate OTP
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
-  otpStore.set(email, { otp, expiresAt });
-
-  // Send OTP via Resend
-  const { error: emailError } = await resend.emails.send({
-    from: "Mentoreo <support@mentoreo.in>",
-    to: email,
-    subject: "Your Mentoreo login code",
-    html: `
-      <div style="font-family: sans-serif; max-width: 400px; margin: auto;">
-        <h2>Your login code</h2>
-        <p>Hi ${user.name},</p>
-        <p>Use the code below to sign in as a <strong>${role}</strong>. It expires in 10 minutes.</p>
-        <div style="font-size: 36px; font-weight: bold; letter-spacing: 8px; margin: 24px 0; color: #742DDD;">
-          ${otp}
-        </div>
-        <p style="color: #888;">If you didn't request this, ignore this email.</p>
-      </div>
-    `,
+  otpStore.set(email, {
+    otp,
+    expiresAt: Date.now() + 10 * 60 * 1000,
+    purpose,
+    role,
   });
 
-  if (emailError) {
-    console.error("Resend error:", emailError);
-    res.status(500).json({ error: "Failed to send OTP email" });
-    return;
-  }
+  return otp;
+}
 
-  res.json({ message: "OTP sent successfully" });
-});
-
-// POST /auth/verify-otp
-router.post("/verify-otp", async (req: Request, res: Response) => {
-  const { email, otp, role } = req.body;
-
-  if (!email || !otp || !role) {
-    res.status(400).json({ error: "Email, OTP and role are required" });
-    return;
-  }
-
-  if (!["student", "mentor"].includes(role)) {
-    res.status(400).json({ error: "Role must be student or mentor" });
-    return;
-  }
-
-  // Validate OTP
+function verifyStoredOtp(
+  email: string,
+  otp: string,
+  role: "student" | "mentor",
+  purpose: "login" | "signup"
+) {
   const stored = otpStore.get(email);
 
-  if (!stored) {
-    res.status(400).json({ error: "No OTP found. Please request a new one." });
-    return;
+  if (!stored) return "No OTP found. Please request a new one.";
+
+  if (stored.role !== role || stored.purpose !== purpose) {
+    return "Invalid OTP request.";
   }
 
   if (Date.now() > stored.expiresAt) {
     otpStore.delete(email);
-    res.status(400).json({ error: "OTP expired. Please request a new one." });
-    return;
+    return "OTP expired. Please request a new one.";
   }
 
-  if (stored.otp !== otp) {
-    res.status(400).json({ error: "Invalid OTP" });
-    return;
-  }
+  if (stored.otp !== otp) return "Invalid OTP";
 
   otpStore.delete(email);
+  return null;
+}
 
-  // Fetch user from correct table
-  const table = role === "student" ? "student_signups" : "signups";
-  const { data: user, error } = await supabase
-    .from(table)
-    .select("id, name, email, phone")
-    .eq("email", email)
-    .single();
+function getTable(role: "student" | "mentor") {
+  return role === "student" ? "student_signups" : "signups";
+}
 
-  if (error || !user) {
-    res.status(500).json({ error: "Failed to fetch user" });
-    return;
-  }
+function createJwt(user: any, role: "student" | "mentor") {
+  return jwt.sign(
+    {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role,
+    },
+    process.env.JWT_SECRET!,
+    { expiresIn: "30d" }
+  );
+}
 
-  // Upsert user in Sendbird
+async function createSendbirdUser(user: any) {
   try {
-    const sendbirdRes = await fetch(
+    const response = await fetch(
       `https://api-${process.env.SENDBIRD_APP_ID}.sendbird.com/v3/users`,
       {
         method: "POST",
@@ -133,24 +105,283 @@ router.post("/verify-otp", async (req: Request, res: Response) => {
       }
     );
 
-    if (!sendbirdRes.ok) {
-      const sbError = await sendbirdRes.json();
-      if (sbError.code !== 400201) {
-        console.error("Sendbird upsert error:", sbError);
+    if (!response.ok) {
+      const err = await response.json();
+
+      /**
+       * 400201 = user already exists
+       */
+      if (err.code !== 400201) {
+        console.error("Sendbird error:", err);
       }
     }
-  } catch (sbErr) {
-    console.error("Sendbird API call failed:", sbErr);
+  } catch (error) {
+    console.error("Sendbird failed:", error);
+  }
+}
+
+async function sendOtpEmail(
+  email: string,
+  name: string,
+  otp: string,
+  role: string,
+  purpose: string
+) {
+  return resend.emails.send({
+    from: "Mentoreo <support@mentoreo.in>",
+    to: email,
+    subject:
+      purpose === "login"
+        ? "Your Mentoreo login code"
+        : "Your Mentoreo signup code",
+    html: `
+      <div style="font-family:sans-serif;max-width:420px;margin:auto;">
+        <h2>Your verification code</h2>
+        <p>Hi ${name || "there"},</p>
+        <p>
+          Use this code to ${purpose} as a <strong>${role}</strong>.
+          It expires in 10 minutes.
+        </p>
+
+        <div style="
+          font-size:36px;
+          font-weight:bold;
+          letter-spacing:8px;
+          margin:24px 0;
+          color:#742DDD;
+        ">
+          ${otp}
+        </div>
+
+        <p style="color:#888;">
+          If you didn't request this, ignore this email.
+        </p>
+      </div>
+    `,
+  });
+}
+
+/* -------------------------------------------------- */
+/* LOGIN OTP SEND */
+/* POST /auth/send-otp-login */
+/* -------------------------------------------------- */
+
+router.post("/send-otp-login", async (req: Request, res: Response) => {
+  const { email, role } = req.body;
+
+  if (!email || !role) {
+    return res.status(400).json({ error: "Email and role are required" });
   }
 
-  // Issue JWT with role included
-  const token = jwt.sign(
-    { id: user.id, email: user.email, name: user.name, role },
-    process.env.JWT_SECRET!,
-    { expiresIn: "30d" }
+  if (!["student", "mentor"].includes(role)) {
+    return res.status(400).json({ error: "Invalid role" });
+  }
+
+  const table = getTable(role);
+
+  const { data: user, error } = await supabase
+    .from(table)
+    .select("id, name, email")
+    .eq("email", email)
+    .single();
+
+  if (error || !user) {
+    return res.status(404).json({ error: "Account not found" });
+  }
+
+  const otp = setOtp(email, role, "login");
+
+  const { error: emailError } = await sendOtpEmail(
+    email,
+    user.name,
+    otp,
+    role,
+    "login"
   );
 
-  res.json({ token, user: { ...user, role } });
+  if (emailError) {
+    return res.status(500).json({ error: "Failed to send OTP" });
+  }
+
+  res.json({ message: "OTP sent successfully" });
+});
+
+/* -------------------------------------------------- */
+/* VERIFY LOGIN */
+/* POST /auth/verify-login */
+/* -------------------------------------------------- */
+
+router.post("/verify-login", async (req: Request, res: Response) => {
+  const { email, otp, role } = req.body;
+
+  if (!email || !otp || !role) {
+    return res
+      .status(400)
+      .json({ error: "Email, OTP and role are required" });
+  }
+
+  if (!["student", "mentor"].includes(role)) {
+    return res.status(400).json({ error: "Invalid role" });
+  }
+
+  const otpError = verifyStoredOtp(email, otp, role, "login");
+
+  if (otpError) {
+    return res.status(400).json({ error: otpError });
+  }
+
+  const table = getTable(role);
+
+  const { data: user, error } = await supabase
+    .from(table)
+    .select("*")
+    .eq("email", email)
+    .single();
+
+  if (error || !user) {
+    return res.status(500).json({ error: "Failed to fetch user" });
+  }
+
+  await createSendbirdUser(user);
+
+  const token = createJwt(user, role);
+
+  res.json({
+    token,
+    user: { ...user, role },
+  });
+});
+
+/* -------------------------------------------------- */
+/* SIGNUP OTP SEND */
+/* POST /auth/send-otp-signup */
+/* -------------------------------------------------- */
+
+router.post("/send-otp-signup", async (req: Request, res: Response) => {
+  const { email, role } = req.body;
+
+  if (!email || !role) {
+    return res.status(400).json({ error: "Email and role are required" });
+  }
+
+  if (!["student", "mentor"].includes(role)) {
+    return res.status(400).json({ error: "Invalid role" });
+  }
+
+  const table = getTable(role);
+
+  const { data: existing } = await supabase
+    .from(table)
+    .select("id")
+    .eq("email", email)
+    .single();
+
+  if (existing) {
+    return res.status(400).json({ error: "Email already registered" });
+  }
+
+  const otp = setOtp(email, role, "signup");
+
+  const { error } = await sendOtpEmail(
+    email,
+    "there",
+    otp,
+    role,
+    "signup"
+  );
+
+  if (error) {
+    return res.status(500).json({ error: "Failed to send OTP" });
+  }
+
+  res.json({ message: "OTP sent successfully" });
+});
+
+/* -------------------------------------------------- */
+/* STUDENT SIGNUP */
+/* POST /auth/signup/student */
+/* -------------------------------------------------- */
+
+router.post("/signup/student", async (req: Request, res: Response) => {
+  const { email, otp, name, phone } = req.body;
+
+  if (!email || !otp || !name) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
+
+  const otpError = verifyStoredOtp(email, otp, "student", "signup");
+
+  if (otpError) {
+    return res.status(400).json({ error: otpError });
+  }
+
+  const { data: user, error } = await supabase
+    .from("student_signups")
+    .insert({
+      email,
+      name,
+      phone: phone || null,
+    })
+    .select()
+    .single();
+
+  if (error || !user) {
+    return res.status(500).json({ error: "Signup failed" });
+  }
+
+  await createSendbirdUser(user);
+
+  const token = createJwt(user, "student");
+
+  res.json({
+    token,
+    user: { ...user, role: "student" },
+  });
+});
+
+/* -------------------------------------------------- */
+/* MENTOR SIGNUP */
+/* POST /auth/signup/mentor */
+/* -------------------------------------------------- */
+
+router.post("/signup/mentor", async (req: Request, res: Response) => {
+  const { email, otp, name, phone, college, course, branch } = req.body;
+
+  if (!email || !otp || !name || !phone || !college) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
+
+  const otpError = verifyStoredOtp(email, otp, "mentor", "signup");
+
+  if (otpError) {
+    return res.status(400).json({ error: otpError });
+  }
+
+  const { data: user, error } = await supabase
+    .from("signups")
+    .insert({
+      email,
+      name,
+      phone,
+      college,
+      course: course || null,
+      branch: branch || null,
+    })
+    .select()
+    .single();
+
+  if (error || !user) {
+    return res.status(500).json({ error: "Signup failed" });
+  }
+
+  await createSendbirdUser(user);
+
+  const token = createJwt(user, "mentor");
+
+  res.json({
+    token,
+    user: { ...user, role: "mentor" },
+  });
 });
 
 export default router;
