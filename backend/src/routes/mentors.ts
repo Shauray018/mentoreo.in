@@ -120,4 +120,49 @@ router.get("/:email", async (req: Request, res: Response) => {
   res.json({ mentor });
 });
 
+// PATCH /mentors/:email
+router.patch("/:email", async (req: Request, res: Response) => {
+  const email = decodeURIComponent(req.params.email as string);
+
+  const {
+    display_name,
+    bio,
+    approach,
+    linkedin,
+    year,
+    college,
+    course,
+    avatar_url,
+    expertise_tags,
+    rate_per_minute,
+    is_available,
+  } = req.body;
+
+  const { data, error } = await supabase
+    .from("mentor_profiles")
+    .update({
+      display_name,
+      bio,
+      approach,
+      linkedin,
+      year,
+      college,
+      course,
+      avatar_url,
+      expertise_tags,
+      rate_per_minute,
+      is_available,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("email", email)
+    .select()
+    .single();
+
+  if (error) {
+    return res.status(500).json({ error: "Failed to update mentor profile" });
+  }
+
+  res.json({ mentor: data });
+}); 
+
 export default router;
