@@ -7,6 +7,7 @@ import sessionRoutes from "./routes/sessions";
 import walletRoutes from "./routes/wallet";
 import { sendPushToUser } from "./lib/sendbird";
 import { supabase } from "./lib/supabase";
+import studentRoutes from "./routes/students";
 
 dotenv.config();
 
@@ -22,6 +23,7 @@ app.use("/auth", authRoutes);
 app.use("/mentors", mentorRoutes);
 app.use("/sessions", sessionRoutes);
 app.use("/wallet", walletRoutes);
+app.use("/students", studentRoutes);
 
 // ─── SESSION EXPIRY RUNNER ─────────────────────────────────────────────────────
 const expireSessions = async () => {
