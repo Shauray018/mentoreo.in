@@ -1,27 +1,24 @@
 import { Colors, FontSize, Radius, Spacing } from "@/constants/theme";
-import {
-  MentorProfile,
-  formatPaise,
-  mentorsApi,
-  tierColor
-} from "@/services/api";
+import { MentorProfile, formatPaise, mentorsApi } from "@/services/api";
 import { useAuthStore } from "@/stores/authStore";
 import { useSessionStore } from "@/stores/sessionStore";
+import AntDesign from "@expo/vector-icons/AntDesign";
+import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
+import * as Notifications from "expo-notifications";
 import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Image,
   RefreshControl,
   ScrollView,
   StyleSheet,
-  Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { Image, Separator, Text, XStack, YStack } from "tamagui";
 
 // ─── Student Home: Browse Mentors ──────────────────────────────────────────
 function StudentHome() {
@@ -61,7 +58,6 @@ function StudentHome() {
           const name = (m.display_name ?? "").toLowerCase();
           const college = (m.college ?? "").toLowerCase();
           const tags = m.expertise_tags ?? [];
-
           return (
             name.includes(q) ||
             college.includes(q) ||
@@ -88,21 +84,6 @@ function StudentHome() {
 
   return (
     <View style={styles.root}>
-      {/* Active session banner */}
-      {/* {activeSession && (
-        <TouchableOpacity
-          style={styles.sessionBanner}
-          onPress={() => router.push("/session/active")}
-        >
-          <View style={styles.sessionBannerDot} />
-          <Text style={styles.sessionBannerText}>
-            {activeSession.status === "pending"
-              ? "⏳ Waiting for mentor to accept…"
-              : "🟢 Session active — tap to open"}
-          </Text>
-          <Text style={styles.sessionBannerArrow}>›</Text>
-        </TouchableOpacity>
-      )} */}
       {session &&
         (session.status === "pending" || session.status === "active") && (
           <TouchableOpacity
@@ -136,13 +117,16 @@ function StudentHome() {
         }
         ListHeaderComponent={
           <View>
-            <Text style={styles.greeting}>
-              Hey {user?.name?.split(" ")[0]} 👋
-            </Text>
-            <Text style={styles.subGreeting}>Find your perfect mentor</Text>
+            <YStack gap={2} padding={4} marginBottom={6}>
+              <Text fontSize={13} fontWeight={700} color={"#6A7282"}>
+                Welcome back,
+              </Text>
+              <Text fontSize={20} fontWeight={700} color={"#263238"}>
+                {user?.name?.split(" ")[0]}
+              </Text>
+            </YStack>
 
             <View style={styles.searchBox}>
-              <Text style={styles.searchIcon}>🔍</Text>
               <TextInput
                 style={styles.searchInput}
                 placeholder="Search by name, college, or skill…"
@@ -150,6 +134,15 @@ function StudentHome() {
                 value={search}
                 onChangeText={setSearch}
               />
+              <XStack
+                borderWidth={1}
+                backgroundColor={"#FCD310"}
+                borderRadius={8}
+                padding={4}
+                paddingHorizontal={8}
+              >
+                <FontAwesome6 name="bolt" size={16} color="#263238" />
+              </XStack>
             </View>
           </View>
         }
@@ -164,6 +157,7 @@ function StudentHome() {
   );
 }
 
+// ─── Mentor Card ────────────────────────────────────────────────────────────
 function MentorCard({ mentor }: { mentor: MentorProfile }) {
   return (
     <TouchableOpacity
@@ -171,11 +165,16 @@ function MentorCard({ mentor }: { mentor: MentorProfile }) {
       onPress={() => router.push(`/mentor/${encodeURIComponent(mentor.email)}`)}
       activeOpacity={0.8}
     >
-      <View style={styles.cardRow}>
-        {/* Avatar */}
-        <View style={styles.avatarWrap}>
+      <XStack justifyContent="space-between">
+        <XStack gap={10} alignItems="center">
           {mentor.avatar_url ? (
-            <Image source={{ uri: mentor.avatar_url }} style={styles.avatar} />
+            <Image
+              src={mentor.avatar_url}
+              width={60}
+              height={60}
+              borderWidth={1.5}
+              borderRadius={16}
+            />
           ) : (
             <View style={[styles.avatar, styles.avatarFallback]}>
               <Text style={styles.avatarInitial}>
@@ -183,44 +182,52 @@ function MentorCard({ mentor }: { mentor: MentorProfile }) {
               </Text>
             </View>
           )}
-          {mentor.is_available && <View style={styles.onlineDot} />}
-        </View>
-
-        {/* Info */}
-        <View style={styles.cardInfo}>
-          <View style={styles.cardNameRow}>
-            <Text style={styles.cardName}>{mentor.display_name}</Text>
-            <View
-              style={[
-                styles.tierBadge,
-                { backgroundColor: tierColor(mentor.tier) + "22" },
-              ]}
+          <YStack>
+            <Text fontSize={18} fontWeight={700} color={"#263238"}>
+              {mentor.display_name}
+            </Text>
+            <Text color={"#4A5565"} fontSize={14} fontWeight={500}>
+              {mentor.course}
+            </Text>
+            <Text
+              color={"#FF6B00"}
+              fontSize={12}
+              fontWeight={600}
+              maxWidth={200}
+              numberOfLines={1}
             >
-              <Text
-                style={[styles.tierText, { color: tierColor(mentor.tier) }]}
-              >
-                {mentor.tier}
-              </Text>
-            </View>
-          </View>
-          <Text style={styles.cardCollege} numberOfLines={1}>
-            {mentor.college} · {mentor.course}
+              {mentor.college}
+            </Text>
+          </YStack>
+        </XStack>
+        <AntDesign name="star" size={24} color="black" />
+      </XStack>
+      <Separator alignSelf="stretch" marginTop={20} />
+      <XStack justifyContent="space-between" alignItems="center" marginTop={20}>
+        <YStack>
+          <Text color={"#6A7282"} fontSize={11} fontWeight={700}>
+            Price
           </Text>
-          <View style={styles.tagsRow}>
-            {mentor.expertise_tags?.slice(0, 3).map((tag) => (
-              <View key={tag} style={styles.tag}>
-                <Text style={styles.tagText}>{tag}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
+          <Text color={"#263238"} fontSize={14} fontWeight={700}>
+            ₹{mentor.rate_per_minute}/min
+          </Text>
+        </YStack>
 
-        {/* Rate */}
-        <View style={styles.rateBox}>
-          <Text style={styles.rateAmount}>₹{mentor.rate_per_minute}</Text>
-          <Text style={styles.rateLabel}>/min</Text>
-        </View>
-      </View>
+        <XStack
+          justifyContent="space-between"
+          alignItems="center"
+          borderWidth={1.5}
+          borderRadius={14}
+          padding={10}
+          paddingHorizontal={14}
+          backgroundColor={"#FF6B00"}
+        >
+          <Text color={"white"} paddingRight={10} fontWeight={700}>
+            Book
+          </Text>
+          <AntDesign name="arrow-right" size={14} color="white" />
+        </XStack>
+      </XStack>
     </TouchableOpacity>
   );
 }
@@ -232,6 +239,18 @@ function MentorHome() {
   const isLoading = useSessionStore((s) => s.isLoading);
   const acceptSession = useSessionStore((s) => s.acceptSession);
   const declineSession = useSessionStore((s) => s.declineSession);
+
+  useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        const sessionId = response.notification.request.content.data?.sessionId;
+        if (sessionId) {
+          router.push("/(tabs)");
+        }
+      },
+    );
+    return () => subscription.remove();
+  }, []);
 
   const handleAccept = async () => {
     if (!session || !user) return;
@@ -266,160 +285,193 @@ function MentorHome() {
   };
 
   return (
-    // <ScrollView
-    //   style={styles.root}
-    //   contentContainerStyle={styles.listContent}
-    //   refreshControl={
-    //     <RefreshControl
-    //       refreshing={isLoading}
-    //       onRefresh={load}
-    //       tintColor={Colors.accent}
-    //     />
-    //   }
-    // >
-    //   <Text style={styles.greeting}>Hello, {user?.name?.split(" ")[0]} 👋</Text>
-    //   <Text style={styles.subGreeting}>Your session dashboard</Text>
+    <View style={styles.root}>
+      <ScrollView
+        style={styles.root}
+        contentContainerStyle={styles.listContent}
+      >
+        {/* ── Header — identical to StudentHome greeting ── */}
+        <YStack gap={2} padding={4} marginBottom={24}>
+          <Text fontSize={13} fontWeight={700} color={"#6A7282"}>
+            Welcome back,
+          </Text>
+          <Text fontSize={20} fontWeight={700} color={"#263238"}>
+            {user?.name?.split(" ")[0]}
+          </Text>
+        </YStack>
 
-    //   {!activeSession ? (
-    //     <View style={styles.emptyCard}>
-    //       <Text style={styles.emptyEmoji}>📭</Text>
-    //       <Text style={styles.emptyCardTitle}>No active requests</Text>
-    //       <Text style={styles.emptyCardSub}>
-    //         Students will appear here when they request a session with you.
-    //       </Text>
-    //     </View>
-    //   ) : activeSession.status === "pending" ? (
-    //     <View style={styles.requestCard}>
-    //       <View style={styles.requestHeader}>
-    //         <View style={styles.requestPulse} />
-    //         <Text style={styles.requestHeaderText}>New Session Request</Text>
-    //       </View>
-    //       <Text style={styles.requestFrom}>
-    //         From{" "}
-    //         <Text style={{ color: Colors.accent }}>
-    //           {activeSession.student_email}
-    //         </Text>
-    //       </Text>
-    //       <Text style={styles.requestRate}>
-    //         Rate: {formatPaise(activeSession.rate_per_minute_paise)}/min
-    //       </Text>
-    //       <Text style={styles.requestExpiry}>
-    //         Expires at {new Date(activeSession.expires_at).toLocaleTimeString()}
-    //       </Text>
-
-    //       <View style={styles.actionRow}>
-    //         <TouchableOpacity
-    //           style={styles.declineBtn}
-    //           onPress={handleDecline}
-    //           activeOpacity={0.8}
-    //         >
-    //           <Text style={styles.declineBtnText}>Decline</Text>
-    //         </TouchableOpacity>
-    //         <TouchableOpacity
-    //           style={[styles.acceptBtn, accepting && { opacity: 0.7 }]}
-    //           onPress={handleAccept}
-    //           disabled={accepting}
-    //           activeOpacity={0.85}
-    //         >
-    //           {accepting ? (
-    //             <ActivityIndicator color={Colors.bg} />
-    //           ) : (
-    //             <Text style={styles.acceptBtnText}>Accept ✓</Text>
-    //           )}
-    //         </TouchableOpacity>
-    //       </View>
-    //     </View>
-    //   ) : (
-    //     <TouchableOpacity
-    //       style={styles.activeSessionCard}
-    //       onPress={() => router.push("/session/active")}
-    //       activeOpacity={0.85}
-    //     >
-    //       <View style={styles.liveRow}>
-    //         <View style={styles.liveDot} />
-    //         <Text style={styles.liveText}>LIVE SESSION</Text>
-    //       </View>
-    //       <Text style={styles.activeSessionWith}>
-    //         With {activeSession.student_email}
-    //       </Text>
-    //       <Text style={styles.activeSessionSub}>Tap to open chat →</Text>
-    //     </TouchableOpacity>
-    //   )}
-    // </ScrollView>
-    <ScrollView style={styles.root} contentContainerStyle={styles.listContent}>
-      <Text style={styles.greeting}>Hello, {user?.name?.split(" ")[0]} 👋</Text>
-      <Text style={styles.subGreeting}>Your session dashboard</Text>
-
-      {!session ||
-      (session.status !== "pending" && session.status !== "active") ? (
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyEmoji}>📭</Text>
-          <Text style={styles.emptyCardTitle}>No active requests</Text>
-          <Text style={styles.emptyCardSub}>
-            Students will appear here when they request a session with you.
-          </Text>
-        </View>
-      ) : session.status === "pending" ? (
-        <View style={styles.requestCard}>
-          <View style={styles.requestHeader}>
-            <View style={styles.requestPulse} />
-            <Text style={styles.requestHeaderText}>New Session Request</Text>
-          </View>
-          <Text style={styles.requestFrom}>
-            From{" "}
-            <Text style={{ color: Colors.accent }}>
-              {session.student_email}
-            </Text>
-          </Text>
-          <Text style={styles.requestRate}>
-            Rate: {formatPaise(session.rate_per_minute_paise)}/min
-          </Text>
-          <Text style={styles.requestExpiry}>
-            Expires at {new Date(session.expires_at).toLocaleTimeString()}
-          </Text>
-          <View style={styles.actionRow}>
-            <TouchableOpacity
-              style={styles.declineBtn}
-              onPress={handleDecline}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.declineBtnText}>Decline</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.acceptBtn, isLoading && { opacity: 0.7 }]}
-              onPress={handleAccept}
-              disabled={isLoading}
-              activeOpacity={0.85}
-            >
-              {isLoading ? (
-                <ActivityIndicator color={Colors.bg} />
-              ) : (
-                <Text style={styles.acceptBtnText}>Accept ✓</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      ) : (
-        <TouchableOpacity
-          style={styles.activeSessionCard}
-          onPress={() =>
-            session.sendbird_channel_url
-              ? router.push(`/group-channel/${session.sendbird_channel_url}`)
-              : router.push("/session/active")
-          }
-          activeOpacity={0.85}
+        {/* ── Status pill ── */}
+        <XStack
+          alignItems="center"
+          gap={8}
+          marginBottom={Spacing.lg}
+          backgroundColor={"#FFF4EC"}
+          borderRadius={12}
+          borderWidth={1.5}
+          borderColor={"#FF6B0033"}
+          paddingHorizontal={14}
+          paddingVertical={10}
         >
-          <View style={styles.liveRow}>
-            <View style={styles.liveDot} />
-            <Text style={styles.liveText}>LIVE SESSION</Text>
-          </View>
-          <Text style={styles.activeSessionWith}>
-            With {session.student_email}
+          <View style={styles.statusDot} />
+          <Text fontSize={13} fontWeight={600} color={"#FF6B00"}>
+            Session dashboard
           </Text>
-          <Text style={styles.activeSessionSub}>Tap to open chat →</Text>
-        </TouchableOpacity>
-      )}
-    </ScrollView>
+        </XStack>
+
+        {/* ── No session ── */}
+        {(!session ||
+          (session.status !== "pending" && session.status !== "active")) && (
+          <View style={styles.card}>
+            <Text style={styles.emptyEmoji}>📭</Text>
+            <Text style={styles.emptyCardTitle}>No active requests</Text>
+            <Text style={styles.emptyCardSub}>
+              Students will appear here when they request a session with you.
+            </Text>
+          </View>
+        )}
+
+        {/* ── Pending request ── */}
+        {session?.status === "pending" && (
+          <View style={styles.card}>
+            {/* Pulse header */}
+            <XStack alignItems="center" gap={8} marginBottom={Spacing.md}>
+              <View style={styles.pulseDot} />
+              <Text
+                fontSize={FontSize.xs}
+                fontWeight={700}
+                color={"#FF6B00"}
+                letterSpacing={1}
+              >
+                NEW SESSION REQUEST
+              </Text>
+            </XStack>
+
+            <Text
+              fontSize={FontSize.lg}
+              fontWeight={600}
+              color={"#263238"}
+              marginBottom={4}
+            >
+              From{" "}
+              <Text color={"#FF6B00"} fontWeight={700}>
+                {session.student_email}
+              </Text>
+            </Text>
+
+            <Text fontSize={FontSize.md} color={"#4A5565"} marginBottom={4}>
+              Rate: {formatPaise(session.rate_per_minute_paise)}/min
+            </Text>
+
+            <Text
+              fontSize={FontSize.sm}
+              color={"#6A7282"}
+              marginBottom={Spacing.lg}
+            >
+              Expires at {new Date(session.expires_at).toLocaleTimeString()}
+            </Text>
+
+            <Separator alignSelf="stretch" marginBottom={Spacing.lg} />
+
+            {/* Action buttons — match StudentHome "Book" button style */}
+            <XStack gap={Spacing.sm}>
+              <TouchableOpacity
+                style={styles.declineBtn}
+                onPress={handleDecline}
+                activeOpacity={0.8}
+              >
+                <Text fontSize={FontSize.md} fontWeight={700} color={"#263238"}>
+                  Decline
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.acceptBtn, isLoading && { opacity: 0.7 }]}
+                onPress={handleAccept}
+                disabled={isLoading}
+                activeOpacity={0.85}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color={"white"} />
+                ) : (
+                  <XStack alignItems="center" gap={8}>
+                    <Text
+                      fontSize={FontSize.md}
+                      fontWeight={700}
+                      color={"white"}
+                    >
+                      Accept
+                    </Text>
+                    <AntDesign name="arrow-right" size={14} color="white" />
+                  </XStack>
+                )}
+              </TouchableOpacity>
+            </XStack>
+          </View>
+        )}
+
+        {/* ── Active session ── */}
+        {session?.status === "active" && (
+          <TouchableOpacity
+            style={styles.card}
+            onPress={() =>
+              session.sendbird_channel_url
+                ? router.push(`/group-channel/${session.sendbird_channel_url}`)
+                : router.push("/session/active")
+            }
+            activeOpacity={0.85}
+          >
+            {/* Live badge row */}
+            <XStack alignItems="center" gap={8} marginBottom={Spacing.md}>
+              <View style={styles.liveDot} />
+              <Text
+                fontSize={FontSize.xs}
+                fontWeight={700}
+                color={"#22C55E"}
+                letterSpacing={2}
+              >
+                LIVE SESSION
+              </Text>
+            </XStack>
+
+            <Text
+              fontSize={FontSize.lg}
+              fontWeight={700}
+              color={"#263238"}
+              marginBottom={4}
+            >
+              With {session.student_email}
+            </Text>
+
+            <Text
+              fontSize={FontSize.sm}
+              color={"#6A7282"}
+              marginBottom={Spacing.lg}
+            >
+              Tap to open chat
+            </Text>
+
+            <Separator alignSelf="stretch" marginBottom={Spacing.lg} />
+
+            {/* CTA — mirrors Book button exactly */}
+            <XStack
+              alignSelf="flex-start"
+              alignItems="center"
+              borderWidth={1.5}
+              borderRadius={14}
+              paddingVertical={10}
+              paddingHorizontal={14}
+              backgroundColor={"#FF6B00"}
+              gap={10}
+            >
+              <Text color={"white"} fontWeight={700} fontSize={FontSize.md}>
+                Open chat
+              </Text>
+              <AntDesign name="arrow-right" size={14} color="white" />
+            </XStack>
+          </TouchableOpacity>
+        )}
+      </ScrollView>
+    </View>
   );
 }
 
@@ -431,7 +483,11 @@ export default function HomeTab() {
 
 // ─── Styles ────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.bg },
+  // ── Shared layout ──
+  root: {
+    flex: 1,
+    backgroundColor: "white",
+  },
   centered: {
     flex: 1,
     alignItems: "center",
@@ -444,36 +500,25 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
 
-  greeting: {
-    fontSize: FontSize.xxl,
-    fontWeight: "800",
-    color: Colors.textPrimary,
-    marginBottom: 4,
-  },
-  subGreeting: {
-    fontSize: FontSize.md,
-    color: Colors.textSecondary,
-    marginBottom: Spacing.lg,
-  },
-
+  // ── Search box (StudentHome) ──
   searchBox: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.bgCard,
+    backgroundColor: "white",
     borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    borderWidth: 2,
+    borderColor: "#263238",
     paddingHorizontal: Spacing.md,
     marginBottom: Spacing.lg,
   },
-  searchIcon: { fontSize: 16, marginRight: 8 },
   searchInput: {
     flex: 1,
     paddingVertical: 12,
     fontSize: FontSize.md,
-    color: Colors.textPrimary,
+    color: "#263238",
   },
 
+  // ── Session banner (StudentHome) ──
   sessionBanner: {
     flexDirection: "row",
     alignItems: "center",
@@ -497,19 +542,25 @@ const styles = StyleSheet.create({
     color: Colors.accent,
     fontWeight: "600",
   },
-  sessionBannerArrow: { fontSize: FontSize.lg, color: Colors.accent },
+  sessionBannerArrow: {
+    fontSize: FontSize.lg,
+    color: Colors.accent,
+  },
 
+  // ── MentorCard (StudentHome) ──
   card: {
-    backgroundColor: Colors.bgCard,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    backgroundColor: "white",
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: "#263238",
     padding: Spacing.md,
     marginBottom: Spacing.sm,
   },
-  cardRow: { flexDirection: "row", alignItems: "flex-start" },
-  avatarWrap: { position: "relative", marginRight: Spacing.md },
-  avatar: { width: 52, height: 52, borderRadius: 16 },
+  avatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 16,
+  },
   avatarFallback: {
     backgroundColor: Colors.accentDim,
     alignItems: "center",
@@ -520,179 +571,74 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: Colors.accent,
   },
-  onlineDot: {
-    position: "absolute",
-    bottom: 2,
-    right: 2,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: Colors.success,
-    borderWidth: 2,
-    borderColor: Colors.bgCard,
-  },
-  cardInfo: { flex: 1 },
-  cardNameRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 3,
-  },
-  cardName: {
+
+  // ── Empty list text (StudentHome) ──
+  emptyText: {
     fontSize: FontSize.md,
-    fontWeight: "700",
-    color: Colors.textPrimary,
+    color: Colors.textMuted,
   },
-  tierBadge: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: Radius.full,
-  },
-  tierText: {
-    fontSize: FontSize.xs,
-    fontWeight: "700",
-    textTransform: "capitalize",
-  },
-  cardCollege: {
-    fontSize: FontSize.xs,
-    color: Colors.textSecondary,
-    marginBottom: 6,
-  },
-  tagsRow: { flexDirection: "row", flexWrap: "wrap", gap: 4 },
-  tag: {
-    backgroundColor: Colors.bgElevated,
-    borderRadius: Radius.full,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  tagText: { fontSize: FontSize.xs, color: Colors.textSecondary },
-  rateBox: { alignItems: "flex-end", justifyContent: "flex-start" },
-  rateAmount: {
-    fontSize: FontSize.lg,
-    fontWeight: "800",
-    color: Colors.accent,
-  },
-  rateLabel: { fontSize: FontSize.xs, color: Colors.textMuted },
 
-  emptyText: { fontSize: FontSize.md, color: Colors.textMuted },
-
-  // Mentor styles
-  emptyCard: {
-    backgroundColor: Colors.bgCard,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.xl,
-    alignItems: "center",
-    marginTop: Spacing.lg,
+  // ── MentorHome: status pill dot ──
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#FF6B00",
   },
-  emptyEmoji: { fontSize: 48, marginBottom: Spacing.md },
+
+  // ── MentorHome: empty state (inside card) ──
+  emptyEmoji: {
+    fontSize: 40,
+    textAlign: "center",
+    marginBottom: Spacing.sm,
+  },
   emptyCardTitle: {
     fontSize: FontSize.lg,
     fontWeight: "700",
-    color: Colors.textPrimary,
+    color: "#263238",
+    textAlign: "center",
     marginBottom: 8,
   },
   emptyCardSub: {
     fontSize: FontSize.sm,
-    color: Colors.textSecondary,
+    color: "#6A7282",
     textAlign: "center",
+    lineHeight: 20,
   },
 
-  requestCard: {
-    backgroundColor: Colors.bgCard,
-    borderRadius: Radius.lg,
-    borderWidth: 1.5,
-    borderColor: Colors.accent + "66",
-    padding: Spacing.lg,
-    marginTop: Spacing.lg,
+  // ── MentorHome: pending dots ──
+  pulseDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#FF6B00",
   },
-  requestHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: Spacing.sm,
-  },
-  requestPulse: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: Colors.accent,
-    marginRight: 8,
-  },
-  requestHeaderText: {
-    fontSize: FontSize.sm,
-    fontWeight: "700",
-    color: Colors.accent,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-  requestFrom: {
-    fontSize: FontSize.lg,
-    fontWeight: "600",
-    color: Colors.textPrimary,
-    marginBottom: 4,
-  },
-  requestRate: {
-    fontSize: FontSize.md,
-    color: Colors.textSecondary,
-    marginBottom: 4,
-  },
-  requestExpiry: {
-    fontSize: FontSize.sm,
-    color: Colors.textMuted,
-    marginBottom: Spacing.lg,
-  },
-  actionRow: { flexDirection: "row", gap: Spacing.sm },
+
+  // ── MentorHome: action buttons ──
   declineBtn: {
     flex: 1,
     paddingVertical: 14,
-    borderRadius: Radius.md,
-    backgroundColor: Colors.bgElevated,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: "#263238",
     alignItems: "center",
-  },
-  declineBtnText: {
-    fontSize: FontSize.md,
-    fontWeight: "600",
-    color: Colors.textSecondary,
+    justifyContent: "center",
+    backgroundColor: "white",
   },
   acceptBtn: {
     flex: 2,
     paddingVertical: 14,
-    borderRadius: Radius.md,
-    backgroundColor: Colors.accent,
+    borderRadius: 14,
+    backgroundColor: "#FF6B00",
     alignItems: "center",
+    justifyContent: "center",
   },
-  acceptBtnText: { fontSize: FontSize.md, fontWeight: "700", color: Colors.bg },
 
-  activeSessionCard: {
-    backgroundColor: Colors.bgCard,
-    borderRadius: Radius.lg,
-    borderWidth: 1.5,
-    borderColor: Colors.success + "66",
-    padding: Spacing.lg,
-    marginTop: Spacing.lg,
-  },
-  liveRow: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
+  // ── MentorHome: live dot ──
   liveDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: Colors.success,
-    marginRight: 8,
+    backgroundColor: "#22C55E",
   },
-  liveText: {
-    fontSize: FontSize.xs,
-    fontWeight: "800",
-    color: Colors.success,
-    letterSpacing: 2,
-  },
-  activeSessionWith: {
-    fontSize: FontSize.xl,
-    fontWeight: "700",
-    color: Colors.textPrimary,
-    marginBottom: 4,
-  },
-  activeSessionSub: { fontSize: FontSize.sm, color: Colors.textSecondary },
 });

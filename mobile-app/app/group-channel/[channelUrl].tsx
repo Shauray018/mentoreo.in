@@ -1,15 +1,17 @@
 import { SessionHeader } from "@/components/chat/SessionHeader";
 import { Colors, FontSize, Radius, Spacing } from "@/constants/theme";
+import { useMentorProfile } from "@/hooks/useMentorProfile";
 import { formatPaise, sessionsApi } from "@/services/api";
 import { useAuthStore } from "@/stores/authStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useGroupChannel } from "@sendbird/uikit-chat-hooks";
 import {
   createGroupChannelFragment,
+  useConnection,
   useSendbirdChat,
 } from "@sendbird/uikit-react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -20,26 +22,7 @@ import {
   View,
 } from "react-native";
 
-// ─── Fragment with custom header — ONCE at module level ────────────────────
-const GroupChannelFragment = createGroupChannelFragment({
-  Header: ({ onPressHeaderLeft }) => {
-    // These are read from the module-level ref so they're always fresh
-    const ref = fragmentPropsRef.current;
-    return (
-      <SessionHeader
-        channelUrl={ref?.channelUrl ?? ""}
-        onPressHeaderLeft={onPressHeaderLeft}
-        onEndSession={ref?.onEndSession ?? (() => {})}
-        ending={ref?.ending ?? false}
-        sessionStatus={ref?.sessionStatus ?? null}
-        startedAt={ref?.startedAt ?? null}
-        ratePerMinutePaise={ref?.ratePerMinutePaise ?? null}
-      />
-    );
-  },
-});
-
-// Module-level ref so the Header lambda above can read fresh values
+// Module-level ref so the Header lambda can read fresh values
 // without causing a remount of the fragment
 type FragmentProps = {
   channelUrl: string;
@@ -48,6 +31,8 @@ type FragmentProps = {
   sessionStatus: string | null;
   startedAt: string | null;
   ratePerMinutePaise: number | null;
+  displayName: string;
+  avatarUrl: string | null;
 };
 const fragmentPropsRef = { current: null as FragmentProps | null };
 
@@ -60,9 +45,56 @@ function ChatView({
   onPressBack: () => void;
 }) {
   const user = useAuthStore((s) => s.user);
-  const { sdk } = useSendbirdChat();
+  const { sdk, currentUser } = useSendbirdChat();
   const { channel } = useGroupChannel(sdk, channelUrl);
   const [requesting, setRequesting] = useState(false);
+  const currentUserId = currentUser?.userId;
+
+  // ── Resolve mentor profile here (not inside SessionHeader) ────────────
+  const mentor = useMentorProfile(channel ?? null);
+  const otherMember = channel?.members?.find((m) => m.userId !== currentUserId);
+  const displayName =
+    mentor?.display_name ??
+    otherMember?.nickname ??
+    otherMember?.userId ??
+    "Mentor";
+  const avatarUrl =
+    mentor?.avatar_url && mentor.avatar_url.length > 0
+      ? mentor.avatar_url
+      : otherMember?.profileUrl && otherMember.profileUrl.length > 0
+        ? otherMember.profileUrl
+        : null;
+
+  // ── Write mentor info into ref so the Header can read it ──────────────
+  if (fragmentPropsRef.current) {
+    fragmentPropsRef.current.displayName = displayName;
+    fragmentPropsRef.current.avatarUrl = avatarUrl;
+  }
+
+  // ── Create fragment INSIDE the component, keyed to current user ───────
+  // This ensures the UIKit knows who "me" is when determining bubble side.
+  const GroupChannelFragment = useMemo(
+    () =>
+      createGroupChannelFragment({
+        Header: ({ onPressHeaderLeft }) => {
+          const ref = fragmentPropsRef.current;
+          return (
+            <SessionHeader
+              channelUrl={ref?.channelUrl ?? ""}
+              onPressHeaderLeft={onPressHeaderLeft}
+              onEndSession={ref?.onEndSession ?? (() => {})}
+              ending={ref?.ending ?? false}
+              sessionStatus={ref?.sessionStatus ?? null}
+              startedAt={ref?.startedAt ?? null}
+              ratePerMinutePaise={ref?.ratePerMinutePaise ?? null}
+              displayName={ref?.displayName ?? "Mentor"}
+              avatarUrl={ref?.avatarUrl ?? null}
+            />
+          );
+        },
+      }),
+    [currentUserId],
+  );
 
   const channelData = (() => {
     try {
@@ -154,26 +186,29 @@ function ChatView({
 export default function GroupChannelScreen() {
   const { channelUrl } = useLocalSearchParams<{ channelUrl: string }>();
   const { user } = useAuthStore();
-  const { sdk } = useSendbirdChat();
+  const { currentUser } = useSendbirdChat();
+  const { connect } = useConnection();
 
   const session = useSessionStore((s) => s.session);
   const storeEndSession = useSessionStore((s) => s.endSession);
 
-  const [sdkReady, setSdkReady] = useState(!!sdk?.currentUser);
+  const [sdkReady, setSdkReady] = useState(!!currentUser?.userId);
   const [ending, setEnding] = useState(false);
 
   // ── Reconnect Sendbird if needed ──────────────────────────────────────
   useEffect(() => {
-    if (sdk?.currentUser) {
+    if (currentUser?.userId) {
       setSdkReady(true);
       return;
     }
-    if (!user) return;
-    sdk
-      .connect(user.id)
+    if (!user) {
+      setSdkReady(false);
+      return;
+    }
+    connect(String(user.id), { nickname: user.name })
       .then(() => setSdkReady(true))
       .catch((e) => console.error("💥 [chat] reconnect failed:", e));
-  }, []);
+  }, [connect, currentUser?.userId, user?.id, user?.name]);
 
   // ── Auto-redirect when session ends from other side ───────────────────
   useEffect(() => {
@@ -193,7 +228,6 @@ export default function GroupChannelScreen() {
 
   const handleEndSession = useCallback(() => {
     if (!session || !user) return;
-    // Read elapsed directly from started_at — same as SessionHeader does
     const started = session.started_at
       ? new Date(session.started_at).getTime()
       : Date.now();
@@ -232,6 +266,8 @@ export default function GroupChannelScreen() {
     sessionStatus: session?.status ?? null,
     startedAt: session?.started_at ?? null,
     ratePerMinutePaise: session?.rate_per_minute_paise ?? null,
+    displayName: "Mentor", // will be overwritten by ChatView once channel loads
+    avatarUrl: null, // will be overwritten by ChatView once channel loads
   };
 
   if (Platform.OS === "web") {

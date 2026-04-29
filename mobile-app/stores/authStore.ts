@@ -15,8 +15,12 @@ export interface AuthUser {
 interface AuthState {
   user: AuthUser | null;
   isHydrated: boolean;
-  signIn: (user: AuthUser) => void;
+
+  signIn: (payload: AuthUser) => void;
   signOut: () => void;
+
+  updateUser: (data: Partial<AuthUser>) => void;
+
   _setHydrated: () => void;
 }
 
@@ -30,16 +34,24 @@ export const useAuthStore = create<AuthState>()(
 
       signOut: () => set({ user: null }),
 
+      updateUser: (data) =>
+        set((state) => ({
+          user: state.user ? { ...state.user, ...data } : null,
+        })),
+
       _setHydrated: () => set({ isHydrated: true }),
     }),
     {
       name: "@mentoreo_auth",
       storage: createJSONStorage(() => AsyncStorage),
+
+      partialize: (state) => ({
+        user: state.user,
+      }),
+
       onRehydrateStorage: () => (state) => {
         state?._setHydrated();
       },
-      // Only persist the user object, not derived state
-      partialize: (state) => ({ user: state.user }),
     },
   ),
 );

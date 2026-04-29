@@ -1,22 +1,22 @@
 export const Colors = {
-  // Primary palette — orange + black + white
-  bg: "#0A0A0A", // deep black
-  bgCard: "#141414", // card black
-  bgElevated: "#1F1F1F", // elevated surfaces
-  border: "#2A2A2A",
-  borderLight: "#3A3A3A",
+  // Primary palette — light orange + dark ink + white
+  bg: "#FFFFFF", // white canvas
+  bgCard: "#FFFFFF", // card white
+  bgElevated: "#FFF4EC", // light orange tint for elevated surfaces
+  border: "#263238", // dark ink border (StudentHome style)
+  borderLight: "#E5E7EB", // subtle dividers
 
-  accent: "#FF7A00", // bold orange
-  accentDim: "#FF7A0022",
-  accentMuted: "#CC6200",
+  accent: "#FF6B00", // StudentHome orange
+  accentDim: "#FFF4EC", // light orange wash
+  accentMuted: "#E55F00", // slightly darker orange for pressed states
 
-  warn: "#FFA726",
+  warn: "#FCD310", // yellow (search bolt icon color)
   error: "#FF4D4F",
   success: "#22C55E",
 
-  textPrimary: "#FFFFFF",
-  textSecondary: "#D1D5DB",
-  textMuted: "#8A8A8A",
+  textPrimary: "#263238", // dark ink — StudentHome primary text
+  textSecondary: "#4A5565", // StudentHome secondary text
+  textMuted: "#6A7282", // StudentHome muted text
 
   gold: "#F4B942",
   silver: "#C0C0C0",
@@ -39,6 +39,7 @@ export const Radius = {
   sm: 8,
   md: 12,
   lg: 20,
+  xl: 24,
   full: 9999,
 } as const;
 

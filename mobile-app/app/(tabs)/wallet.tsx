@@ -1,5 +1,10 @@
 import { Colors, FontSize, Radius, Spacing } from "@/constants/theme";
-import { WalletTransaction, formatPaise, sessionsApi } from "@/services/api";
+import {
+  WalletTransaction,
+  formatPaise,
+  sessionsApi,
+  studentsApi,
+} from "@/services/api";
 import { useAuthStore } from "@/stores/authStore";
 import { useWalletStore } from "@/stores/walletStore";
 import { useCallback, useEffect, useState } from "react";
@@ -229,31 +234,55 @@ function MentorEarnings() {
 }
 
 function EarningRow({ session }: { session: any }) {
+  const [studentName, setStudentName] = useState("Loading...");
+
+  useEffect(() => {
+    const getStudentName = async () => {
+      try {
+        const res = await studentsApi.getByEmail(session.student_email);
+        setStudentName(res.student.name);
+      } catch (err) {
+        setStudentName(session.student_email);
+      }
+    };
+
+    getStudentName();
+  }, [session.student_email]);
+
   const earned = Math.floor((session.total_amount_paise || 0) * 0.8);
+
   const mins = session.duration_seconds
     ? Math.ceil(session.duration_seconds / 60)
     : 0;
+
   return (
     <View style={styles.txRow}>
       <View style={[styles.txIcon, { backgroundColor: Colors.success + "22" }]}>
         <Text style={{ fontSize: 18 }}>💼</Text>
       </View>
+
       <View style={styles.txInfo}>
         <Text style={styles.txDesc} numberOfLines={1}>
-          Session with {session.student_email}
+          Session with {studentName}
         </Text>
+
         <Text style={styles.txDate}>
           {mins}m ·{" "}
           {new Date(session.ended_at || session.started_at).toLocaleDateString(
             "en-IN",
-            { day: "numeric", month: "short" },
+            {
+              day: "numeric",
+              month: "short",
+            },
           )}
         </Text>
       </View>
+
       <View style={styles.txRight}>
         <Text style={[styles.txAmount, { color: Colors.success }]}>
           +{formatPaise(earned)}
         </Text>
+
         <Text style={styles.txBalance}>
           Total: {formatPaise(session.total_amount_paise || 0)}
         </Text>

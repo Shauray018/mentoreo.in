@@ -33,24 +33,82 @@ async function request<T>(
 }
 
 // ─── Auth ──────────────────────────────────────────────────────────────────
+export type UserRole = "student" | "mentor";
+
+export type AuthUser = {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+};
+
+export type AuthResponse = {
+  token: string;
+  user: AuthUser;
+};
+
 export const authApi = {
-  sendOtp: (email: string, role: "student" | "mentor") =>
-    request("/auth/send-otp", {
+  /* ------------------------------------------------------------------ */
+  /* LOGIN FLOW */
+  /* ------------------------------------------------------------------ */
+
+  sendLoginOtp: (email: string, role: UserRole) =>
+    request("/auth/send-otp-login", {
       method: "POST",
       body: JSON.stringify({ email, role }),
     }),
 
-  verifyOtp: (
+  verifyLoginOtp: (
     email: string,
     otp: string,
-    role: "student" | "mentor",
-  ): Promise<{
-    token: string;
-    user: { id: string; email: string; name: string; role: string };
-  }> =>
-    request("/auth/verify-otp", {
+    role: UserRole,
+  ): Promise<AuthResponse> =>
+    request("/auth/verify-login", {
       method: "POST",
       body: JSON.stringify({ email, otp, role }),
+    }),
+
+  /* ------------------------------------------------------------------ */
+  /* SIGNUP FLOW */
+  /* ------------------------------------------------------------------ */
+
+  sendSignupOtp: (email: string, role: UserRole) =>
+    request("/auth/send-otp-signup", {
+      method: "POST",
+      body: JSON.stringify({ email, role }),
+    }),
+
+  /* ------------------------------------------------------------------ */
+  /* STUDENT SIGNUP */
+  /* ------------------------------------------------------------------ */
+
+  signupStudent: (data: {
+    email: string;
+    otp: string;
+    name: string;
+    phone?: string;
+  }): Promise<AuthResponse> =>
+    request("/auth/signup/student", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  /* ------------------------------------------------------------------ */
+  /* MENTOR SIGNUP */
+  /* ------------------------------------------------------------------ */
+
+  signupMentor: (data: {
+    email: string;
+    otp: string;
+    name: string;
+    phone: string;
+    college: string;
+    course?: string;
+    branch?: string;
+  }): Promise<AuthResponse> =>
+    request("/auth/signup/mentor", {
+      method: "POST",
+      body: JSON.stringify(data),
     }),
 };
 
@@ -195,6 +253,13 @@ export const walletApi = {
     token: string,
   ): Promise<{ transactions: WalletTransaction[] }> =>
     request("/wallet/transactions", { token }),
+};
+
+export const studentsApi = {
+  getByEmail: (email: string) =>
+    request<{ student: { name: string; email: string } }>(
+      `/students/${encodeURIComponent(email)}`,
+    ),
 };
 
 // ─── Helpers ───────────────────────────────────────────────────────────────

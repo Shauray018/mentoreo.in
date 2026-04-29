@@ -1,3 +1,4 @@
+import EditProfile from "@/components/pages/edit-profile";
 import { Colors, FontSize, Radius, Spacing } from "@/constants/theme";
 import { useAuthStore } from "@/stores/authStore";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -14,6 +15,11 @@ import {
 } from "react-native";
 
 export default function ProfileTab() {
+  const { user } = useAuthStore();
+  return user?.role === "student" ? <StudentProfileTab /> : <EditProfile />;
+}
+
+function StudentProfileTab() {
   const { user, signOut } = useAuthStore();
   const resetSession = useSessionStore((s) => s.reset);
   const resetWallet = useWalletStore((s) => s.reset);
@@ -30,7 +36,7 @@ export default function ProfileTab() {
           resetSession();
           resetWallet();
           signOut();
-          router.replace("/signin");
+          router.replace("/onboarding");
         },
       },
     ]);

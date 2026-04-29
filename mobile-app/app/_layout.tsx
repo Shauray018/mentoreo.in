@@ -5,17 +5,19 @@ import { useSessionStore } from "@/stores/sessionStore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   SendbirdUIKitContainer,
-  useSendbirdChat,
+  useConnection,
 } from "@sendbird/uikit-react-native";
-import {
-  DarkUIKitTheme,
-  LightUIKitTheme,
-} from "@sendbird/uikit-react-native-foundation";
+import { defaultConfig } from "@tamagui/config/v5";
+import { TamaguiProvider, createTamagui } from "@tamagui/core";
 import { Redirect, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
-import { Platform, View, useColorScheme } from "react-native";
+import { Platform, View } from "react-native";
 import "react-native-reanimated";
+
+const config = createTamagui(defaultConfig);
+
+type Conf = typeof config;
 
 export const unstable_settings = {
   anchor: "signin",
@@ -25,9 +27,7 @@ function AppNavigator() {
   const user = useAuthStore((s) => s.user);
   const startPolling = useSessionStore((s) => s.startPolling);
   const stopPolling = useSessionStore((s) => s.stopPolling);
-  const { currentUser } = useSendbirdChat();
 
-  // Start/stop the single global session poller based on auth state
   useEffect(() => {
     if (user?.token) {
       startPolling(user.token);
@@ -38,19 +38,22 @@ function AppNavigator() {
 
   return (
     <>
-      {!user ? <Redirect href="/signin" /> : <Redirect href="/(tabs)" />}
+      {!user ? <Redirect href="/onboarding" /> : <Redirect href="/(tabs)" />}
+
       <Stack
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: Colors.bg },
         }}
       >
-        <Stack.Screen name="signin" />
+        <Stack.Screen name="onboarding" />
         <Stack.Screen name="(tabs)" />
+
         <Stack.Screen
           name="mentor/[email]"
-          options={{ presentation: "card", animation: "slide_from_right" }}
+          options={{ presentation: "card" }}
         />
+
         <Stack.Screen
           name="session/active"
           options={{
@@ -59,31 +62,64 @@ function AppNavigator() {
             gestureEnabled: false,
           }}
         />
+
         <Stack.Screen
           name="group-channel/[channelUrl]"
-          options={{ presentation: "card", animation: "slide_from_right" }}
+          options={{ presentation: "card" }}
         />
+        <Stack.Screen name="test" />
       </Stack>
 
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
     </>
   );
 }
 
+// function SendbirdWrapper({ children }: { children: React.ReactNode }) {
+//   const colorScheme = useColorScheme();
+//   if (Platform.OS === "web") return <>{children}</>;
+//   return (
+//     <SendbirdUIKitContainer
+//       appId={"46534DCE-0862-4A51-8AD5-5461C2551E2D"}
+//       chatOptions={{ localCacheStorage: AsyncStorage }}
+//       platformServices={platformServices!}
+//     >
+//       {children}
+//     </SendbirdUIKitContainer>
+//   );
+// }
 function SendbirdWrapper({ children }: { children: React.ReactNode }) {
-  const colorScheme = useColorScheme();
-  const theme = colorScheme === "light" ? LightUIKitTheme : DarkUIKitTheme;
-  if (Platform.OS === "web") return <>{children}</>;
   return (
     <SendbirdUIKitContainer
-      styles={{ theme }}
       appId={"46534DCE-0862-4A51-8AD5-5461C2551E2D"}
-      chatOptions={{ localCacheStorage: AsyncStorage }}
+      chatOptions={{
+        localCacheStorage: AsyncStorage,
+      }}
       platformServices={platformServices!}
     >
-      {children}
+      <SendbirdConnector>{children}</SendbirdConnector>
     </SendbirdUIKitContainer>
   );
+}
+
+function SendbirdConnector({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user);
+  const { connect, disconnect } = useConnection();
+
+  useEffect(() => {
+    if (!user) {
+      disconnect().catch((e) =>
+        console.error("💥 Sendbird disconnect failed:", e),
+      );
+      return;
+    }
+
+    connect(String(user.id), { nickname: user.name }).catch((e) =>
+      console.error("💥 Sendbird root connect failed:", e),
+    );
+  }, [connect, disconnect, user?.id, user?.name]);
+
+  return <>{children}</>;
 }
 
 export default function RootLayout() {
@@ -114,7 +150,9 @@ export default function RootLayout() {
 
   return (
     <SendbirdWrapper>
-      <AppNavigator />
+      <TamaguiProvider config={config} defaultTheme="light">
+        <AppNavigator />
+      </TamaguiProvider>
     </SendbirdWrapper>
   );
 }

@@ -1,19 +1,14 @@
 import { Colors, FontSize, Radius, Spacing } from "@/constants/theme";
-import { useMentorProfile } from "@/hooks/useMentorProfile";
 import { formatPaise } from "@/services/api";
-import { useGroupChannel } from "@sendbird/uikit-chat-hooks";
-import {
-    useSendbirdChat
-} from "@sendbird/uikit-react-native";
 import { useEffect, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Image,
-    Platform,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Image,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 type Props = {
@@ -21,9 +16,11 @@ type Props = {
   onPressHeaderLeft: () => void;
   onEndSession: () => void;
   ending: boolean;
-  sessionStatus: string | null; // "active" | "completed" | null etc.
-  startedAt: string | null; // ISO string from session.started_at
+  sessionStatus: string | null;
+  startedAt: string | null;
   ratePerMinutePaise: number | null;
+  displayName: string;
+  avatarUrl: string | null;
 };
 
 export function SessionHeader({
@@ -34,15 +31,10 @@ export function SessionHeader({
   sessionStatus,
   startedAt,
   ratePerMinutePaise,
+  displayName,
+  avatarUrl,
 }: Props) {
-  // ── Resolve channel to get mentor profile ─────────────────────────────
-  const { sdk } = useSendbirdChat();
-  const { channel } = useGroupChannel(sdk, channelUrl);
-  const mentor = useMentorProfile(channel ?? null);
-
-  // ── Timer — computed entirely inside this component from started_at ───
-  // This is the fix: we don't rely on a stale closure from the parent.
-  // We compute elapsed directly from the raw timestamp every second.
+  // ── Timer ─────────────────────────────────────────────────────────────
   const [elapsed, setElapsed] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -78,11 +70,6 @@ export function SessionHeader({
     return formatPaise(mins * ratePerMinutePaise);
   })();
 
-  const displayName = mentor?.display_name ?? "Mentor";
-  const avatarUrl =
-    mentor?.avatar_url && mentor.avatar_url.length > 0
-      ? mentor.avatar_url
-      : null;
   const initial = displayName[0]?.toUpperCase() ?? "M";
 
   return (
@@ -147,7 +134,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.bgCard,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
-    paddingTop: Platform.OS === "ios" ? 54 : 12,
+    paddingTop: Platform.OS === "ios" ? 54 : 40,
     paddingBottom: 10,
     paddingHorizontal: Spacing.sm,
     minHeight: Platform.OS === "ios" ? 96 : 60,
