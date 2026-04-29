@@ -5,6 +5,7 @@ import Slide2 from "@/components/onboarding/slides/Slide2";
 import Slide3 from "@/components/onboarding/slides/Slide3";
 import { authApi } from "@/services/api";
 import { useAuthStore } from "@/stores/authStore";
+import { isValidEmail, normalizeAuthError } from "@/utils/auth-errors";
 import { router } from "expo-router";
 import { useRef, useState } from "react";
 import {
@@ -58,27 +59,61 @@ export default function StudentSignin() {
   };
 
   const sendOtp = async () => {
+    const normalizedEmail = email.trim();
+
+    if (!normalizedEmail) {
+      setError("Please enter your email");
+      return;
+    }
+    if (!isValidEmail(normalizedEmail)) {
+      setError("Please enter a valid email address");
+      return;
+    }
+
     try {
       setLoading(true);
       setError("");
-      await authApi.sendLoginOtp(email, "student");
+      await authApi.sendLoginOtp(normalizedEmail, "student");
+      setOtp("");
       setOtpStep(true);
     } catch (e: any) {
-      setError(e?.message || "Failed to send OTP");
+      setError(normalizeAuthError(e, "Failed to send OTP", { action: "sendOtp" }));
     } finally {
       setLoading(false);
     }
   };
 
   const verify = async () => {
+    const normalizedEmail = email.trim();
+    const normalizedOtp = otp.trim();
+
+    if (!normalizedEmail) {
+      setError("Please enter your email");
+      setOtpStep(false);
+      return;
+    }
+    if (!isValidEmail(normalizedEmail)) {
+      setError("Please enter a valid email address");
+      setOtpStep(false);
+      return;
+    }
+    if (normalizedOtp.length < 6) {
+      setError("Please enter the full 6-digit OTP");
+      return;
+    }
+
     try {
       setLoading(true);
       setError("");
-      const res = await authApi.verifyLoginOtp(email, otp, "student");
+      const res = await authApi.verifyLoginOtp(
+        normalizedEmail,
+        normalizedOtp,
+        "student",
+      );
       signIn({ ...res.user, token: res.token });
       router.replace("/(tabs)");
     } catch (e: any) {
-      setError(e?.message || "Verification failed");
+      setError(normalizeAuthError(e, "Verification failed", { action: "verifyOtp" }));
     } finally {
       setLoading(false);
     }
@@ -207,10 +242,14 @@ export default function StudentSignin() {
                   placeholder="hello@mentoreo.in"
                   placeholderTextColor="#bbb"
                   value={email}
-                  onChangeText={setEmail}
+                  onChangeText={(value) => {
+                    setEmail(value);
+                    setError("");
+                  }}
                   autoCapitalize="none"
                   keyboardType="email-address"
                 />
+                {!!error && <Text style={styles.errorText}>{error}</Text>}
               </YStack>
 
               <YStack
@@ -258,14 +297,21 @@ export default function StudentSignin() {
               <YStack padding={10} gap={20}>
                 <Text style={styles.label}>ENTER OTP</Text>
 
-                <OtpInput value={otp} onChange={setOtp} />
+                <OtpInput
+                  value={otp}
+                  onChange={(value) => {
+                    setOtp(value);
+                    setError("");
+                  }}
+                />
+                {!!error && <Text style={styles.errorText}>{error}</Text>}
                 <TouchableOpacity
                   onPress={sendOtp}
                   disabled={loading}
                   style={{ marginTop: 16 }}
                 >
                   <Text fontSize={14} fontWeight={300} color="#7A7A7A">
-                    Didn't receive it?{" "}
+                    Didn&apos;t receive it?{" "}
                     <Text fontSize={14} fontWeight={700} color="#263238">
                       Resend
                     </Text>

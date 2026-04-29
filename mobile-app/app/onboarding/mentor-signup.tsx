@@ -1,6 +1,11 @@
 // MentorSignup.tsx
 import { authApi } from "@/services/api";
 import { useAuthStore } from "@/stores/authStore";
+import {
+  isOtpError,
+  isValidEmail,
+  normalizeAuthError,
+} from "@/utils/auth-errors";
 import { router } from "expo-router";
 import { useState } from "react";
 
@@ -78,38 +83,58 @@ export default function MentorSignup() {
   // ─── API calls ──────────────────────────────────────────────────────────────
 
   const sendOtp = async () => {
-    if (!email.trim()) {
+    const normalizedEmail = email.trim();
+
+    if (!normalizedEmail) {
       setError("Please enter your email");
+      return;
+    }
+    if (!isValidEmail(normalizedEmail)) {
+      setError("Please enter a valid email address");
       return;
     }
     try {
       setLoading(true);
       setError("");
-      await authApi.sendSignupOtp(email.trim(), "mentor");
+      await authApi.sendSignupOtp(normalizedEmail, "mentor");
+      setOtp("");
       goNext();
     } catch (e: any) {
-      setError(e?.message || "Failed to send OTP");
+      setError(normalizeAuthError(e, "Failed to send OTP", { action: "sendOtp" }));
     } finally {
       setLoading(false);
     }
   };
 
   const verifyOtp = async () => {
-    if (!otp || otp.length < 6) {
+    if (!email.trim()) {
+      setError("Please enter your email");
+      setStep("email");
+      return;
+    }
+    if (!isValidEmail(email.trim())) {
+      setError("Please enter a valid email address");
+      setStep("email");
+      return;
+    }
+    if (!otp.trim() || otp.trim().length < 6) {
       setError("Please enter the full 6-digit code");
       return;
     }
-    // Optimistically advance — backend verification happens at submit
+    setError("");
     goNext();
   };
 
   const submitSignup = async () => {
+    const normalizedEmail = email.trim();
+    const normalizedOtp = otp.trim();
+
     try {
       setLoading(true);
       setError("");
       const res = await authApi.signupMentor({
-        email: email.trim(),
-        otp,
+        email: normalizedEmail,
+        otp: normalizedOtp,
         name: `${firstName.trim()} ${lastName.trim()}`.trim(),
         phone: phone.trim(),
         college: college.trim(),
@@ -119,7 +144,11 @@ export default function MentorSignup() {
       signIn({ ...res.user, token: res.token });
       router.replace("/(tabs)");
     } catch (e: any) {
-      setError(e?.message || "Signup failed");
+      const message = normalizeAuthError(e, "Signup failed", { action: "signup" });
+      if (isOtpError(e)) {
+        setStep("otp");
+      }
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -147,7 +176,10 @@ export default function MentorSignup() {
         <StepOtp
           email={email}
           otp={otp}
-          setOtp={setOtp}
+          setOtp={(value) => {
+            setOtp(value);
+            setError("");
+          }}
           onResend={sendOtp}
           onBack={goBack}
           onContinue={verifyOtp}
