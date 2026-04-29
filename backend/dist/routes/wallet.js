@@ -3,26 +3,78 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+const crypto_1 = __importDefault(require("crypto"));
 const express_1 = require("express");
-const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const razorpay_1 = __importDefault(require("razorpay"));
 const supabase_1 = require("../lib/supabase");
+const authMiddleware_1 = require("../middlewares/authMiddleware");
 const router = (0, express_1.Router)();
-function authMiddleware(req, res, next) {
-    const token = req.headers.authorization?.split(" ")[1];
-    if (!token) {
-        res.status(401).json({ error: "No token" });
-        return;
+const MINIMUM_TOPUP_PAISE = 1000;
+const razorpay = new razorpay_1.default({
+    key_id: process.env.RAZR_LIVEKEY,
+    key_secret: process.env.RAZR_LIVESECRET,
+});
+function requireStudent(req, res) {
+    if (req.user.role !== "student") {
+        res.status(403).json({ error: "Students only" });
+        return null;
     }
-    try {
-        req.user = jsonwebtoken_1.default.verify(token, process.env.JWT_SECRET);
-        next();
-    }
-    catch {
-        res.status(401).json({ error: "Invalid token" });
-    }
+    return req.user.email;
 }
-// GET /wallet/balance
-router.get("/balance", authMiddleware, async (req, res) => {
+function parseTopupAmountPaise(amountRupees) {
+    const parsed = Number(amountRupees);
+    if (!Number.isFinite(parsed)) {
+        return null;
+    }
+    const amountPaise = Math.round(parsed * 100);
+    if (amountPaise < MINIMUM_TOPUP_PAISE) {
+        return null;
+    }
+    return amountPaise;
+}
+function verifyRazorpaySignature(payload, signature, secret) {
+    const expectedSignature = crypto_1.default
+        .createHmac("sha256", secret)
+        .update(payload)
+        .digest("hex");
+    const expectedBuffer = Buffer.from(expectedSignature, "utf8");
+    const actualBuffer = Buffer.from(signature, "utf8");
+    if (expectedBuffer.length !== actualBuffer.length) {
+        return false;
+    }
+    return crypto_1.default.timingSafeEqual(expectedBuffer, actualBuffer);
+}
+async function creditWalletTopup(params) {
+    const rpcRes = await supabase_1.supabase.rpc("credit_student_wallet_topup", {
+        p_student_email: params.studentEmail,
+        p_amount_paise: params.amountPaise,
+        p_reference_id: params.referenceId,
+        p_description: params.description,
+        p_source: "razorpay",
+        p_metadata: params.metadata,
+    });
+    if (rpcRes.error || !rpcRes.data) {
+        throw new Error(`wallet credit rpc failed: ${rpcRes.error?.message ?? "unknown error"}`);
+    }
+    const rpcRow = (Array.isArray(rpcRes.data) ? rpcRes.data[0] : rpcRes.data);
+    if (!rpcRow?.transaction_id) {
+        throw new Error("wallet credit rpc returned no transaction id");
+    }
+    const txRes = await supabase_1.supabase
+        .from("student_wallet_transactions")
+        .select("*")
+        .eq("id", rpcRow.transaction_id)
+        .single();
+    if (txRes.error || !txRes.data) {
+        throw new Error(`failed to fetch credited transaction: ${txRes.error?.message ?? "not found"}`);
+    }
+    return {
+        alreadyProcessed: rpcRow.already_processed,
+        balancePaise: rpcRow.balance_paise,
+        transaction: txRes.data,
+    };
+}
+router.get("/balance", authMiddleware_1.authMiddleware, async (req, res) => {
     const { email } = req.user;
     const { data, error } = await supabase_1.supabase
         .from("student_wallets")
@@ -33,12 +85,14 @@ router.get("/balance", authMiddleware, async (req, res) => {
         res.status(404).json({ error: "Wallet not found" });
         return;
     }
-    res.json({ balance: data.balance_paise, balanceRupees: (data.balance_paise / 100).toFixed(2) });
+    res.json({
+        balance_paise: data.balance_paise,
+        balanceRupees: (data.balance_paise / 100).toFixed(2),
+    });
 });
-// GET /wallet/transactions
-router.get("/transactions", authMiddleware, async (req, res) => {
+router.get("/transactions", authMiddleware_1.authMiddleware, async (req, res) => {
     const { email } = req.user;
-    const page = parseInt(req.query.page ?? "1");
+    const page = Math.max(parseInt(req.query.page ?? "1", 10) || 1, 1);
     const limit = 20;
     const offset = (page - 1) * limit;
     const { data, error, count } = await supabase_1.supabase
@@ -52,5 +106,98 @@ router.get("/transactions", authMiddleware, async (req, res) => {
         return;
     }
     res.json({ transactions: data, total: count, page });
+});
+router.post("/topup/order", authMiddleware_1.authMiddleware, async (req, res) => {
+    const email = requireStudent(req, res);
+    if (!email) {
+        return;
+    }
+    const amountPaise = parseTopupAmountPaise(req.body?.amountRupees);
+    if (amountPaise === null) {
+        res.status(400).json({ error: "Minimum top-up is Rs 10" });
+        return;
+    }
+    try {
+        const order = await razorpay.orders.create({
+            amount: amountPaise,
+            currency: "INR",
+            receipt: `wallet_${Date.now()}`,
+            notes: {
+                student_email: email,
+                purpose: "wallet_topup",
+            },
+        });
+        res.json({
+            orderId: order.id,
+            amountPaise: order.amount,
+            currency: order.currency,
+            keyId: process.env.RAZR_LIVEKEY,
+        });
+    }
+    catch (error) {
+        console.error("create topup order failed", error);
+        res.status(500).json({ error: "Failed to create Razorpay order" });
+    }
+});
+router.post("/topup/verify", authMiddleware_1.authMiddleware, async (req, res) => {
+    const email = requireStudent(req, res);
+    if (!email) {
+        return;
+    }
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, } = req.body ?? {};
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+        res.status(400).json({ error: "Missing Razorpay payment fields" });
+        return;
+    }
+    if (!verifyRazorpaySignature(`${razorpay_order_id}|${razorpay_payment_id}`, razorpay_signature, process.env.RAZR_LIVESECRET)) {
+        res.status(400).json({ error: "Invalid payment signature" });
+        return;
+    }
+    try {
+        const [payment, order] = await Promise.all([
+            razorpay.payments.fetch(razorpay_payment_id),
+            razorpay.orders.fetch(razorpay_order_id),
+        ]);
+        if (payment.order_id !== razorpay_order_id) {
+            res.status(400).json({ error: "Payment does not match order" });
+            return;
+        }
+        if (order.notes?.student_email !== email || order.notes?.purpose !== "wallet_topup") {
+            res.status(403).json({ error: "Order does not belong to this student" });
+            return;
+        }
+        if (payment.status !== "captured") {
+            res.status(409).json({ error: "Payment is not captured" });
+            return;
+        }
+        const amountPaise = Number(payment.amount);
+        if (!Number.isFinite(amountPaise) || amountPaise <= 0) {
+            res.status(400).json({ error: "Invalid payment amount" });
+            return;
+        }
+        const credited = await creditWalletTopup({
+            studentEmail: email,
+            amountPaise,
+            referenceId: razorpay_payment_id,
+            description: "Wallet top-up via Razorpay",
+            metadata: {
+                payment_id: payment.id,
+                order_id: order.id,
+                payment_status: payment.status,
+                order_receipt: order.receipt ?? null,
+                payment_method: payment.method ?? null,
+            },
+        });
+        res.json({
+            success: true,
+            alreadyProcessed: credited.alreadyProcessed,
+            balance_paise: credited.balancePaise,
+            transaction: credited.transaction,
+        });
+    }
+    catch (error) {
+        console.error("verify topup failed", error);
+        res.status(500).json({ error: "Failed to verify payment" });
+    }
 });
 exports.default = router;

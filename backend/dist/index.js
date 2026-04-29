@@ -8,20 +8,24 @@ const dotenv_1 = __importDefault(require("dotenv"));
 const express_1 = __importDefault(require("express"));
 const auth_1 = __importDefault(require("./routes/auth"));
 const mentors_1 = __importDefault(require("./routes/mentors"));
+const razorpayWebhook_1 = __importDefault(require("./routes/razorpayWebhook"));
 const sessions_1 = __importDefault(require("./routes/sessions"));
 const wallet_1 = __importDefault(require("./routes/wallet"));
 const sendbird_1 = require("./lib/sendbird");
 const supabase_1 = require("./lib/supabase");
+const students_1 = __importDefault(require("./routes/students"));
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3001;
 app.use((0, cors_1.default)());
+app.use("/webhooks", razorpayWebhook_1.default);
 app.use(express_1.default.json());
 app.get("/health", (_, res) => res.json({ status: "ok" }));
 app.use("/auth", auth_1.default);
 app.use("/mentors", mentors_1.default);
 app.use("/sessions", sessions_1.default);
 app.use("/wallet", wallet_1.default);
+app.use("/students", students_1.default);
 // ─── SESSION EXPIRY RUNNER ─────────────────────────────────────────────────────
 const expireSessions = async () => {
     try {

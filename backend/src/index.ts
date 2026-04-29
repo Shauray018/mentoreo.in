@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import express from "express";
 import authRoutes from "./routes/auth";
 import mentorRoutes from "./routes/mentors";
+import razorpayWebhookRoutes from "./routes/razorpayWebhook";
 import sessionRoutes from "./routes/sessions";
 import walletRoutes from "./routes/wallet";
 import { sendPushToUser } from "./lib/sendbird";
@@ -15,6 +16,7 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors());
+app.use("/webhooks", razorpayWebhookRoutes);
 app.use(express.json());
 
 app.get("/health", (_, res) => res.json({ status: "ok" }));
