@@ -108,9 +108,6 @@ async function createSendbirdUser(user: any) {
     if (!response.ok) {
       const err = await response.json();
 
-      /**
-       * 400201 = user already exists
-       */
       if (err.code !== 400201) {
         console.error("Sendbird error:", err);
       }
@@ -163,7 +160,6 @@ async function sendOtpEmail(
 
 /* -------------------------------------------------- */
 /* LOGIN OTP SEND */
-/* POST /auth/send-otp-login */
 /* -------------------------------------------------- */
 
 router.post("/send-otp-login", async (req: Request, res: Response) => {
@@ -208,7 +204,6 @@ router.post("/send-otp-login", async (req: Request, res: Response) => {
 
 /* -------------------------------------------------- */
 /* VERIFY LOGIN */
-/* POST /auth/verify-login */
 /* -------------------------------------------------- */
 
 router.post("/verify-login", async (req: Request, res: Response) => {
@@ -254,7 +249,6 @@ router.post("/verify-login", async (req: Request, res: Response) => {
 
 /* -------------------------------------------------- */
 /* SIGNUP OTP SEND */
-/* POST /auth/send-otp-signup */
 /* -------------------------------------------------- */
 
 router.post("/send-otp-signup", async (req: Request, res: Response) => {
@@ -299,7 +293,6 @@ router.post("/send-otp-signup", async (req: Request, res: Response) => {
 
 /* -------------------------------------------------- */
 /* STUDENT SIGNUP */
-/* POST /auth/signup/student */
 /* -------------------------------------------------- */
 
 router.post("/signup/student", async (req: Request, res: Response) => {
@@ -341,7 +334,6 @@ router.post("/signup/student", async (req: Request, res: Response) => {
 
 /* -------------------------------------------------- */
 /* MENTOR SIGNUP */
-/* POST /auth/signup/mentor */
 /* -------------------------------------------------- */
 
 router.post("/signup/mentor", async (req: Request, res: Response) => {
@@ -357,6 +349,7 @@ router.post("/signup/mentor", async (req: Request, res: Response) => {
     return res.status(400).json({ error: otpError });
   }
 
+  // 1. Insert into signups
   const { data: user, error } = await supabase
     .from("signups")
     .insert({
@@ -373,6 +366,14 @@ router.post("/signup/mentor", async (req: Request, res: Response) => {
   if (error || !user) {
     return res.status(500).json({ error: "Signup failed" });
   }
+
+  // 2. Create mentor profile automatically (UPSERT)
+  await supabase.from("mentor_profiles").upsert({
+    email: user.email,
+    display_name: user.name,
+    college: user.college,
+    course: user.course || null,
+  });
 
   await createSendbirdUser(user);
 
