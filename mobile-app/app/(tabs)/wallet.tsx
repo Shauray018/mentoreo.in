@@ -7,6 +7,7 @@ import {
 } from "@/services/api";
 import { useAuthStore } from "@/stores/authStore";
 import { useWalletStore } from "@/stores/walletStore";
+import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -20,7 +21,7 @@ import {
 
 // ─── Student Wallet ────────────────────────────────────────────────────────
 function StudentWallet() {
-  const { user } = useAuthStore();
+  const user = useAuthStore((s) => s.user);
   const {
     balance_paise,
     transactions,
@@ -32,14 +33,14 @@ function StudentWallet() {
 
   useEffect(() => {
     if (user?.token) fetchAll(user.token);
-  }, [user?.token]);
+  }, [fetchAll, user?.token]);
 
   const handleRefresh = useCallback(async () => {
     if (!user?.token) return;
     setRefreshing(true);
     await fetchAll(user.token);
     setRefreshing(false);
-  }, [user?.token]);
+  }, [fetchAll, user?.token]);
 
   const isLoading = isLoadingBalance && balance_paise === null;
 
@@ -52,47 +53,53 @@ function StudentWallet() {
   }
 
   return (
-    <FlatList
-      style={styles.root}
-      contentContainerStyle={styles.listContent}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={handleRefresh}
-          tintColor={Colors.accent}
-        />
-      }
-      ListHeaderComponent={
-        <View>
-          <Text style={styles.pageTitle}>My Wallet</Text>
-          <View style={styles.balanceCard}>
-            <View style={styles.balanceGlow} />
-            <Text style={styles.balanceLabel}>Available Balance</Text>
-            <Text style={styles.balanceAmount}>
-              {balance_paise !== null ? formatPaise(balance_paise) : "—"}
-            </Text>
-            <TouchableOpacity style={styles.addMoneyBtn} activeOpacity={0.85}>
-              <Text style={styles.addMoneyBtnText}>＋ Add Money</Text>
-            </TouchableOpacity>
+    <>
+      <FlatList
+        style={styles.root}
+        contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={Colors.accent}
+          />
+        }
+        ListHeaderComponent={
+          <View>
+            <Text style={styles.pageTitle}>My Wallet</Text>
+            <View style={styles.balanceCard}>
+              <View style={styles.balanceGlow} />
+              <Text style={styles.balanceLabel}>Available Balance</Text>
+              <Text style={styles.balanceAmount}>
+                {balance_paise !== null ? formatPaise(balance_paise) : "—"}
+              </Text>
+              <TouchableOpacity
+                style={styles.addMoneyBtn}
+                activeOpacity={0.85}
+                onPress={() => router.push("/wallet-topup")}
+              >
+                <Text style={styles.addMoneyBtnText}>＋ Add Money</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.sectionTitle}>Transaction History</Text>
           </View>
-          <Text style={styles.sectionTitle}>Transaction History</Text>
-        </View>
-      }
-      data={transactions}
-      keyExtractor={(t) => t.id}
-      renderItem={({ item }) => <TransactionRow tx={item} />}
-      ListEmptyComponent={
-        isLoadingTransactions ? (
-          <View style={styles.centered}>
-            <ActivityIndicator color={Colors.accent} />
-          </View>
-        ) : (
-          <View style={styles.emptyWrap}>
-            <Text style={styles.emptyText}>No transactions yet</Text>
-          </View>
-        )
-      }
-    />
+        }
+        data={transactions}
+        keyExtractor={(t) => t.id}
+        renderItem={({ item }) => <TransactionRow tx={item} />}
+        ListEmptyComponent={
+          isLoadingTransactions ? (
+            <View style={styles.centered}>
+              <ActivityIndicator color={Colors.accent} />
+            </View>
+          ) : (
+            <View style={styles.emptyWrap}>
+              <Text style={styles.emptyText}>No transactions yet</Text>
+            </View>
+          )
+        }
+      />
+    </>
   );
 }
 
@@ -241,7 +248,7 @@ function EarningRow({ session }: { session: any }) {
       try {
         const res = await studentsApi.getByEmail(session.student_email);
         setStudentName(res.student.name);
-      } catch (err) {
+      } catch {
         setStudentName(session.student_email);
       }
     };

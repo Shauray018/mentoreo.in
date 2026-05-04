@@ -9,6 +9,7 @@ export type UpdateMentorPayload = {
   linkedin: string;
   avatar_url: string;
   rate_per_minute: number;
+  expertise_tags: string[]; // added
 };
 
 export const updateMentorProfile = async (payload: UpdateMentorPayload) => {
@@ -16,9 +17,7 @@ export const updateMentorProfile = async (payload: UpdateMentorPayload) => {
     `${BASE_URL}/mentors/${encodeURIComponent(payload.email)}`,
     {
       method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         display_name: payload.display_name,
         bio: payload.bio,
@@ -27,13 +26,11 @@ export const updateMentorProfile = async (payload: UpdateMentorPayload) => {
         linkedin: payload.linkedin,
         avatar_url: payload.avatar_url,
         rate_per_minute: payload.rate_per_minute,
+        expertise_tags: payload.expertise_tags, // added
       }),
     },
   );
 
-  if (!res.ok) {
-    throw new Error("Failed to update profile");
-  }
-
+  if (!res.ok) throw new Error("Failed to update profile");
   return res.json();
 };

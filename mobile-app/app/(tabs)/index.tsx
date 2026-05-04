@@ -4,7 +4,6 @@ import { useAuthStore } from "@/stores/authStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
-import * as Notifications from "expo-notifications";
 import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -30,6 +29,7 @@ function StudentHome() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -49,24 +49,32 @@ function StudentHome() {
   }, [load]);
 
   useEffect(() => {
-    if (!search.trim()) {
-      setFiltered(mentors);
-    } else {
-      const q = search.toLowerCase();
-      setFiltered(
-        mentors.filter((m) => {
-          const name = (m.display_name ?? "").toLowerCase();
-          const college = (m.college ?? "").toLowerCase();
-          const tags = m.expertise_tags ?? [];
-          return (
-            name.includes(q) ||
-            college.includes(q) ||
-            tags.some((t) => (t ?? "").toLowerCase().includes(q))
-          );
-        }),
+    let result = mentors;
+
+    if (activeFilter) {
+      result = result.filter((m) =>
+        m.expertise_tags?.some(
+          (t) => t?.toLowerCase() === activeFilter.toLowerCase(),
+        ),
       );
     }
-  }, [search, mentors]);
+
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter((m) => {
+        const name = (m.display_name ?? "").toLowerCase();
+        const college = (m.college ?? "").toLowerCase();
+        const tags = m.expertise_tags ?? [];
+        return (
+          name.includes(q) ||
+          college.includes(q) ||
+          tags.some((t) => (t ?? "").toLowerCase().includes(q))
+        );
+      });
+    }
+
+    setFiltered(result);
+  }, [search, mentors, activeFilter]);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -144,6 +152,37 @@ function StudentHome() {
                 <FontAwesome6 name="bolt" size={16} color="#263238" />
               </XStack>
             </View>
+
+            {/* ── Filter Chips ── */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterRow}
+            >
+              {["JEE", "NEET", "CUET", "OTHERS"].map((filter) => {
+                const active = activeFilter === filter;
+                return (
+                  <TouchableOpacity
+                    key={filter}
+                    style={[
+                      styles.filterChip,
+                      active && styles.filterChipActive,
+                    ]}
+                    onPress={() => setActiveFilter(active ? null : filter)}
+                    activeOpacity={0.75}
+                  >
+                    <Text
+                      style={[
+                        styles.filterChipText,
+                        active && styles.filterChipTextActive,
+                      ]}
+                    >
+                      {filter}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
           </View>
         }
         renderItem={({ item }) => <MentorCard mentor={item} />}
@@ -239,18 +278,6 @@ function MentorHome() {
   const isLoading = useSessionStore((s) => s.isLoading);
   const acceptSession = useSessionStore((s) => s.acceptSession);
   const declineSession = useSessionStore((s) => s.declineSession);
-
-  useEffect(() => {
-    const subscription = Notifications.addNotificationResponseReceivedListener(
-      (response) => {
-        const sessionId = response.notification.request.content.data?.sessionId;
-        if (sessionId) {
-          router.push("/(tabs)");
-        }
-      },
-    );
-    return () => subscription.remove();
-  }, []);
 
   const handleAccept = async () => {
     if (!session || !user) return;
@@ -509,7 +536,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#263238",
     paddingHorizontal: Spacing.md,
-    marginBottom: Spacing.lg,
+    marginBottom: 12,
   },
   searchInput: {
     flex: 1,
@@ -605,7 +632,32 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 20,
   },
-
+  filterRow: {
+    flexDirection: "row",
+    gap: 8,
+    paddingBottom: 12,
+    paddingHorizontal: 2,
+  },
+  filterChip: {
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: "#E5E7EB",
+    backgroundColor: "white",
+  },
+  filterChipActive: {
+    backgroundColor: "#FF6B00",
+    borderColor: "#FF6B00",
+  },
+  filterChipText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#6B7280",
+  },
+  filterChipTextActive: {
+    color: "white",
+  },
   // ── MentorHome: pending dots ──
   pulseDot: {
     width: 8,

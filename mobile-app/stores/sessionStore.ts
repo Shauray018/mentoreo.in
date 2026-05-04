@@ -1,5 +1,4 @@
 import { Session, sessionsApi } from "@/services/api";
-import * as Notifications from "expo-notifications";
 import { create } from "zustand";
 import { useWalletStore } from "./walletStore";
 
@@ -58,25 +57,43 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
 
     console.log("[sessionStore] starting poller");
 
+    // const fetchOnce = async () => {
+    //   try {
+    //     const res = await sessionsApi.getActive(token);
+    //     set({ session: res.session, error: null });
+    //     const prevSession = get().session;
+
+    //     if (
+    //       res.session?.status === "pending" &&
+    //       prevSession?.id !== res.session?.id
+    //     ) {
+    //       await Notifications.scheduleNotificationAsync({
+    //         content: {
+    //           title: "New Session Request 🔔",
+    //           body: `${res.session.student_email} wants a session with you!`,
+    //           sound: "default",
+    //           data: { sessionId: res.session.id },
+    //         },
+    //         trigger: null, // fire immediately
+    //       });
+    //     }
+    //   } catch (e: any) {
+    //     console.error("💥 [sessionStore] poll failed:", e.message);
+    //     set({ error: e.message });
+    //   }
+    // };
     const fetchOnce = async () => {
       try {
-        const res = await sessionsApi.getActive(token);
-        set({ session: res.session, error: null });
         const prevSession = get().session;
+        const res = await sessionsApi.getActive(token);
+
+        set({ session: res.session, error: null });
 
         if (
           res.session?.status === "pending" &&
-          prevSession?.id !== res.session?.id
+          prevSession?.id !== res.session.id
         ) {
-          await Notifications.scheduleNotificationAsync({
-            content: {
-              title: "New Session Request 🔔",
-              body: `${res.session.student_email} wants a session with you!`,
-              sound: "default",
-              data: { sessionId: res.session.id },
-            },
-            trigger: null, // fire immediately
-          });
+          console.log("[sessionStore] new pending session detected:", res.session.id);
         }
       } catch (e: any) {
         console.error("💥 [sessionStore] poll failed:", e.message);

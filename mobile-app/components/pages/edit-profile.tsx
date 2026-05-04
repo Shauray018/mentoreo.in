@@ -1,9 +1,12 @@
+import { Colors, FontSize, Radius } from "@/constants/theme";
 import { useUpdateMentorProfile } from "@/hooks/useUpdateMentorProfile";
 import { mentorsApi } from "@/services/api";
 import { useAuthStore } from "@/stores/authStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useWalletStore } from "@/stores/walletStore";
+import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { useSendbirdChat } from "@sendbird/uikit-react-native";
+import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -14,10 +17,10 @@ import {
   TextInput,
   TouchableOpacity,
 } from "react-native";
-
-import { Colors, FontSize, Radius } from "@/constants/theme";
-import * as ImagePicker from "expo-image-picker";
 import { Image, Text, View, XStack, YStack } from "tamagui";
+
+const EXPERTISE_OPTIONS = ["JEE", "NEET", "CUET", "OTHERS"] as const;
+type ExpertiseTag = (typeof EXPERTISE_OPTIONS)[number];
 
 export default function MentorProfileScreen() {
   const { saveProfile, loading: saving } = useUpdateMentorProfile();
@@ -29,7 +32,7 @@ export default function MentorProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [mentor, setMentor] = useState<any>(null);
-
+  const [expertiseTag, setExpertiseTag] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
   const [college, setCollege] = useState("");
@@ -37,6 +40,7 @@ export default function MentorProfileScreen() {
   const [linkedin, setLinkedin] = useState("");
   const [rate, setRate] = useState("");
   const [avatar, setAvatar] = useState("");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   useEffect(() => {
     loadProfile();
@@ -54,6 +58,7 @@ export default function MentorProfileScreen() {
       setLinkedin(data.linkedin || "");
       setRate(String(data.rate_per_minute || ""));
       setAvatar(data.avatar_url || "");
+      setExpertiseTag((data.expertise_tags?.[0] as ExpertiseTag) ?? "JEE");
     } catch (err) {
       Alert.alert("Error", "Failed to load profile");
     } finally {
@@ -98,6 +103,7 @@ export default function MentorProfileScreen() {
         linkedin,
         avatar_url: avatar,
         rate_per_minute: Number(rate),
+        expertise_tags: [expertiseTag], // single pick, stored as array
       });
 
       Alert.alert("Saved", "Profile Updated");
@@ -127,6 +133,11 @@ export default function MentorProfileScreen() {
       <YStack padding={20} gap={18} paddingBottom={120}>
         {/* Header */}
         <YStack alignItems="center" marginTop={15}>
+          <XStack justifyContent="flex-end" width={"100%"}>
+            <TouchableOpacity onPress={() => setEditing(true)}>
+              <FontAwesome6 name="edit" size={24} color="black" />
+            </TouchableOpacity>
+          </XStack>
           <TouchableOpacity disabled={!editing} onPress={pickImage}>
             {avatar ? (
               <Image
@@ -215,7 +226,7 @@ export default function MentorProfileScreen() {
         </View>
 
         {/* Pricing */}
-        <View style={styles.card}>
+        {/* <View style={styles.card}>
           <Text style={styles.cardTitle}>Session Pricing</Text>
 
           {editing ? (
@@ -229,37 +240,80 @@ export default function MentorProfileScreen() {
           ) : (
             <Text style={styles.price}>₹{mentor?.rate_per_minute}/min</Text>
           )}
-        </View>
-
-        {/* LinkedIn */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>LinkedIn</Text>
-
-          {editing ? (
-            <TextInput
-              style={styles.input}
-              value={linkedin}
-              onChangeText={setLinkedin}
-              placeholder="LinkedIn URL"
-            />
-          ) : (
-            <Text style={styles.body}>{linkedin || "Not Added"}</Text>
-          )}
-        </View>
+        </View> */}
 
         {/* Expertise */}
-        {!!mentor?.expertise_tags?.length && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Expertise</Text>
+        {editing ? (
+          <YStack>
+            <Text
+              paddingLeft={10}
+              paddingBottom={4}
+              fontSize={16}
+              fontWeight={500}
+            >
+              Exam
+            </Text>
+            <TouchableOpacity
+              style={styles.dropdownTrigger}
+              onPress={() => setDropdownOpen((p) => !p)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.dropdownTriggerText}>{expertiseTag}</Text>
+              <FontAwesome6
+                name={dropdownOpen ? "chevron-up" : "chevron-down"}
+                size={14}
+                color="#6B7280"
+              />
+            </TouchableOpacity>
 
+            {dropdownOpen && (
+              <View style={styles.dropdownList}>
+                {EXPERTISE_OPTIONS.map((option) => (
+                  <TouchableOpacity
+                    key={option}
+                    style={[
+                      styles.dropdownItem,
+                      expertiseTag === option && styles.dropdownItemActive,
+                    ]}
+                    onPress={() => {
+                      setExpertiseTag(option);
+                      setDropdownOpen(false);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.dropdownItemText,
+                        expertiseTag === option &&
+                          styles.dropdownItemTextActive,
+                      ]}
+                    >
+                      {option}
+                    </Text>
+                    {expertiseTag === option && (
+                      <FontAwesome6 name="check" size={13} color="#FF6B00" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </YStack>
+        ) : (
+          <YStack>
+            <Text paddingLeft={2} fontWeight={500} paddingBottom={4}>
+              Exam
+            </Text>
             <XStack flexWrap="wrap" gap={8}>
-              {mentor.expertise_tags.map((tag: string) => (
-                <View key={tag} style={styles.tag}>
-                  <Text color="#FF6B00">{tag}</Text>
-                </View>
-              ))}
+              {mentor?.expertise_tags?.length ? (
+                mentor.expertise_tags.map((tag: string) => (
+                  <View key={tag} style={styles.tag}>
+                    <Text color="#FF6B00">{tag}</Text>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.sub}>No expertise added yet.</Text>
+              )}
             </XStack>
-          </View>
+          </YStack>
         )}
       </YStack>
 
@@ -389,7 +443,53 @@ const styles = StyleSheet.create({
     color: "#6B7280",
     marginTop: 4,
   },
-
+  dropdownTrigger: {
+    borderWidth: 1.5,
+    borderColor: "#E6E6E6",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    backgroundColor: "white",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  dropdownTriggerText: {
+    fontSize: 16,
+    color: "#263238",
+  },
+  dropdownList: {
+    marginTop: 6,
+    borderWidth: 1.5,
+    borderColor: "#E6E6E6",
+    borderRadius: 14,
+    backgroundColor: "white",
+    overflow: "hidden",
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+  },
+  dropdownItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+  },
+  dropdownItemActive: {
+    backgroundColor: "#FFF2E8",
+  },
+  dropdownItemText: {
+    fontSize: 16,
+    color: "#263238",
+  },
+  dropdownItemTextActive: {
+    color: "#FF6B00",
+    fontWeight: "700",
+  },
   price: {
     fontSize: 26,
     fontWeight: "800",
@@ -417,6 +517,17 @@ const styles = StyleSheet.create({
     bottom: 20,
     left: 16,
     right: 16,
+  },
+  pickerWrapper: {
+    borderWidth: 1.5,
+    borderColor: "#E6E6E6",
+    borderRadius: 14,
+    overflow: "hidden",
+    backgroundColor: "white",
+  },
+  picker: {
+    height: 52,
+    color: "#263238",
   },
 
   saveBtnFull: {

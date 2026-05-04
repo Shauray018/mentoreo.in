@@ -2,6 +2,10 @@ import { Colors } from "@/constants/theme";
 import { platformServices } from "@/services/platformServices";
 import { useAuthStore } from "@/stores/authStore";
 import { useSessionStore } from "@/stores/sessionStore";
+import {
+  ensureNotificationSetup,
+  getSessionIdFromNotificationResponse,
+} from "@/utils/notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   SendbirdUIKitContainer,
@@ -9,10 +13,11 @@ import {
 } from "@sendbird/uikit-react-native";
 import { defaultConfig } from "@tamagui/config/v5";
 import { TamaguiProvider, createTamagui } from "@tamagui/core";
-import { Redirect, Stack } from "expo-router";
+import { Redirect, Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
-import { Platform, View } from "react-native";
+import { View } from "react-native";
+import * as Notifications from "expo-notifications";
 import "react-native-reanimated";
 
 const config = createTamagui(defaultConfig);
@@ -34,7 +39,38 @@ function AppNavigator() {
     } else {
       stopPolling();
     }
-  }, [user?.token]);
+  }, [startPolling, stopPolling, user?.token]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    ensureNotificationSetup().catch((error) =>
+      console.error("💥 Notification setup failed:", error),
+    );
+
+    const subscription = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        const sessionId = getSessionIdFromNotificationResponse(response);
+        if (!sessionId) return;
+
+        const type = response.notification.request.content.data?.type;
+        if (type === "session_accepted") {
+          const channelUrl =
+            response.notification.request.content.data?.channelUrl;
+          if (typeof channelUrl === "string" && channelUrl.length > 0) {
+            router.push(`/group-channel/${channelUrl}`);
+            return;
+          }
+          router.push("/session/active");
+          return;
+        }
+
+        router.push("/(tabs)");
+      },
+    );
+
+    return () => subscription.remove();
+  }, [user]);
 
   return (
     <>
@@ -66,6 +102,13 @@ function AppNavigator() {
         <Stack.Screen
           name="group-channel/[channelUrl]"
           options={{ presentation: "card" }}
+        />
+        <Stack.Screen
+          name="wallet-topup"
+          options={{
+            presentation: "modal",
+            animation: "slide_from_bottom",
+          }}
         />
         <Stack.Screen name="test" />
       </Stack>

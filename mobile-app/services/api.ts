@@ -245,6 +245,19 @@ export interface WalletTransaction {
   created_at: string;
 }
 
+export interface WalletTopupOrderResponse {
+  orderId: string;
+  amountPaise: number;
+  currency: string;
+  keyId: string;
+}
+
+export interface WalletTopupVerifyResponse {
+  success: true;
+  balance_paise: number;
+  transaction: WalletTransaction;
+}
+
 export const walletApi = {
   getBalance: (token: string): Promise<{ balance_paise: number }> =>
     request("/wallet/balance", { token }),
@@ -253,6 +266,30 @@ export const walletApi = {
     token: string,
   ): Promise<{ transactions: WalletTransaction[] }> =>
     request("/wallet/transactions", { token }),
+
+  createTopupOrder: (
+    amountRupees: number,
+    token: string,
+  ): Promise<WalletTopupOrderResponse> =>
+    request("/wallet/topup/order", {
+      method: "POST",
+      body: JSON.stringify({ amountRupees }),
+      token,
+    }),
+
+  verifyTopupPayment: (
+    data: {
+      razorpay_order_id: string;
+      razorpay_payment_id: string;
+      razorpay_signature: string;
+    },
+    token: string,
+  ): Promise<WalletTopupVerifyResponse> =>
+    request("/wallet/topup/verify", {
+      method: "POST",
+      body: JSON.stringify(data),
+      token,
+    }),
 };
 
 export const studentsApi = {
