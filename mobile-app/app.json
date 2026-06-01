@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.shauray.mobileapp"
+      "bundleIdentifier": "com.mentoreo.app"
     },
     "android": {
       "adaptiveIcon": {
@@ -25,7 +25,12 @@
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS"
       ],
-      "package": "com.shauray.mobileapp"
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ],
+      "package": "com.mentoreo.app"
     },
     "web": {
       "output": "static",

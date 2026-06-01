@@ -633,10 +633,11 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   filterRow: {
+    flex: 1,
     flexDirection: "row",
     gap: 8,
     paddingBottom: 12,
-    paddingHorizontal: 2,
+    justifyContent: "center",
   },
   filterChip: {
     paddingHorizontal: 18,
