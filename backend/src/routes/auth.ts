@@ -1,3 +1,438 @@
+// import { Router, Request, Response } from "express";
+// import jwt from "jsonwebtoken";
+// import { supabase } from "../lib/supabase";
+// import { resend } from "../lib/resend";
+
+// const router = Router();
+
+// /**
+//  * OTP store
+//  * key = email
+//  */
+// const otpStore = new Map<
+//   string,
+//   {
+//     otp: string;
+//     expiresAt: number;
+//     purpose: "login" | "signup";
+//     role: "student" | "mentor";
+//   }
+// >();
+
+// /* -------------------------------------------------- */
+// /* Helpers */
+// /* -------------------------------------------------- */
+
+// function generateOtp() {
+//   return Math.floor(100000 + Math.random() * 900000).toString();
+// }
+// function authMiddleware(req: Request, res: Response, next: Function) {
+//   const token = req.headers.authorization?.split(" ")[1];
+//   if (!token) {
+//     res.status(401).json({ error: "No token provided" });
+//     return;
+//   }
+//   try {
+//     (req as any).user = jwt.verify(token, process.env.JWT_SECRET!);
+//     next();
+//   } catch {
+//     res.status(401).json({ error: "Invalid token" });
+//   }
+// }
+// function setOtp(
+//   email: string,
+//   role: "student" | "mentor",
+//   purpose: "login" | "signup"
+// ) {
+//   const otp = generateOtp();
+
+//   otpStore.set(email, {
+//     otp,
+//     expiresAt: Date.now() + 10 * 60 * 1000,
+//     purpose,
+//     role,
+//   });
+
+//   return otp;
+// }
+
+// function verifyStoredOtp(
+//   email: string,
+//   otp: string,
+//   role: "student" | "mentor",
+//   purpose: "login" | "signup"
+// ) {
+//   const stored = otpStore.get(email);
+
+//   if (!stored) return "No OTP found. Please request a new one.";
+
+//   if (stored.role !== role || stored.purpose !== purpose) {
+//     return "Invalid OTP request.";
+//   }
+
+//   if (Date.now() > stored.expiresAt) {
+//     otpStore.delete(email);
+//     return "OTP expired. Please request a new one.";
+//   }
+
+//   if (stored.otp !== otp) return "Invalid OTP";
+
+//   otpStore.delete(email);
+//   return null;
+// }
+
+// function getTable(role: "student" | "mentor") {
+//   return role === "student" ? "student_signups" : "signups";
+// }
+
+// function createJwt(user: any, role: "student" | "mentor") {
+//   return jwt.sign(
+//     {
+//       id: user.id,
+//       email: user.email,
+//       name: user.name,
+//       role,
+//     },
+//     process.env.JWT_SECRET!,
+//     { expiresIn: "30d" }
+//   );
+// }
+
+// async function createSendbirdUser(user: any) {
+//   try {
+//     const response = await fetch(
+//       `https://api-${process.env.SENDBIRD_APP_ID}.sendbird.com/v3/users`,
+//       {
+//         method: "POST",
+//         headers: {
+//           "Content-Type": "application/json",
+//           "Api-Token": process.env.SENDBIRD_API_TOKEN!,
+//         },
+//         body: JSON.stringify({
+//           user_id: user.id,
+//           nickname: user.name,
+//           profile_url: "",
+//           issue_access_token: false,
+//         }),
+//       }
+//     );
+
+//     if (!response.ok) {
+//       const err = await response.json();
+
+//       if (err.code !== 400201) {
+//         console.error("Sendbird error:", err);
+//       }
+//     }
+//   } catch (error) {
+//     console.error("Sendbird failed:", error);
+//   }
+// }
+
+// async function sendOtpEmail(
+//   email: string,
+//   name: string,
+//   otp: string,
+//   role: string,
+//   purpose: string
+// ) {
+//   return resend.emails.send({
+//     from: "Mentoreo <support@mentoreo.in>",
+//     to: email,
+//     subject:
+//       purpose === "login"
+//         ? "Your Mentoreo login code"
+//         : "Your Mentoreo signup code",
+//     html: `
+//       <div style="font-family:sans-serif;max-width:420px;margin:auto;">
+//         <h2>Your verification code</h2>
+//         <p>Hi ${name || "there"},</p>
+//         <p>
+//           Use this code to ${purpose} as a <strong>${role}</strong>.
+//           It expires in 10 minutes.
+//         </p>
+
+//         <div style="
+//           font-size:36px;
+//           font-weight:bold;
+//           letter-spacing:8px;
+//           margin:24px 0;
+//           color:#742DDD;
+//         ">
+//           ${otp}
+//         </div>
+
+//         <p style="color:#888;">
+//           If you didn't request this, ignore this email.
+//         </p>
+//       </div>
+//     `,
+//   });
+// }
+
+// /* -------------------------------------------------- */
+// /* LOGIN OTP SEND */
+// /* -------------------------------------------------- */
+
+// router.post("/send-otp-login", async (req: Request, res: Response) => {
+//   const { email, role } = req.body;
+
+//   if (!email || !role) {
+//     return res.status(400).json({ error: "Email and role are required" });
+//   }
+
+//   if (!["student", "mentor"].includes(role)) {
+//     return res.status(400).json({ error: "Invalid role" });
+//   }
+
+//   const table = getTable(role);
+
+//   const { data: user, error } = await supabase
+//     .from(table)
+//     .select("id, name, email")
+//     .eq("email", email)
+//     .single();
+
+//   if (error || !user) {
+//     return res.status(404).json({ error: "Account not found" });
+//   }
+
+//   const otp = setOtp(email, role, "login");
+
+//   const { error: emailError } = await sendOtpEmail(
+//     email,
+//     user.name,
+//     otp,
+//     role,
+//     "login"
+//   );
+
+//   if (emailError) {
+//     return res.status(500).json({ error: "Failed to send OTP" });
+//   }
+
+//   res.json({ message: "OTP sent successfully" });
+// });
+
+// /* -------------------------------------------------- */
+// /* VERIFY LOGIN */
+// /* -------------------------------------------------- */
+
+// router.post("/verify-login", async (req: Request, res: Response) => {
+//   const { email, otp, role } = req.body;
+
+//   if (!email || !otp || !role) {
+//     return res
+//       .status(400)
+//       .json({ error: "Email, OTP and role are required" });
+//   }
+
+//   if (!["student", "mentor"].includes(role)) {
+//     return res.status(400).json({ error: "Invalid role" });
+//   }
+
+//   const otpError = verifyStoredOtp(email, otp, role, "login");
+
+//   if (otpError) {
+//     return res.status(400).json({ error: otpError });
+//   }
+
+//   const table = getTable(role);
+
+//   const { data: user, error } = await supabase
+//     .from(table)
+//     .select("*")
+//     .eq("email", email)
+//     .single();
+
+//   if (error || !user) {
+//     return res.status(500).json({ error: "Failed to fetch user" });
+//   }
+
+//   await createSendbirdUser(user);
+
+//   const token = createJwt(user, role);
+
+//   res.json({
+//     token,
+//     user: { ...user, role },
+//   });
+// });
+
+// /* -------------------------------------------------- */
+// /* SIGNUP OTP SEND */
+// /* -------------------------------------------------- */
+
+// router.post("/send-otp-signup", async (req: Request, res: Response) => {
+//   const { email, role } = req.body;
+
+//   if (!email || !role) {
+//     return res.status(400).json({ error: "Email and role are required" });
+//   }
+
+//   if (!["student", "mentor"].includes(role)) {
+//     return res.status(400).json({ error: "Invalid role" });
+//   }
+
+//   const table = getTable(role);
+
+//   const { data: existing } = await supabase
+//     .from(table)
+//     .select("id")
+//     .eq("email", email)
+//     .single();
+
+//   if (existing) {
+//     return res.status(400).json({ error: "Email already registered" });
+//   }
+
+//   const otp = setOtp(email, role, "signup");
+
+//   const { error } = await sendOtpEmail(
+//     email,
+//     "there",
+//     otp,
+//     role,
+//     "signup"
+//   );
+
+//   if (error) {
+//     return res.status(500).json({ error: "Failed to send OTP" });
+//   }
+
+//   res.json({ message: "OTP sent successfully" });
+// });
+
+// /* -------------------------------------------------- */
+// /* STUDENT SIGNUP */
+// /* -------------------------------------------------- */
+
+// router.post("/signup/student", async (req: Request, res: Response) => {
+//   const { email, otp, name, phone } = req.body;
+
+//   if (!email || !otp || !name) {
+//     return res.status(400).json({ error: "Missing required fields" });
+//   }
+
+//   const otpError = verifyStoredOtp(email, otp, "student", "signup");
+
+//   if (otpError) {
+//     return res.status(400).json({ error: otpError });
+//   }
+
+//   const { data: user, error } = await supabase
+//     .from("student_signups")
+//     .insert({
+//       email,
+//       name,
+//       phone: phone || null,
+//     })
+//     .select()
+//     .single();
+
+//   if (error || !user) {
+//     return res.status(500).json({ error: "Signup failed" });
+//   }
+
+//   await createSendbirdUser(user);
+
+//   const token = createJwt(user, "student");
+
+//   res.json({
+//     token,
+//     user: { ...user, role: "student" },
+//   });
+// });
+
+// /* -------------------------------------------------- */
+// /* MENTOR SIGNUP */
+// /* -------------------------------------------------- */
+
+// router.post("/signup/mentor", async (req: Request, res: Response) => {
+//   const { email, otp, name, phone, college, course, branch } = req.body;
+
+//   if (!email || !otp || !name || !phone || !college) {
+//     return res.status(400).json({ error: "Missing required fields" });
+//   }
+
+//   const otpError = verifyStoredOtp(email, otp, "mentor", "signup");
+
+//   if (otpError) {
+//     return res.status(400).json({ error: otpError });
+//   }
+
+//   // 1. Insert into signups
+//   const { data: user, error } = await supabase
+//     .from("signups")
+//     .insert({
+//       email,
+//       name,
+//       phone,
+//       college,
+//       course: course || null,
+//       branch: branch || null,
+//     })
+//     .select()
+//     .single();
+
+//   if (error || !user) {
+//     return res.status(500).json({ error: "Signup failed" });
+//   }
+
+//   // 2. Create mentor profile automatically (UPSERT)
+//   await supabase.from("mentor_profiles").upsert({
+//     email: user.email,
+//     display_name: user.name,
+//     college: user.college,
+//     course: user.course || null,
+//   });
+
+//   await createSendbirdUser(user);
+
+//   const token = createJwt(user, "mentor");
+
+//   res.json({
+//     token,
+//     user: { ...user, role: "mentor" },
+//   });
+// });
+
+// router.post(
+//   "/push-token",
+//   authMiddleware,
+//   async (req: Request, res: Response) => {
+//     const { email, role } = (req as any).user;
+//     const { token } = req.body;
+ 
+//     if (!token || typeof token !== "string") {
+//       res.status(400).json({ error: "token is required" });
+//       return;
+//     }
+ 
+//     if (!token.startsWith("ExponentPushToken[")) {
+//       res.status(400).json({ error: "Invalid Expo push token format" });
+//       return;
+//     }
+ 
+//     // Upsert — one row per email, always overwrite with the latest token
+//     const { error } = await supabase
+//       .from("expo_push_tokens")
+//       .upsert(
+//         { email, token, role, updated_at: new Date().toISOString() },
+//         { onConflict: "email" }
+//       );
+ 
+//     if (error) {
+//       console.error("Failed to save push token:", error);
+//       res.status(500).json({ error: "Failed to save push token" });
+//       return;
+//     }
+ 
+//     res.json({ message: "Push token registered" });
+//   }
+// );
+
+// export default router;
 import { Router, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { supabase } from "../lib/supabase";
@@ -156,6 +591,24 @@ async function sendOtpEmail(
       </div>
     `,
   });
+}
+
+/* -------------------------------------------------- */
+/* AUTH MIDDLEWARE (shared) */
+/* -------------------------------------------------- */
+
+function authMiddleware(req: Request, res: Response, next: Function) {
+  const token = req.headers.authorization?.split(" ")[1];
+  if (!token) {
+    res.status(401).json({ error: "No token provided" });
+    return;
+  }
+  try {
+    (req as any).user = jwt.verify(token, process.env.JWT_SECRET!);
+    next();
+  } catch {
+    res.status(401).json({ error: "Invalid token" });
+  }
 }
 
 /* -------------------------------------------------- */
@@ -384,5 +837,47 @@ router.post("/signup/mentor", async (req: Request, res: Response) => {
     user: { ...user, role: "mentor" },
   });
 });
+
+/* -------------------------------------------------- */
+/* REGISTER PUSH TOKEN                                */
+/* POST /auth/push-token                              */
+/* Called by the app after login whenever it gets a  */
+/* fresh Expo push token from the OS.                */
+/* -------------------------------------------------- */
+
+router.post(
+  "/push-token",
+  authMiddleware,
+  async (req: Request, res: Response) => {
+    const { email, role } = (req as any).user;
+    const { token } = req.body;
+
+    if (!token || typeof token !== "string") {
+      res.status(400).json({ error: "token is required" });
+      return;
+    }
+
+    if (!token.startsWith("ExponentPushToken[")) {
+      res.status(400).json({ error: "Invalid Expo push token format" });
+      return;
+    }
+
+    // Upsert — one row per email, always overwrite with the latest token
+    const { error } = await supabase
+      .from("expo_push_tokens")
+      .upsert(
+        { email, token, role, updated_at: new Date().toISOString() },
+        { onConflict: "email" }
+      );
+
+    if (error) {
+      console.error("Failed to save push token:", error);
+      res.status(500).json({ error: "Failed to save push token" });
+      return;
+    }
+
+    res.json({ message: "Push token registered" });
+  }
+);
 
 export default router;
