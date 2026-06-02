@@ -42,14 +42,15 @@ export async function createSessionChannel(
   studentId: string,
   mentorId: string,
   sessionId: string,
-  mentorEmail: string
+  mentorEmail: string,
+  state: "pending" | "active" = "active"
 ): Promise<string | null> {
   const channelData = {
     sessionId,
     studentId,
     mentorId,
     mentorEmail,
-    state: "active",
+    state,
   };
 
   const res = await fetch(`${SENDBIRD_BASE}/group_channels`, {
@@ -66,13 +67,62 @@ export async function createSessionChannel(
   });
 
   if (!res.ok) {
-    const err = await res.json();
-    console.error("Sendbird channel create error:", err);
+    const text = await res.text();
+    try {
+      const err = JSON.parse(text);
+      console.error("Sendbird channel create error:", err);
+    } catch {
+      console.error("Sendbird channel create error (raw):", text);
+    }
+
+    const existingChannelUrl = `session_${sessionId}`;
+    const existing = await fetch(
+      `${SENDBIRD_BASE}/group_channels/${encodeURIComponent(existingChannelUrl)}`,
+      {
+        method: "GET",
+        headers: SB_HEADERS,
+      }
+    );
+
+    if (existing.ok) {
+      return existingChannelUrl;
+    }
+
     return null;
   }
 
   const data = await res.json();
   return data.channel_url as string;
+}
+
+export async function sendSessionChannelMessage(
+  channelUrl: string,
+  senderId: string,
+  message: string,
+  customType: string,
+  data: Record<string, string>
+): Promise<boolean> {
+  const safeChannelUrl = encodeURIComponent(channelUrl);
+  const res = await fetch(`${SENDBIRD_BASE}/group_channels/${safeChannelUrl}/messages`, {
+    method: "POST",
+    headers: SB_HEADERS,
+    body: JSON.stringify({
+      message_type: "MESG",
+      user_id: senderId,
+      message,
+      custom_type: customType,
+      data: JSON.stringify(data),
+      send_push: true,
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error("Sendbird channel message error:", channelUrl, text);
+    return false;
+  }
+
+  return true;
 }
 
 export async function freezeSessionChannel(channelUrl: string): Promise<boolean> {

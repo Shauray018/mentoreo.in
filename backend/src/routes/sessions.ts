@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase";
 import {
   createSessionChannel,
   freezeSessionChannel,
+  sendSessionChannelMessage,
   sendPushToUser,
   updateSessionChannelState,
 } from "../lib/sendbird";
@@ -127,9 +128,51 @@ router.post("/request", authMiddleware, async (req: Request, res: Response) => {
     .eq("id", studentId)
     .single();
 
-  // 6. Push to mentor
+  // 6. Create a pending Sendbird channel and message the mentor.
+  // Sendbird handles the device push through its configured notification pipeline.
   const mentorSendbirdId = await getMentorSendbirdId(mentorEmail);
+  let channelUrl: string | null = null;
+  let requestMessageSent = false;
+
   if (mentorSendbirdId) {
+    channelUrl = await createSessionChannel(
+      studentId,
+      mentorSendbirdId,
+      session.id,
+      mentorEmail,
+      "pending"
+    );
+
+    if (channelUrl) {
+      await supabase
+        .from("sessions")
+        .update({ sendbird_channel_url: channelUrl })
+        .eq("id", session.id);
+
+      requestMessageSent = await sendSessionChannelMessage(
+        channelUrl,
+        studentId,
+        `${student?.name ?? "A student"} is requesting a session! You have 10 minutes to accept.`,
+        "session_request",
+        {
+          type: "session_request",
+          sessionId: session.id,
+          studentId,
+          studentName: student?.name ?? "",
+          studentEmail,
+        }
+      );
+    }
+  } else {
+    console.error("Mentor Sendbird user not found:", mentorEmail);
+  }
+
+  const notification = {
+    sendbirdChannelCreated: Boolean(channelUrl),
+    sendbirdMessageSent: requestMessageSent,
+  };
+
+  if (!requestMessageSent && mentorSendbirdId) {
     await sendPushToUser(
       mentorSendbirdId,
       studentId,
@@ -152,7 +195,9 @@ router.post("/request", authMiddleware, async (req: Request, res: Response) => {
       expiresAt: session.expires_at,
       ratePerMinutePaise,
       ratePerMinuteRupees: mentor.rate_per_minute,
+      channelUrl,
     },
+    notification,
   });
 });
 
@@ -187,24 +232,29 @@ router.post("/accept", authMiddleware, async (req: Request, res: Response) => {
     return;
   }
 
-  // 3. Create Sendbird channel
-  console.log("Creating Sendbird session channel:", {
+  // 3. Reuse the pending Sendbird channel created during request.
+  console.log("Resolving Sendbird session channel:", {
     studentId: session.student_id,
     mentorId: mentorSignupId,
     sessionId,
   });
 
-  const channelUrl = await createSessionChannel(
-    session.student_id,  // student UUID = their Sendbird ID
-    mentorSignupId,      // mentor signups.id = their Sendbird ID
-    sessionId,
-    mentorEmail
-  );
+  const channelUrl =
+    session.sendbird_channel_url ??
+    (await createSessionChannel(
+      session.student_id,  // student UUID = their Sendbird ID
+      mentorSignupId,      // mentor signups.id = their Sendbird ID
+      sessionId,
+      mentorEmail,
+      "active"
+    ));
 
   if (!channelUrl) {
     res.status(500).json({ error: "Failed to create chat channel" });
     return;
   }
+
+  await updateSessionChannelState(channelUrl, "active");
 
   const now = new Date().toISOString();
 
@@ -228,11 +278,12 @@ router.post("/accept", authMiddleware, async (req: Request, res: Response) => {
 
   const mentorName = mentorProfile?.display_name ?? mentorEmail;
 
-  // 6. Push to student
-  await sendPushToUser(
-    session.student_id,  // student UUID = Sendbird ID
+  // 6. Message student in the Sendbird channel, which drives Sendbird push.
+  const acceptedMessageSent = await sendSessionChannelMessage(
+    channelUrl,
     mentorSignupId,
     `${mentorName} accepted your session request! Tap to start chatting.`,
+    "session_accepted",
     {
       type: "session_accepted",
       sessionId,
@@ -241,6 +292,7 @@ router.post("/accept", authMiddleware, async (req: Request, res: Response) => {
       channelUrl,
     }
   );
+  const notification = { sendbirdMessageSent: acceptedMessageSent };
 
   res.json({
     message: "Session accepted",
@@ -251,6 +303,7 @@ router.post("/accept", authMiddleware, async (req: Request, res: Response) => {
       startedAt: now,
       ratePerMinutePaise: session.rate_per_minute_paise,
     },
+    notification,
   });
 });
 
@@ -280,14 +333,29 @@ router.post("/decline", authMiddleware, async (req: Request, res: Response) => {
     .eq("email", mentorEmail)
     .single();
 
-  await sendPushToUser(
-    session.student_id,
-    mentorSignupId,
-    `${mentorProfile?.display_name ?? "Your mentor"} is unavailable right now. Try another mentor.`,
-    { type: "session_declined", sessionId }
-  );
+  const declinedMessage = `${mentorProfile?.display_name ?? "Your mentor"} is unavailable right now. Try another mentor.`;
+  const notification = {
+    sendbirdMessageSent: session.sendbird_channel_url
+      ? await sendSessionChannelMessage(
+          session.sendbird_channel_url,
+          mentorSignupId,
+          declinedMessage,
+          "session_declined",
+          { type: "session_declined", sessionId }
+        )
+      : false,
+  };
 
-  res.json({ message: "Session declined" });
+  if (!notification.sendbirdMessageSent) {
+    await sendPushToUser(
+      session.student_id,
+      mentorSignupId,
+      declinedMessage,
+      { type: "session_declined", sessionId }
+    );
+  }
+
+  res.json({ message: "Session declined", notification });
 });
 
 // ─── POST /sessions/cancel ─────────────────────────────────────────────────────
@@ -311,7 +379,19 @@ router.post("/cancel", authMiddleware, async (req: Request, res: Response) => {
   await supabase.from("sessions").update({ status: "cancelled" }).eq("id", sessionId);
 
   const mentorSendbirdId = await getMentorSendbirdId(session.mentor_email);
-  if (mentorSendbirdId) {
+  const notification = {
+    sendbirdMessageSent: session.sendbird_channel_url
+      ? await sendSessionChannelMessage(
+          session.sendbird_channel_url,
+          studentId,
+          "A session request was cancelled by the student.",
+          "session_cancelled",
+          { type: "session_cancelled", sessionId }
+        )
+      : false,
+  };
+
+  if (!notification.sendbirdMessageSent && mentorSendbirdId) {
     await sendPushToUser(
       mentorSendbirdId,
       studentId,
@@ -320,7 +400,7 @@ router.post("/cancel", authMiddleware, async (req: Request, res: Response) => {
     );
   }
 
-  res.json({ message: "Session cancelled" });
+  res.json({ message: "Session cancelled", notification });
 });
 
 // ─── POST /sessions/end ────────────────────────────────────────────────────────
@@ -450,20 +530,51 @@ router.post("/end", authMiddleware, async (req: Request, res: Response) => {
 
   // Notify other party
   const mentorSendbirdId = await getMentorSendbirdId(session.mentor_email);
-  if (isStudent && mentorSendbirdId) {
-    await sendPushToUser(
-      mentorSendbirdId,
-      userId,
-      `Session ended by student. Duration: ${durationMinutes} min. Earned: ₹${toRupees(Math.floor(totalAmountPaise * 0.8))}`,
-      { type: "session_ended", sessionId, durationMinutes: String(durationMinutes) }
-    );
+  let notification: { sendbirdMessageSent: boolean } | null = null;
+  if (isStudent) {
+    const message = `Session ended by student. Duration: ${durationMinutes} min. Earned: ₹${toRupees(Math.floor(totalAmountPaise * 0.8))}`;
+    notification = {
+      sendbirdMessageSent: session.sendbird_channel_url
+        ? await sendSessionChannelMessage(
+            session.sendbird_channel_url,
+            userId,
+            message,
+            "session_ended",
+            { type: "session_ended", sessionId, durationMinutes: String(durationMinutes) }
+          )
+        : false,
+    };
+
+    if (!notification.sendbirdMessageSent && mentorSendbirdId) {
+      await sendPushToUser(
+        mentorSendbirdId,
+        userId,
+        message,
+        { type: "session_ended", sessionId, durationMinutes: String(durationMinutes) }
+      );
+    }
   } else if (isMentor) {
-    await sendPushToUser(
-      session.student_id,
-      userId,
-      `Session ended. Duration: ${durationMinutes} min. Charged: ₹${toRupees(totalAmountPaise)}`,
-      { type: "session_ended", sessionId, durationMinutes: String(durationMinutes) }
-    );
+    const message = `Session ended. Duration: ${durationMinutes} min. Charged: ₹${toRupees(totalAmountPaise)}`;
+    notification = {
+      sendbirdMessageSent: session.sendbird_channel_url
+        ? await sendSessionChannelMessage(
+            session.sendbird_channel_url,
+            userId,
+            message,
+            "session_ended",
+            { type: "session_ended", sessionId, durationMinutes: String(durationMinutes) }
+          )
+        : false,
+    };
+
+    if (!notification.sendbirdMessageSent) {
+      await sendPushToUser(
+        session.student_id,
+        userId,
+        message,
+        { type: "session_ended", sessionId, durationMinutes: String(durationMinutes) }
+      );
+    }
   }
 
   res.json({
@@ -475,6 +586,7 @@ router.post("/end", authMiddleware, async (req: Request, res: Response) => {
       totalAmountRupees: toRupees(totalAmountPaise),
       endedBy,
     },
+    notification,
   });
 });
 
