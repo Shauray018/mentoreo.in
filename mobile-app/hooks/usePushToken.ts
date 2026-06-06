@@ -61,7 +61,7 @@ async function getExpoPushToken(): Promise<string | null> {
   const tokenData = await Notifications.getExpoPushTokenAsync({
     // projectId is required for EAS — get yours from app.json > extra.eas.projectId
     // or from https://expo.dev/accounts/<your-account>/projects/<your-project>
-    projectId: process.env.EXPO_PUBLIC_PROJECT_ID,
+    projectId: "969e6b60-e9da-4881-af56-fdd0d13e6fc5",
   });
 
   return tokenData.data; // "ExponentPushToken[xxxx]"

@@ -4,11 +4,11 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { MotionConfig, motion, useReducedMotion } from 'motion/react';
 import { Button } from '@/app/components/ui/button';
-import { Navigation } from '@/app/components/Navigation';
 import { CollegeShowcase } from '@/components/CollegeShowcase';
 import ClickSpark from '../ClickSpark';
 import { ChatBubbles } from '../wht';
 import { MentorSection } from '../MentorCarousel';
+import LightRays from '../LightRays';
 import {
   ArrowRight,
   Clock,
@@ -19,6 +19,7 @@ import {
   CreditCard,
   PhoneCall,
 } from 'lucide-react';
+import Navbar from '../arc-navbar';
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function UnifiedLanding() {
@@ -41,16 +42,16 @@ export default function UnifiedLanding() {
 
   const content = (
     <MotionConfig reducedMotion={shouldReduceMotion ? "always" : "never"}>
-
+      
       {/* ── HERO ──────────────────────────────────────────────────────── */}
-      <section className="relative pt-10 pb-14 sm:pt-14 sm:pb-16 lg:pt-20 lg:pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
+      <section className="relative  pt-10 pb-14 sm:pt-14 sm:pb-16 lg:pt-20 lg:pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
         {/* Subtle gradient blob */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0 hidden lg:block">
           <div className="absolute top-[-15%] left-[-5%] w-[500px] h-[500px] rounded-full bg-gradient-to-br from-[#FF8000]/12 to-orange-200/10 blur-[120px]" />
           <div className="absolute bottom-[-10%] right-[-5%] w-[400px] h-[400px] rounded-full bg-gradient-to-tl from-[#FF8000]/8 to-yellow-200/8 blur-[100px]" />
         </div>
 
-        <div className="relative z-10 max-w-6xl mx-auto w-full">
+        <div className="relative mt-10 z-10 max-w-6xl mx-auto w-full">
           <div className="grid lg:grid-cols-2 gap-10 lg:gap-6 items-center">
             {/* Left Content */}
             <div className="text-center lg:text-left pt-4 lg:pt-0">
@@ -85,7 +86,7 @@ export default function UnifiedLanding() {
                   className="text-[#FF8000] block mt-1"
                   style={{ fontFamily: 'Fredoka, sans-serif' }}
                 >
-                  Seniors Don't.
+                  Seniors Don&apos;t.
                 </span>
               </motion.h1>
 
@@ -370,21 +371,43 @@ export default function UnifiedLanding() {
   );
 
   return (
-    <div className="min-h-screen bg-[#FEFCFA] overflow-x-hidden font-sans text-[#1F2937]">
-      <Navigation />
-      {isMobile ? (
-        content
-      ) : (
-        <ClickSpark
-          sparkColor='#FF8000'
-          sparkSize={10}
-          sparkRadius={15}
-          sparkCount={8}
-          duration={400}
-        >
-          {content}
-        </ClickSpark>
-      )}
+      <div className="relative min-h-screen bg-[#FEFCFA] overflow-x-hidden font-sans text-[#1F2937]">
+    {/* LightRays as absolute background layer */}
+  <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
+  <LightRays
+    raysOrigin="top-center"
+    raysColor="#ffffff"
+    followMouse={false}
+    raysSpeed={1}
+    lightSpread={0.5}
+    rayLength={3}
+    mouseInfluence={0.1}
+    noiseAmount={0}
+    distortion={0}
+    className="w-full h-full"
+    pulsating={false}
+    fadeDistance={1}
+    saturation={1}
+  />
+</div>
+
+      <div className="relative z-10">
+        {/* <Navigation /> */}
+        <Navbar />
+        {isMobile ? (
+          content
+        ) : (
+          <ClickSpark
+            sparkColor='#FF8000'
+            sparkSize={10}
+            sparkRadius={15}
+            sparkCount={8}
+            duration={400}
+          >
+            {content}
+          </ClickSpark>
+        )}
+      </div>
     </div>
   );
 }

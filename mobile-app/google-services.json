@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "834078350176",
+    "project_id": "mentoreo-a252f",
+    "storage_bucket": "mentoreo-a252f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:834078350176:android:9c6f83cbdc0a22007a5c05",
+        "android_client_info": {
+          "package_name": "com.mentoreo.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCFf-T4kIsB37lityxtDvdeILATrjt91sM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:834078350176:android:e30706aef9708c177a5c05",
+        "android_client_info": {
+          "package_name": "com.mentoreo.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCFf-T4kIsB37lityxtDvdeILATrjt91sM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
