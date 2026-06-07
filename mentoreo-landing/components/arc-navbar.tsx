@@ -1,14 +1,13 @@
 "use client";
 import { useState, useEffect } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import logo from "@/public/icon.jpg";
 
 const NAV_LINKS = [
-  { label: "Our Story", href: "/about" },
-  { label: "Use Cases", href: "/use-cases" },
-  { label: "Pricing", href: "/pricing" },
-  { label: "For Schools", href: "/for-schools" },
-  { label: "Support", href: "/help" },
+  { label: "Privacy Policy", href: "/about" },
+  { label: "Why Mentoreo?", href: "/why-mentoreo" },
+  { label: "Support", href: "/account-deletion" },
 ];
 
 export default function Navbar() {
@@ -36,25 +35,22 @@ export default function Navbar() {
         }`}
       >
         {/* Logo */}
-        <a
-          href="#"
-          onClick={(e) => {
-            e.preventDefault();
-            window.scrollTo({ top: 0, behavior: "smooth" });
-          }}
-          className="flex  items-center gap-0.5 "
+        <Link
+          href="/"
+          className="group flex flex-row items-start justify-start gap-0.5 text-start"
+          aria-label="Mentoreo home"
         >
           <Image
             src={logo}
             alt="Mentoreo Logo"
             width={32}
             height={32}
-            className="h-8 w-8 rounded-[10px] shadow-sm transition-transform group-hover:scale-105"
+            className="h-8 w-8 rounded-[10px] shadow-sm transition-transform group-hover:scale-110"
           />
-          <span className="pt-0.5 pl-px text-2xl font-bold text-orange-400">
+          <span className="text-2xl pt-1 pl-0.5 font-bold text-orange-400 ">
             entoreo
           </span>
-        </a>
+        </Link>
 
         {/* Desktop links — slide in/out smoothly */}
         <div
@@ -74,8 +70,8 @@ export default function Navbar() {
             </a>
           ))}
           <a
-            href="https://start.opalapp.com/2026-short"
-            className="flex items-center justify-center bg-orange-400 border-2 border-black rounded-xl px-8 my-1 py-2 text-white font-semibold text-sm transition-all hover:bg-orange-600 active:scale-[0.97] mr-2"
+            href="https://play.google.com/store/apps/details?id=com.mentoreo.mobile&hl=en-US&ah=Dw3YnZ7nrPv6SVWAxYihmP2oedc"
+            className="flex items-center justify-center bg-orange-400 border-2 border-black rounded-xl px-8 my-1 py-2 text-white font-semibold text-sm transition-all hover:bg-orange-500 active:scale-[0.97] mr-2"
           >
             Try
           </a>

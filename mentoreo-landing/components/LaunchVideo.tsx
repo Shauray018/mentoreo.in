@@ -14,6 +14,43 @@ const Header = ({
   </motion.div>
 );
 
+function ContainerGlow({ colors }: { colors: string[] }) {
+  const [c1, c2, c3] = colors;
+
+  return (
+    <div className="pointer-events-none absolute inset-0 select-none" aria-hidden>
+      <div
+        className="absolute inset-[-22%]"
+        style={{
+          background: `radial-gradient(ellipse 72% 70% at 50% 54%, ${c1}55 0%, ${c2}32 34%, ${c3}18 62%, transparent 82%)`,
+          filter: "blur(34px)",
+        }}
+      />
+      <div
+        className="absolute inset-[-8%]"
+        style={{
+          background: `radial-gradient(ellipse 62% 64% at 50% 50%, ${c1}68 0%, ${c2}42 32%, transparent 68%)`,
+          filter: "blur(18px)",
+        }}
+      />
+      <div
+        className="absolute inset-[18%]"
+        style={{
+          background: `radial-gradient(ellipse 55% 60% at 50% 50%, ${c1}75 0%, ${c1}42 24%, transparent 64%)`,
+          filter: "blur(8px)",
+        }}
+      />
+      <div
+        className="absolute bottom-[-12%] left-[12%] right-[12%] h-[34%]"
+        style={{
+          background: `radial-gradient(ellipse 82% 48% at 50% 100%, ${c2}42 0%, transparent 72%)`,
+          filter: "blur(22px)",
+        }}
+      />
+    </div>
+  );
+}
+
 const Card = ({
   rotate,
   scale,
@@ -26,8 +63,9 @@ const Card = ({
 }) => (
   <motion.div
     style={{ rotateX: rotate, scale }}
-    className="max-w-5xl -mt-12 mx-auto h-[30rem] md:h-[40rem] w-full"
+    className="relative max-w-5xl -mt-12 mx-auto h-[30rem] md:h-[40rem] w-full"
   >
+    <ContainerGlow colors={["#fb923c", "#f97316", "#ea580c"]} />
     <div
       style={{
         height: "100%",
@@ -37,6 +75,8 @@ const Card = ({
         background: "#ff8000",
         overflow: "hidden",
         boxShadow: "6px 6px 0px #000",
+        position: "relative",
+        zIndex: 1,
       }}
     >
       <div style={{ position: "relative", width: "100%", height: "100%" }}>
