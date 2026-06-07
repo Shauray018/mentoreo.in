@@ -20,6 +20,7 @@ import {
   PhoneCall,
 } from 'lucide-react';
 import Navbar from '../arc-navbar';
+import { Navigation } from '@/app/components/Navigation';
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function UnifiedLanding() {
@@ -372,28 +373,9 @@ export default function UnifiedLanding() {
 
   return (
       <div className="relative min-h-screen bg-[#FEFCFA] overflow-x-hidden font-sans text-[#1F2937]">
-    {/* LightRays as absolute background layer */}
-  <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
-  <LightRays
-    raysOrigin="top-center"
-    raysColor="#ffffff"
-    followMouse={false}
-    raysSpeed={1}
-    lightSpread={0.5}
-    rayLength={3}
-    mouseInfluence={0.1}
-    noiseAmount={0}
-    distortion={0}
-    className="w-full h-full"
-    pulsating={false}
-    fadeDistance={1}
-    saturation={1}
-  />
-</div>
 
       <div className="relative z-10">
-        {/* <Navigation /> */}
-        <Navbar />
+        <Navigation />
         {isMobile ? (
           content
         ) : (
