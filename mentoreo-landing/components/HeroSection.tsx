@@ -111,7 +111,7 @@ useEffect(() => {
         <div className="relative hidden ml-60 md:flex mt-96 w-full max-w-[500px]  items-end justify-center md:h-[560px]">
           <Android
         className="w-[68%] "
-        // videoSrc="https://videos.pexels.com/video-files/14993748/14993748-uhd_1296_2304_30fps.mp4"
+        videoSrc="/demo.mp4"
       />
         </div>
          

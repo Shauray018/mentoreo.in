@@ -36,7 +36,6 @@ const Card = ({
         borderRadius: "20px",
         background: "#ff8000",
         overflow: "hidden",
-        /* Tight 6px cartoon hard shadow — punchy but not overblown */
         boxShadow: "6px 6px 0px #000",
       }}
     >
@@ -115,7 +114,7 @@ export default function LaunchVideo() {
         <div className="relative w-full h-full">
           <iframe
             className="absolute inset-0 w-full h-full"
-            src="https://player.mediadelivery.net/embed/666953/ca326929-3cbf-48e1-aab0-45d7a5532ab8?autoplay=false"
+            src="https://player.mediadelivery./embed/666953/ca326929-3cbf-48e1-aab0-45d7a5532ab8?autoplay=false"
             allowFullScreen
             title="Opal Launch Video"
           />

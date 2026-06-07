@@ -745,7 +745,6 @@ export default function Home() {
       <ProblemStatement />
       <CoreFeatures />
       <Testimonials />
-      <HallOfGems />
       <UseCases />
       <FullWidthCTA />
     </main>

@@ -14,7 +14,7 @@ const videos = [
 
 export default function UseCases() {
   return (
-    <section id="use-cases" className="bg-orange-400 py-20 overflow-hidden">
+    <section id="use-cases" className="bg-zinc-100 py-20 overflow-hidden">
       <div className="max-w-[1200px] mx-auto px-6 text-center mb-10">
         <h3 className="text-[clamp(28px,4vw,52px)] font-bold tracking-[-0.02em] text-white mb-3">
           Stay in the Loop
