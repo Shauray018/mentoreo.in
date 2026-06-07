@@ -78,7 +78,7 @@ function MockupGlow({ colors }: { colors: string[] }) {
 
 export default function CoreFeatures() {
   return (
-    <section id="how-to-use" className="bg-zinc-100 py-20 md:py-32">
+    <section id="how-to-use" className="overflow-x-clip bg-zinc-100 py-20 md:py-32">
       <div className="max-w-[1100px] mx-auto px-6 md:px-12">
         {features.map((f) => (
           <div

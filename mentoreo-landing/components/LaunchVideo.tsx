@@ -129,7 +129,7 @@ const ContainerScroll = ({
 
 export default function LaunchVideo() {
   return (
-    <section className="relative bg-zinc-100">
+    <section className="relative overflow-x-clip bg-zinc-100">
       <ContainerScroll
         scrollHeight="220vh"
         titleComponent={

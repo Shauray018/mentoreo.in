@@ -9,7 +9,7 @@ import Testimonials from "@/components/Testimonials";
 
 export default function Home() {
   return (
-    <main style={{}} className="min-h-screen w-full scrollbar-hide scroll-smooth bg-[#0a0a0f] text-white">
+    <main className="min-h-screen w-full overflow-x-clip scrollbar-hide scroll-smooth bg-[#0a0a0f] text-white">
       <Navbar />
       <HeroSection />
       <LaunchVideo />

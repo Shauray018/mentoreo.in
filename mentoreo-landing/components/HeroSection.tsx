@@ -78,12 +78,12 @@ export default function HeroSection() {
               >
                 <img
                   src="https://cdn.prod.website-files.com/5ffc51a847b677701a3da52b/6a104f4e777956264d5dac6d_ios.svg"
-                  alt="Download on the App Store"
+                  alt="Coming soon on App Store"
                   className="h-10 sm:h-11 md:h-12 w-auto"
                 />
               </a>
               <a
-                href="https://play.google.com/store/apps/details?id=com.withopal.opal"
+                href="https://play.google.com/apps/testing/com.mentoreo.mobile"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:opacity-85 transition-opacity"
@@ -94,22 +94,10 @@ export default function HeroSection() {
                   className="h-10 sm:h-11 md:h-12 w-auto"
                 />
               </a>
-              <a
-                href="https://opalapp.com/mac/download"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:opacity-85 transition-opacity"
-              >
-                <img
-                  src="https://cdn.prod.website-files.com/5ffc51a847b677701a3da52b/6a104f4e43627525022120de_Mac.svg"
-                  alt="Download for Mac"
-                  className="h-10 sm:h-11 md:h-12 w-auto"
-                />
-              </a>
             </div>
 
             {/* Accolades */}
-            <div className="flex flex-row items-center gap-5 sm:gap-8">
+            {/* <div className="flex flex-row items-center gap-5 sm:gap-8">
               <img
                 src="https://cdn.prod.website-files.com/5ffc51a847b677701a3da52b/693a9f58e3851420a97a8a54_Apple-Design-Awards-White-p-500.png"
                 alt="Apple Design Awards"
@@ -124,8 +112,8 @@ export default function HeroSection() {
                 </div>
                 <span className="text-white/55 text-[12px] sm:text-[13px]">150k+ App Ratings</span>
               </div>
-            </div>
-          </div>
+            </div> */}
+          </div> 
 
           {/* Right: phone mockup — hidden on mobile, shown from md up */}
           <div className="hidden md:flex items-end justify-center md:justify-end">
