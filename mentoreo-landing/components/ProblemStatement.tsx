@@ -2,9 +2,10 @@
 import { useEffect, useRef } from "react";
 
 const words = [
-  "5 to 6 hours.", "That's", "the", "average", "time", "you'll", "spend",
-  "on", "your", "phone", "today", "—", "often", "without", "realizing.",
-  "It's", "time", "to", "fight", "back."
+  "Stop", "gambling", "with", "your", "next", "4", "years.",
+  "Get", "the", "unfiltered", "truth", "about", "your", "dream",
+  "college", "from", "a", "verified", "senior", "in", "a",
+  "quick", "chat."
 ];
 
 export default function ProblemStatement() {

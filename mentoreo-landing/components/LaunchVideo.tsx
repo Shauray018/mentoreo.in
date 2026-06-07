@@ -39,7 +39,6 @@ const Card = ({
         boxShadow: "6px 6px 0px #000",
       }}
     >
-      {/* Video fills the whole card — no accent strip, clean orange border only */}
       <div style={{ position: "relative", width: "100%", height: "100%" }}>
         {children}
       </div>
@@ -102,23 +101,31 @@ export default function LaunchVideo() {
                 className="w-5 h-5 opacity-50"
               />
               <p className="text-black/50 tracking-wide uppercase text-sm font-medium">
-                Watch our new launch video
+                Word from our founders
               </p>
             </div>
             <h2 className="text-4xl md:text-5xl font-bold text-black leading-tight">
-              See it in action
+              we believe in a better solution
             </h2>
           </div>
         }
       >
-        <div className="relative w-full h-full">
-          <iframe
-            className="absolute inset-0 w-full h-full"
-            src="https://player.mediadelivery./embed/666953/ca326929-3cbf-48e1-aab0-45d7a5532ab8?autoplay=false"
-            allowFullScreen
-            title="Opal Launch Video"
-          />
-        </div>
+        {/* object-fit: cover fills the frame regardless of aspect ratio.
+            autoPlay + loop + muted are required for browsers to autoplay.
+            playsInline prevents fullscreen hijack on iOS.
+            The controls attribute is intentionally omitted — no UI chrome. */}
+        <video
+          src="/founders.mp4"
+          autoPlay
+          loop
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+          }}
+        />
       </ContainerScroll>
     </section>
   );
